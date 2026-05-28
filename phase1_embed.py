@@ -276,22 +276,30 @@ def _require_imports():
 
 
 def _check_gpu():
-    """Warn if no GPU is detected (required for perch_v2)."""
+    """Check GPU availability via TensorFlow (avoids nvidia-smi version mismatch
+    on DGX SPARC where nvidia-smi and NVML library versions may differ)."""
     try:
-        import subprocess
-        result = subprocess.run(
-            ["nvidia-smi", "--query-gpu=name,memory.total", "--format=csv,noheader"],
-            capture_output=True, text=True, timeout=10,
-        )
-        if result.returncode == 0:
-            for line in result.stdout.strip().splitlines():
-                log.info("GPU detected: %s", line.strip())
+        import tensorflow as tf
+        gpus = tf.config.list_physical_devices("GPU")
+        if gpus:
+            for gpu in gpus:
+                # Get memory info where available
+                try:
+                    details = tf.config.experimental.get_device_details(gpu)
+                    name = details.get("device_name", gpu.name)
+                    log.info("GPU ready: %s", name)
+                except Exception:
+                    log.info("GPU ready: %s", gpu.name)
         else:
-            log.warning("nvidia-smi returned non-zero exit code. GPU may not be available.")
-    except FileNotFoundError:
-        log.warning("nvidia-smi not found — GPU status unknown.")
+            log.warning(
+                "TensorFlow sees no GPUs. "
+                "perch_v2 requires a GPU. "
+                "Check that the nvidia-tensorflow venv is active and CUDA is available."
+            )
+    except ImportError:
+        log.warning("TensorFlow not importable — cannot verify GPU status.")
     except Exception as exc:
-        log.warning("Could not query GPU: %s", exc)
+        log.warning("GPU check failed: %s", exc)
 
 
 def _format_duration(seconds: float) -> str:
@@ -504,5 +512,3 @@ def main(argv=None) -> int:
 
 if __name__ == "__main__":
     sys.exit(main())
-
-
