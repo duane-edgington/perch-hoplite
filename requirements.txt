@@ -1,0 +1,61 @@
+# Perch Hoplite Marine Bioacoustics Pipeline
+# Python 3.12 — NVIDIA DGX SPARC (spark-ae0e, spark-0626)
+# thalassa.shore.mbari.org NFS environment
+#
+# !! IMPORTANT — READ BEFORE pip install !!
+#
+# On spark-ae0e and spark-0626, the following are ALREADY INSTALLED
+# in the active venv and must NOT be reinstalled or upgraded:
+#
+#   nvidia-tensorflow  2.17.0+nv25.2   (NVIDIA's DGX-optimized TF build)
+#   tensorflow         2.17.1
+#   perch-hoplite      1.0.1
+#   gradio             6.15.1
+#   soundfile          0.13.1
+#   librosa            0.11.0
+#
+# Reinstalling tensorflow from PyPI would replace nvidia-tensorflow
+# with the stock build and lose DGX-specific GPU optimizations.
+#
+# Installation procedure on a fresh venv:
+#   Step 1 — NVIDIA TensorFlow (DGX only, do NOT use on non-DGX systems):
+#     pip install nvidia-tensorflow[horovod]
+#
+#   Step 2 — perch-hoplite from GitHub source:
+#     pip install git+https://github.com/google-research/perch-hoplite.git
+#
+#   Step 3 — remaining dependencies:
+#     pip install -r requirements.txt
+#
+# To verify current install is complete on spark-ae0e / spark-0626:
+#     pip list | grep -iE "perch|hoplite|tensorflow|gradio|soundfile|librosa"
+#
+# -----------------------------------------------------------------------
+
+# ---- Core ML / embedding ----
+# nvidia-tensorflow  — DO NOT list here; installed separately (see above)
+# perch-hoplite      — DO NOT list here; installed from GitHub (see above)
+numpy>=1.26,<2.0
+ml-collections>=0.1.1
+etils[epath]>=1.5.0
+
+# ---- Audio I/O ----
+soundfile>=0.12.1          # WAV/FLAC read-write for GUI audio playback
+librosa>=0.10.1            # audio feature utilities
+resampy>=0.4.2             # high-quality audio resampling
+
+# ---- Labeling GUI ----
+gradio>=4.31.0             # web-based annotation interface
+# Access at http://134.89.11.107:7860 (spark-ae0e)
+#        or http://134.89.11.174:7860 (spark-0626)
+
+# ---- Data / plotting ----
+pandas>=2.2.0
+matplotlib>=3.8.0
+seaborn>=0.13.0
+scipy>=1.12.0
+
+# ---- Utilities ----
+tqdm>=4.66.0               # progress bars during embedding
+ipywidgets>=8.0.0          # required by perch-hoplite internals
+
