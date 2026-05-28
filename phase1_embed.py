@@ -276,30 +276,33 @@ def _require_imports():
 
 
 def _check_gpu():
-    """Check GPU availability via TensorFlow (avoids nvidia-smi version mismatch
-    on DGX SPARC where nvidia-smi and NVML library versions may differ)."""
+    """Log GPU status and enable memory growth (avoids nvidia-smi version mismatch on DGX SPARC).
+
+    Memory growth means TensorFlow allocates GPU RAM incrementally as needed
+    rather than reserving all available memory at startup. Important on the
+    GB10 which has only ~3.7 GB total GPU memory.
+    Must be called before any TF operations that allocate tensors.
+    """
     try:
         import tensorflow as tf
         gpus = tf.config.list_physical_devices("GPU")
         if gpus:
-            for gpu in gpus:
-                # Get memory info where available
+            for g in gpus:
                 try:
-                    details = tf.config.experimental.get_device_details(gpu)
-                    name = details.get("device_name", gpu.name)
-                    log.info("GPU ready: %s", name)
-                except Exception:
-                    log.info("GPU ready: %s", gpu.name)
+                    tf.config.experimental.set_memory_growth(g, True)
+                except RuntimeError as e:
+                    log.debug("Memory growth already set or GPU initialized: %s", e)
+                details = tf.config.experimental.get_device_details(g)
+                name = details.get("device_name", g.name)
+                log.info("GPU ready: %s (memory growth enabled)", name)
         else:
             log.warning(
-                "TensorFlow sees no GPUs. "
-                "perch_v2 requires a GPU. "
-                "Check that the nvidia-tensorflow venv is active and CUDA is available."
+                "No GPU visible to TensorFlow. "
+                "Embedding will run on CPU and be very slow. "
+                "Check that nvidia-tensorflow is installed and CUDA is available."
             )
-    except ImportError:
-        log.warning("TensorFlow not importable — cannot verify GPU status.")
     except Exception as exc:
-        log.warning("GPU check failed: %s", exc)
+        log.warning("Could not query GPU via TensorFlow: %s", exc)
 
 
 def _format_duration(seconds: float) -> str:
@@ -379,7 +382,7 @@ def embed_audio(args, configs, db) -> None:
     """Run the embedding loop."""
     from perch_hoplite.agile import embed as embed_mod
 
-    audio_glob = configs.audio_sources_config.audio_sources[0]
+    audio_glob = configs.audio_sources_config.audio_globs[0]
 
     log.info("=" * 60)
     log.info("EMBEDDING START")
