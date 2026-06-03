@@ -398,8 +398,8 @@ def cmd_stats(args) -> int:
     log.info("Total annotations: %d", ann_count)
     if ann_count > 0:
         try:
-            pos = db.count_each_label(label_type=iface.LabelType.POSITIVE)
-            neg = db.count_each_label(label_type=iface.LabelType.NEGATIVE)
+            pos = db.count_each_label(label_type=iface.datatypes.LabelType.POSITIVE)
+            neg = db.count_each_label(label_type=iface.datatypes.LabelType.NEGATIVE)
             log.info("Positive labels: %s", dict(pos))
             log.info("Negative labels: %s", dict(neg))
         except Exception as exc:
@@ -423,9 +423,9 @@ def cmd_label(args) -> int:
     from perch_hoplite.db import interface as iface
 
     label_type_map = {
-        "positive": iface.LabelType.POSITIVE,
-        "negative": iface.LabelType.NEGATIVE,
-        "weak_negative": iface.LabelType.WEAK_NEGATIVE,
+        "positive": iface.datatypes.LabelType.POSITIVE,
+        "negative": iface.datatypes.LabelType.NEGATIVE,
+        "weak_negative": iface.datatypes.LabelType.WEAK_NEGATIVE,
     }
 
     csv_path = Path(args.labels_csv)
@@ -1092,4 +1092,3 @@ def main(argv=None) -> int:
 
 if __name__ == "__main__":
     sys.exit(main())
-
