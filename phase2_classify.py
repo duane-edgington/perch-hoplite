@@ -505,6 +505,21 @@ def cmd_label(args) -> int:
                 log.warning("Row %d error: %s  Row data: %s", i, exc, row)
                 errors += 1
 
+    # Flush WAL to main database file so annotations are visible to other connections
+    if not args.dry_run and inserted > 0:
+        try:
+            db.commit()
+            log.info("Database committed.")
+        except AttributeError:
+            # db may not have a commit() method — use SQLite directly
+            import sqlite3 as _sqlite3
+            db_file = str(Path(args.db_dir) / "hoplite.sqlite")
+            conn = _sqlite3.connect(db_file)
+            conn.execute("PRAGMA wal_checkpoint(TRUNCATE);")
+            conn.commit()
+            conn.close()
+            log.info("WAL checkpoint complete.")
+
     action = "DRY RUN — would insert" if args.dry_run else "Inserted"
     log.info("%s %d labels (%d skipped, %d errors).", action, inserted, skipped, errors)
     return 0
