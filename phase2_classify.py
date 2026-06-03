@@ -763,33 +763,45 @@ def cmd_review(args) -> int:
     log.info("Loading classifier from %s", args.classifier)
     linear_classifier = classifier_mod.LinearClassifier.load(args.classifier)
 
-    # Retrieve the weight vector for the target label
-    try:
-        target_labels = linear_classifier.get_labels()
-    except Exception:
-        # Fallback: try reading from companion metrics JSON
+    # Retrieve the label list for this classifier.
+    # Try several approaches in order of reliability.
+    target_labels = []
+
+    # 1. Try classifier's own label list (API varies by version)
+    for attr in ("labels", "class_list", "get_labels"):
+        try:
+            val = getattr(linear_classifier, attr)
+            target_labels = val() if callable(val) else list(val)
+            if target_labels:
+                break
+        except Exception:
+            continue
+
+    # 2. Try companion metrics JSON
+    if not target_labels:
         metrics_path = Path(args.classifier).with_suffix(".metrics.json")
         if metrics_path.exists():
             try:
                 with open(metrics_path) as f:
                     content_str = f.read().strip()
                     target_labels = json.loads(content_str).get("labels", []) if content_str else []
-            except (json.JSONDecodeError, Exception):
+            except Exception:
                 target_labels = []
-        if not target_labels:
-            # Fall back to --target-label argument if metrics JSON is missing or empty
-            if args.target_label:
-                log.warning(
-                    "metrics.json missing or empty — using --target-label '%s' as label list.",
-                    args.target_label,
-                )
-                target_labels = [args.target_label]
-            else:
-                log.error(
-                    "Cannot determine classifier labels. "
-                    "Pass --target-label or ensure the .metrics.json companion file exists."
-                )
-                return 1
+
+    # 3. Fall back to --target-label argument
+    if not target_labels:
+        if args.target_label:
+            log.warning(
+                "Could not read labels from classifier or metrics.json — "
+                "using --target-label '%s'.", args.target_label,
+            )
+            target_labels = [args.target_label]
+        else:
+            log.error(
+                "Cannot determine classifier labels. "
+                "Pass --target-label or ensure the .metrics.json companion file exists."
+            )
+            return 1
 
     if args.target_label not in target_labels:
         log.error(
