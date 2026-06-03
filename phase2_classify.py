@@ -727,7 +727,7 @@ def cmd_train(args) -> int:
         json.dump(
             {
                 "labels": target_labels,
-                "eval_scores": {k: float(v) for k, v in eval_scores.items()},
+                "eval_scores": {k: float(v.item()) if hasattr(v, "item") else float(v) for k, v in eval_scores.items()},
                 "train_args": {
                     "num_steps": args.num_steps,
                     "learning_rate": args.learning_rate,
@@ -770,14 +770,26 @@ def cmd_review(args) -> int:
         # Fallback: try reading from companion metrics JSON
         metrics_path = Path(args.classifier).with_suffix(".metrics.json")
         if metrics_path.exists():
-            with open(metrics_path) as f:
-                target_labels = json.load(f).get("labels", [])
-        else:
-            log.error(
-                "Cannot determine classifier labels. "
-                "Ensure the .metrics.json companion file exists."
-            )
-            return 1
+            try:
+                with open(metrics_path) as f:
+                    content_str = f.read().strip()
+                    target_labels = json.loads(content_str).get("labels", []) if content_str else []
+            except (json.JSONDecodeError, Exception):
+                target_labels = []
+        if not target_labels:
+            # Fall back to --target-label argument if metrics JSON is missing or empty
+            if args.target_label:
+                log.warning(
+                    "metrics.json missing or empty — using --target-label '%s' as label list.",
+                    args.target_label,
+                )
+                target_labels = [args.target_label]
+            else:
+                log.error(
+                    "Cannot determine classifier labels. "
+                    "Pass --target-label or ensure the .metrics.json companion file exists."
+                )
+                return 1
 
     if args.target_label not in target_labels:
         log.error(
