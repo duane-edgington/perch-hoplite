@@ -437,6 +437,21 @@ def cmd_label(args) -> int:
     skipped = 0
     errors = 0
 
+    # Build filename -> integer recording_id lookup from the DB.
+    # insert_annotation requires an integer ID, not a filename string.
+    # Labels whose recording_id filename is not in the DB are silently
+    # skipped — this is expected when a label CSV covers more dates than
+    # the current database (e.g. full-month labels on a single-day DB).
+    log.info("Building recording filename lookup from DB...")
+    all_recordings = db.get_all_recordings()
+    filename_to_id = {}
+    for rec in all_recordings:
+        # Index by full filename and also by stem (without .wav extension)
+        filename_to_id[rec.filename] = rec.id
+        stem = rec.filename.rsplit('.', 1)[0] if '.' in rec.filename else rec.filename
+        filename_to_id[stem] = rec.id
+    log.info("  DB contains %d recordings.", len(all_recordings))
+
     log.info("Reading labels from %s", csv_path)
     with open(csv_path, newline="", encoding="utf-8") as f:
         reader = csv.DictReader(f)
@@ -457,25 +472,32 @@ def cmd_label(args) -> int:
                     skipped += 1
                     continue
 
+                # Look up integer recording ID — skip if not in DB
+                csv_filename = row["recording_id"].strip()
+                rec_int_id = filename_to_id.get(csv_filename)
+                if rec_int_id is None:
+                    skipped += 1
+                    continue
+
                 offset_s = float(row["offset_s"])
                 end_offset_s = float(row.get("end_offset_s") or offset_s + 5.0)
                 offsets = (offset_s, end_offset_s)
 
                 if args.dry_run:
                     log.debug(
-                        "DRY RUN row %d: recording_id=%s offset=%.2f label=%s type=%s",
-                        i, row["recording_id"], offset_s, row["label"], lt_str,
+                        "DRY RUN row %d: recording_id=%s (id=%d) offset=%.2f label=%s type=%s",
+                        i, csv_filename, rec_int_id, offset_s, row["label"], lt_str,
                     )
                     inserted += 1
                     continue
 
                 db.insert_annotation(
-                    recording_id=row["recording_id"],
+                    recording_id=rec_int_id,
                     offsets=offsets,
                     label=row["label"].strip(),
                     label_type=lt,
                     provenance=f"csv_import:{args.annotator_id}",
-                    handle_duplicates="update",
+                    handle_duplicates="skip",
                 )
                 inserted += 1
 
