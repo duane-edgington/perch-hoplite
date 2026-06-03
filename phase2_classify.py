@@ -425,7 +425,7 @@ def cmd_label(args) -> int:
     label_type_map = {
         "positive": iface.datatypes.LabelType.POSITIVE,
         "negative": iface.datatypes.LabelType.NEGATIVE,
-        "weak_negative": iface.datatypes.LabelType.WEAK_NEGATIVE,
+        "weak_negative": iface.datatypes.LabelType.UNCERTAIN,
     }
 
     csv_path = Path(args.labels_csv)
