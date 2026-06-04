@@ -1403,32 +1403,79 @@ Click **Positive** (🟢) or **Negative** (🔴) for each segment, then **Save L
                     else _LT.NEGATIVE
                 )
                 try:
-                    source = _get_source(db, wid)
-                    # insert_annotation requires the integer recording_id stored on
-                    # the EmbeddingSource, NOT the filename string (source_id).
-                    rec_int_id = getattr(source, "recording_id", None)
-                    if rec_int_id is None:
-                        rec_int_id = int(wid)
-                    offsets = getattr(source, "offsets", (0.0, 5.0))
-                    db.insert_annotation(
-                        recording_id=rec_int_id,
-                        offsets=offsets,
-                        label=query_label,
-                        label_type=lt,
-                        provenance=f"gradio_gui:{annotator_id}",
-                        handle_duplicates="update",
-                    )
+                    # Use direct SQLite INSERT to avoid thread-safety issues
+                    # with the DB connection created in the main thread.
+                    import sqlite3 as _sq3i, os as _osi, struct as _sti
+                    _dbp = None
+                    _cfg = getattr(db, "db_config", None)
+                    if _cfg: _dbp = str(getattr(_cfg, "db_path", "") or "")
+                    if not _dbp:
+                        for _at in ("db_path", "_db_path", "path"):
+                            _vv = getattr(db, _at, None)
+                            if _vv: _dbp = str(_vv); break
+                    if _dbp and _osi.path.isdir(_dbp):
+                        _dbp = _osi.path.join(_dbp, "hoplite.sqlite")
+
+                    # Get recording_id and offsets from windows table
+                    _con2 = _sq3i.connect(_dbp)
+                    _row = _con2.execute(
+                        "SELECT recording_id, offsets FROM windows WHERE id=?",
+                        (int(wid),)).fetchone()
+                    if _row is None:
+                        raise KeyError(f"window {wid} not in DB")
+                    _rec_id, _off_blob = _row
+                    # Decode offsets blob (two little-endian float64)
+                    if isinstance(_off_blob, (bytes, bytearray)) and len(_off_blob) >= 16:
+                        _start, _end = _sti.unpack_from("<dd", _off_blob)
+                    else:
+                        _start, _end = 0.0, 5.0
+                    # Re-encode as blob for insert
+                    _off_enc = _sti.pack("<dd", _start, _end)
+                    _prov = f"gradio_gui:{annotator_id}"
+                    _con2.execute("""
+                        INSERT INTO annotations
+                            (recording_id, offsets, label, label_type, provenance)
+                        VALUES (?, ?, ?, ?, ?)
+                        ON CONFLICT DO UPDATE SET
+                            label_type=excluded.label_type,
+                            provenance=excluded.provenance
+                    """, (_rec_id, _off_enc, query_label, int(lt), _prov))
+                    _con2.commit()
+                    _con2.close()
                     saved += 1
                 except Exception as exc:
                     log.warning("Failed to save label for window %s: %s", wid, exc)
 
+            # count_each_label uses the DB connection from the main thread
+            # and cannot be called from Gradio's worker thread (SQLite restriction).
+            # Instead, query directly with a fresh connection.
             try:
-                pos_counts = db.count_each_label(label_type=_LT.POSITIVE)
-                neg_counts = db.count_each_label(label_type=_LT.NEGATIVE)
-                counts_str = (
-                    f"Total positive: {dict(pos_counts)}\n"
-                    f"Total negative: {dict(neg_counts)}"
-                )
+                import sqlite3 as _sq3, os as _os3
+                _db_path = None
+                _db_cfg = getattr(db, "db_config", None)
+                if _db_cfg:
+                    _db_path = str(getattr(_db_cfg, "db_path", "") or "")
+                if not _db_path:
+                    for _a in ("db_path", "_db_path", "path"):
+                        _v = getattr(db, _a, None)
+                        if _v: _db_path = str(_v); break
+                if _db_path and _os3.path.isdir(_db_path):
+                    _db_path = _os3.path.join(_db_path, "hoplite.sqlite")
+                if _db_path and _os3.path.isfile(_db_path):
+                    _con = _sq3.connect(_db_path)
+                    _pos = _con.execute(
+                        "SELECT label, COUNT(*) FROM annotations WHERE label_type=? GROUP BY label",
+                        (_LT.POSITIVE,)).fetchall()
+                    _neg = _con.execute(
+                        "SELECT label, COUNT(*) FROM annotations WHERE label_type=? GROUP BY label",
+                        (_LT.NEGATIVE,)).fetchall()
+                    _con.close()
+                    counts_str = (
+                        f"Total positive: {dict(_pos)}\n"
+                        f"Total negative: {dict(_neg)}"
+                    )
+                else:
+                    counts_str = "(DB path not found for count query)"
             except Exception as exc:
                 counts_str = f"(Could not read label counts: {exc})"
 

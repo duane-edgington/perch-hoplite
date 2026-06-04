@@ -5,272 +5,323 @@
 
 ## System Overview
 
+| Machine | Role | IP / Access |
+|---|---|---|
+| **ICEFISH** (Mac) | Developer workstation | Local — scp gateway to spark |
+| **spark-ae0e** | Active learning, inference, Gradio server | 134.89.11.107 |
+| **spark-0626** | Spare / parallel runs | 134.89.11.174 |
+| **Google Colab** (A100) | Phase 1 embedding only | colab.research.google.com |
+
+### Why the split?
+
+The spark servers have NVIDIA GB10 (Blackwell, compute capability 12.1) GPUs.
+TensorFlow 2.17 does not support XLA on compute capability 12.x, so the
+Perch V2 model cannot run inference on spark for embedding. The Colab A100
+(compute capability 8.0) works fine. Once the embedding database is built on
+Colab and transferred to NFS, all subsequent steps (training, review, inference)
+run on spark without needing the GPU for the Perch model.
+
 | | spark-ae0e | spark-0626 |
 |---|---|---|
 | IP address | 134.89.11.107 | 134.89.11.174 |
-| Local NVMe | 3.7 TB, ~3.3 TB free | 3.7 TB, ~3.4 TB free |
 | PAM_Analysis | /mnt/PAM_Analysis (NFS4, rw) | /mnt/PAM_Analysis (NFS4, rw) |
 | PAM_Archive | /mnt/PAM_Archive (NFS4, rw) | /mnt/PAM_Archive (NFS4, rw) |
 | NFS server | thalassa.shore.mbari.org | thalassa.shore.mbari.org |
-| GPU | 1× (TensorFlow confirmed) | 1× (assumed identical) |
-| Python | 3.12, venv at ~/perch-hoplite | 3.12, venv at ~/perch-hoplite |
+| Python venv | ~/gmwd/new3-12_whale_detection/gmwd/venv | same |
+| perch-hoplite | 1.0.1 | 1.0.1 |
 
-Both machines share the same NFS volumes. Finished databases, models, results,
-labels, and query clips written on one machine are immediately visible on the other.
+Both spark machines share the same NFS volumes. Databases, models, results,
+and labels written on one are immediately visible on the other.
 
 ---
 
 ## Directory Structure
 
 ```
-/home/duane/perch_work/              ← LOCAL NVMe (fast, per-machine)
-    db/                              ← active Hoplite DBs during embedding
-    tmp/                             ← scratch space for audio shards
-    logs/                            ← local run logs
-    sync_db_to_nfs.sh                ← helper: rsync finished DB to NFS
+Google Colab (temporary, per-session)
+    /tmp/mbari_audio/<dataset>/     ← audio uploaded from Google Drive
+    /content/drive/My Drive/
+        MBARI_perch/
+            audio/                  ← zipped WAV files from ICEFISH
+            db/                     ← completed Hoplite DBs → scp to spark
 
-/mnt/PAM_Analysis/duane_scratch/perch_hoplite/    ← SHARED NFS
-    db/                              ← finished Hoplite DBs (post-sync)
-    models/                          ← trained classifiers (.pt + .metrics.json)
-    results/                         ← inference CSVs, score histogram PNGs
-    labels/                          ← annotation CSVs (Raven Pro, PAMGuard, manual)
+ICEFISH (Mac, ~/Desktop/colab_staging/)
+    ← staging area for zipping audio before Google Drive upload
+    ← also used as scp relay: Colab DB → ICEFISH → spark NFS
+
+spark-ae0e / spark-0626 (NFS shared)
+/mnt/PAM_Analysis/duane_scratch/perch_hoplite/
+    db/                             ← Hoplite embedding databases
+        MARS_20180413_20180413_32kHz/   ← April 13 2018 (144 files, 17,280 embeddings)
+    models/                         ← trained classifiers (.pt + .metrics.json)
+        orca_v1.pt                  ← first classifier, ROC-AUC 0.754
+    results/                        ← inference CSVs, score histogram PNGs
+    labels/                         ← annotation CSVs (bootstrap + active learning)
     queries/
-        cetaceans/                   ← orca, dolphin, whale reference clips
-        anthropogenic/               ← boat, ROV, sonar reference clips
-    logs/                            ← persistent logs
-    .perch_env                       ← path constants (source this file)
+        cetaceans/                  ← orca, dolphin, whale reference clips
+        anthropogenic/              ← boat, ROV, sonar reference clips
+    logs/                           ← persistent logs
 
-/mnt/PAM_Archive/                    ← RAW AUDIO (read-only)
-    2015/ 2016/ ... 2026/            ← recordings by year
-    MOBB/  MARS_512kHz/  MANTA/      ← named deployments
-    HARP/  CINMS/  NRS11/  ...
+/mnt/PAM_Analysis/GoogleMultiSpeciesWhaleModel2/
+    resampled_32kHz/                ← source audio resampled to 32 kHz
+        2018/04/                    ← MARS recordings April 2018
+
+/mnt/PAM_Archive/                   ← RAW AUDIO (read-only, 273 TB)
+    2015/ 2016/ ... 2026/
 ```
-
-### Storage strategy
-
-Phase 1 (embedding) writes to **local NVMe** (`~/perch_work/db/`) for fast
-sequential writes without NFS overhead. After embedding completes, sync the
-finished database to NFS with the helper script so Phase 2 and the other
-machine can use it. Phase 2 reads are fine over NFS4.
 
 ---
 
-## Installation Status (spark-ae0e as of May 2026)
+## Installation Status (spark-ae0e as of June 2026)
 
-Already installed — do not reinstall:
+Already installed in venv — do not reinstall:
 
 ```
-nvidia-tensorflow    2.17.0+nv25.2   NVIDIA DGX-optimized build
-tensorflow           2.17.1
 perch-hoplite        1.0.1
 gradio               6.15.1
 soundfile            0.13.1
 librosa              0.11.0
+scipy                (for spectrogram rendering in GUI)
+matplotlib           (for spectrogram rendering in GUI)
 ```
 
-To verify:
-```bash
-pip list | grep -iE "perch|hoplite|tensorflow|gradio|soundfile|librosa"
-```
-
-To install remaining dependencies (numpy, pandas, matplotlib, etc.):
-```bash
-pip install -r requirements.txt
-```
-
-Known harmless warnings at import time (do not indicate problems):
-- `Unable to register cuFFT/cuDNN/cuBLAS factory` — two TF builds both
-  registering CUDA plugins; second registration is ignored, GPU works fine.
-- `MessageFactory has no attribute GetPrototype` — protobuf version mismatch,
-  cosmetic only.
-- `NUMA node read from SysFS had negative value` — BIOS doesn't expose NUMA
-  topology; TF defaults to node zero correctly.
+Known harmless warnings at startup (not errors):
+- `Unable to register cuFFT/cuDNN/cuBLAS factory` — two TF builds registering CUDA plugins; GPU still works.
+- `MessageFactory has no attribute GetPrototype` — protobuf version mismatch, cosmetic only.
+- `NUMA node read from SysFS had negative value` — BIOS topology quirk, TF defaults correctly to node 0.
+- `NodeDef mentions attribute use_shardy_partitioner` — model saved with newer JAX/XLA; attribute is ignored.
+- `Failed to load class list ... duplicate entries` — cosmetic, does not affect embeddings.
 
 ---
 
 ## Programs
 
-| File | Purpose |
-|---|---|
-| `phase1_embed.py` | One-time: initialize DB and embed audio files |
-| `phase2_classify.py` | Iterative: search, label, train, review, infer |
-| `setup_dirs.sh` | Creates local and NFS directory structure |
-| `sync_db_to_nfs.sh` | Copies finished DB from local NVMe to NFS |
-| `.perch_env` | Path constants — source before running pipeline |
+| File | Runs on | Purpose |
+|---|---|---|
+| `MBARI_perch_phase1_embed.py` | **Google Colab** | Build Hoplite embedding DB from audio |
+| `prepare_audio_for_colab.sh` | **ICEFISH** (Mac) | Zip resampled audio and stage for Google Drive |
+| `phase2_classify.py` | **spark-ae0e** | Active learning: search, label, train, review, infer |
+| `convert_scores_to_labels.py` | **spark-ae0e** | Convert Google model score CSVs to Hoplite label CSVs |
 
 ---
 
-## Workflow
+## Complete Workflow
 
-### Step 0 — Source path constants
+### Phase 1 — Build the Embedding Database (Colab)
+
+The embedding step requires a GPU compatible with TF 2.17 + XLA. Use Google
+Colab (A100 runtime) because the spark GB10 GPUs are not compatible.
+
+#### Step 1a — Prepare audio on ICEFISH
+
 ```bash
-source /mnt/PAM_Analysis/duane_scratch/perch_hoplite/.perch_env
+# On ICEFISH Mac — zip a date range of resampled 32 kHz WAV files
+# and copy to Google Drive for Colab to access
+chmod +x prepare_audio_for_colab.sh
+./prepare_audio_for_colab.sh
+# Follow prompts — output goes to ~/Google Drive/My Drive/MBARI_perch/audio/
 ```
 
-### Step 1 — Phase 1: Embed audio (local NVMe, ~15 min per file on GPU)
+Edit `prepare_audio_for_colab.sh` to set `DATE_START`, `DATE_END`, and `MAX_FILES`
+before running. The script creates a zip archive and a Colab config snippet.
+
+#### Step 1b — Run embedding on Colab
+
+1. Open `MBARI_perch_phase1_embed.py` in Google Colab (A100 GPU runtime)
+2. Mount Google Drive when prompted
+3. Set `GDRIVE_AUDIO_ZIP` to match the zip created in Step 1a
+4. Run all cells — embedding takes ~15 min per 75-second shard on A100
+5. When complete, the DB is saved to Google Drive
+
+#### Step 1c — Transfer DB from Colab to spark
 
 ```bash
-python3 ~/perch-hoplite/phase1_embed.py \
-    --dataset-name <name> \
-    --audio-dir /mnt/PAM_Archive/<year>/<deployment> \
-    --file-glob "*.flac" \
-    --db-dir /home/duane/perch_work/db/<name> \
-    --model perch_v2
+# On ICEFISH — download DB from Google Drive, then scp to spark NFS
+scp -r ~/Downloads/<db_folder> duane@134.89.11.107:/mnt/PAM_Analysis/duane_scratch/perch_hoplite/db/
 ```
 
-Example — embed MARS 2018 recordings:
-```bash
-python3 ~/perch-hoplite/phase1_embed.py \
-    --dataset-name MARS_2018 \
-    --audio-dir /mnt/PAM_Archive/2018 \
-    --file-glob "*.flac" \
-    --db-dir /home/duane/perch_work/db/MARS_2018 \
-    --model perch_v2 \
-    --shard-len 75
-```
+The DB path stored in hoplite_metadata will reference the Colab path
+`/tmp/mbari_audio/...`. This is overridden at runtime with `--audio-dir`
+(see Step 4 below).
 
-Dry run first to validate config:
-```bash
-python3 ~/perch-hoplite/phase1_embed.py \
-    --dataset-name MARS_2018 \
-    --audio-dir /mnt/PAM_Archive/2018 \
-    --file-glob "*.flac" \
-    --db-dir /home/duane/perch_work/db/MARS_2018 \
-    --model perch_v2 \
-    --dry-run
-```
+---
 
-### Step 2 — Sync finished DB to NFS
-```bash
-~/perch_work/sync_db_to_nfs.sh MARS_2018
-```
+### Phase 2 — Active Learning Loop (spark-ae0e)
 
-### Step 3 — Phase 2: Search for a target sound
+All Phase 2 steps run on spark-ae0e. The Gradio labeling GUI is accessed
+from any browser on the MBARI network — including ICEFISH.
+
+#### Step 2 — Import bootstrap labels (optional)
+
+If you have existing annotations from Raven Pro, PAMGuard, or the Google
+species model score CSVs, import them first:
 
 ```bash
-python3 ~/perch-hoplite/phase2_classify.py search \
-    --db-dir /mnt/PAM_Analysis/duane_scratch/perch_hoplite/db/MARS_2018 \
-    --query-audio /mnt/PAM_Analysis/duane_scratch/perch_hoplite/queries/cetaceans/orca_call.wav \
-    --query-label orca_call \
-    --num-results 200 \
-    --output-csv /mnt/PAM_Analysis/duane_scratch/perch_hoplite/results/MARS_2018_orca_search.csv \
-    --plot-scores /mnt/PAM_Analysis/duane_scratch/perch_hoplite/results/MARS_2018_orca_scores.png \
-    --serve --port 7860
-```
+# From Google model score CSVs
+python3 convert_scores_to_labels.py \
+    --scores-dir /mnt/PAM_Analysis/GoogleMultiSpeciesWhaleModel2/scores_gpu/ \
+    --output-csv /mnt/PAM_Analysis/duane_scratch/perch_hoplite/labels/bootstrap_orca.csv \
+    --target-class orca_call \
+    --threshold 0.7
 
-Then open in browser: **http://134.89.11.107:7860** (spark-ae0e)
-or **http://134.89.11.174:7860** (spark-0626)
-
-### Step 4 — Import labels from Raven Pro or PAMGuard
-
-CSV must have columns: `recording_id, offset_s, end_offset_s, label, label_type`
-(`label_type` values: `positive`, `negative`, `weak_negative`)
-
-```bash
-python3 ~/perch-hoplite/phase2_classify.py label \
-    --db-dir /mnt/PAM_Analysis/duane_scratch/perch_hoplite/db/MARS_2018 \
-    --labels-csv /mnt/PAM_Analysis/duane_scratch/perch_hoplite/labels/orca_annotations.csv \
+# Import into DB
+python3 phase2_classify.py label \
+    --db-dir /mnt/PAM_Analysis/duane_scratch/perch_hoplite/db/MARS_20180413_20180413_32kHz \
+    --labels-csv /mnt/PAM_Analysis/duane_scratch/perch_hoplite/labels/bootstrap_orca.csv \
     --annotator-id duane
 ```
 
-### Step 5 — Train classifier
+#### Step 3 — Train initial classifier
 
 ```bash
-python3 ~/perch-hoplite/phase2_classify.py train \
-    --db-dir /mnt/PAM_Analysis/duane_scratch/perch_hoplite/db/MARS_2018 \
+python3 phase2_classify.py train \
+    --db-dir /mnt/PAM_Analysis/duane_scratch/perch_hoplite/db/MARS_20180413_20180413_32kHz \
     --classifier-out /mnt/PAM_Analysis/duane_scratch/perch_hoplite/models/orca_v1.pt \
     --num-steps 256
 ```
 
-### Step 6 — Review classifier results (active learning)
+Metrics are printed after training and saved to `orca_v1.metrics.json`.
+Target ROC-AUC > 0.90 before running full inference.
+
+#### Step 4 — Review and label (active learning)
+
+Launch the Gradio labeling GUI on spark, open it on ICEFISH browser:
 
 ```bash
-python3 ~/perch-hoplite/phase2_classify.py review \
-    --db-dir /mnt/PAM_Analysis/duane_scratch/perch_hoplite/db/MARS_2018 \
+# On spark-ae0e
+nohup python3 phase2_classify.py review \
+    --db-dir /mnt/PAM_Analysis/duane_scratch/perch_hoplite/db/MARS_20180413_20180413_32kHz \
     --classifier /mnt/PAM_Analysis/duane_scratch/perch_hoplite/models/orca_v1.pt \
     --target-label orca_call \
-    --num-results 100 \
-    --serve --port 7860
+    --num-results 50 \
+    --sample-size 5000 \
+    --audio-dir /mnt/PAM_Analysis/GoogleMultiSpeciesWhaleModel2/resampled_32kHz/2018/04 \
+    --serve --port 7860 \
+    > /mnt/PAM_Analysis/duane_scratch/perch_hoplite/logs/review_7860.log 2>&1 &
 ```
 
-Repeat Steps 5–6 until classifier performance is satisfactory.
+**`--audio-dir` is required** because the DB was built on Colab where audio
+was at `/tmp/mbari_audio/...`. This flag overrides that stored path with the
+actual location on spark NFS.
 
-### Step 7 — Full inference → detections CSV
+Then on ICEFISH, open: **http://134.89.11.107:7860**
+
+The GUI shows the top-50 highest-scoring candidates with:
+- Spectrogram (0–16 kHz, log-power, inferno colormap)
+- Waveform
+- Custom audio player with high-contrast progress bar
+- Positive / Negative / Unlabeled radio buttons
+
+Audio is automatically normalized to −3 dBFS for comfortable listening
+(the resampled MARS files have very low amplitude at native levels).
+
+**Labeling strategy:**
+- `positive` = orca call clearly present
+- `negative` = background noise, dolphin, ship, silence — anything that is NOT orca
+- `unlabeled` = genuinely ambiguous — skip, do not save
+- Focus on adding negatives early: the bootstrap has ~464 positives and only ~3 negatives
+
+Click **💾 Save Labels to DB** when done. The status box confirms save counts.
+
+To monitor the server:
+```bash
+tail -f /mnt/PAM_Analysis/duane_scratch/perch_hoplite/logs/review_7860.log
+```
+
+To stop the server:
+```bash
+pkill -f "phase2_classify.py review"
+```
+
+#### Step 5 — Retrain with new labels
 
 ```bash
-python3 ~/perch-hoplite/phase2_classify.py infer \
-    --db-dir /mnt/PAM_Analysis/duane_scratch/perch_hoplite/db/MARS_2018 \
-    --classifier /mnt/PAM_Analysis/duane_scratch/perch_hoplite/models/orca_v1.pt \
-    --output-csv /mnt/PAM_Analysis/duane_scratch/perch_hoplite/results/MARS_2018_orca_detections.csv \
+python3 phase2_classify.py train \
+    --db-dir /mnt/PAM_Analysis/duane_scratch/perch_hoplite/db/MARS_20180413_20180413_32kHz \
+    --classifier-out /mnt/PAM_Analysis/duane_scratch/perch_hoplite/models/orca_v2.pt \
+    --num-steps 256
+```
+
+Repeat Steps 4–5 until ROC-AUC is satisfactory. Increment the version number
+(`orca_v2.pt`, `orca_v3.pt`, ...) to preserve each iteration.
+
+#### Step 6 — Check label counts at any time
+
+```bash
+python3 phase2_classify.py stats \
+    --db-dir /mnt/PAM_Analysis/duane_scratch/perch_hoplite/db/MARS_20180413_20180413_32kHz
+```
+
+#### Step 7 — Full inference → detections CSV
+
+```bash
+python3 phase2_classify.py infer \
+    --db-dir /mnt/PAM_Analysis/duane_scratch/perch_hoplite/db/MARS_20180413_20180413_32kHz \
+    --classifier /mnt/PAM_Analysis/duane_scratch/perch_hoplite/models/orca_v2.pt \
+    --output-csv /mnt/PAM_Analysis/duane_scratch/perch_hoplite/results/MARS_20180413_orca_detections.csv \
     --logit-threshold 0.0 \
-    --plot-distribution /mnt/PAM_Analysis/duane_scratch/perch_hoplite/results/MARS_2018_orca_logit_dist.png
-```
-
-### Step 8 — Check DB statistics at any time
-
-```bash
-python3 ~/perch-hoplite/phase2_classify.py stats \
-    --db-dir /mnt/PAM_Analysis/duane_scratch/perch_hoplite/db/MARS_2018
+    --plot-distribution /mnt/PAM_Analysis/duane_scratch/perch_hoplite/results/MARS_20180413_orca_logit_dist.png
 ```
 
 ---
 
-## Multi-class Classification (cetaceans + anthropogenic)
+## Current Status (as of June 2026)
 
-Run search once per sound class with an appropriate query clip, using a
-distinct `--query-label` each time. All labels accumulate in the same DB.
-Then train once — the classifier will be multi-class automatically.
+| Item | Status |
+|---|---|
+| DB: MARS April 13 2018 | ✅ 144 files, 17,280 embeddings |
+| Bootstrap labels | ✅ 464 positive orca_call, 3 negative |
+| orca_v1.pt | ✅ trained, ROC-AUC 0.754 |
+| Active learning loop | 🔄 in progress — adding negatives |
+| orca_v2.pt | 🔲 pending first review batch |
+| Full April 2018 DB | 🔲 planned |
 
-Suggested label names for consistency:
+---
+
+## Multi-class Classification
+
+Run review/label once per sound class with a distinct `--target-label`.
+All labels accumulate in the same DB. Train once — the classifier is
+automatically multi-class.
+
+Suggested label names:
 ```
 orca_call           # Bigg's / resident orca vocalizations
-dolphin_whistle     # common/bottlenose dolphin whistles
+dolphin_whistle     # common/bottlenose dolphin tonal whistles
 dolphin_click       # odontocete echolocation clicks
 humpback_song       # humpback whale song units
-blue_whale_call     # blue whale 20Hz calls
-fin_whale_call      # fin whale 20Hz doublets
-sperm_whale_click   # sperm whale codas/clicks
+blue_whale_call     # blue whale 20 Hz calls
+fin_whale_call      # fin whale 20 Hz doublets
+sperm_whale_click   # sperm whale codas / clicks
 boat_motor          # vessel engine noise
 rov_thruster        # ROV/AUV thruster noise
+background          # featureless background / flow noise
 ```
 
 ---
 
-## Gradio Labeling GUI
+## Gradio Labeling GUI — Details
 
-The GUI is a lightweight web app served directly from the DGX.
-No installation beyond `gradio` (already installed) is needed.
+The GUI runs on spark and is accessed from any browser on the MBARI network.
+It does not require any software installation on the client machine.
 
-Start it by adding `--serve --port 7860` to any `search` or `review` command.
-The terminal will show:
-```
-Running on local URL:  http://0.0.0.0:7860
-```
+Per-clip display:
+- **Header**: filename, time offset, classifier score
+- **Spectrogram**: 0–16 kHz, 60 dB dynamic range, inferno colormap
+- **Waveform**: full 5-second window
+- **Player**: custom ▶/⏸ button + animated progress bar (dark navy = unplayed, cyan = played)
+- **Radio**: positive / negative / unlabeled
 
-Open in any browser on the MBARI network:
-- **spark-ae0e**: http://134.89.11.107:7860
-- **spark-0626**: http://134.89.11.174:7860
+Labels are written to the Hoplite SQLite DB on click of **💾 Save Labels to DB**.
+Only one analyst should label a given DB at a time to avoid SQLite write conflicts.
 
-The page shows each candidate audio clip with:
-- An HTML5 audio player (press play to listen)
-- Positive / Negative / Unlabeled buttons
-- A Save button that writes labels directly to the Hoplite DB
-
-Press Ctrl+C in the terminal to stop the server when done labeling.
-
-Only one person should label at a time per DB to avoid SQLite write conflicts.
-For concurrent multi-analyst annotation, use Label Studio (see below).
-
-### For larger annotation campaigns: Label Studio
-
+For concurrent multi-analyst campaigns, use Label Studio:
 ```bash
 docker run -d -p 8080:8080 \
     -v /mnt/PAM_Analysis/duane_scratch/perch_hoplite/labelstudio:/label-studio/data \
     heartexlabs/label-studio:latest
 ```
-Access at http://134.89.11.107:8080 — supports multiple simultaneous annotators,
-inter-annotator agreement metrics, and export to the CSV format expected by
-`phase2_classify.py label`.
+Access at http://134.89.11.107:8080
 
 ---
 
@@ -278,27 +329,23 @@ inter-annotator agreement metrics, and export to the CSV format expected by
 
 | Model | Best for | Notes |
 |---|---|---|
-| `perch_v2` | Broadest coverage, recommended starting point | GPU required |
+| `perch_v2` | Broadest coverage, recommended start | Requires A100/V100 for embedding |
 | `multispecies_whale` | Baleen whale calls, biotwangs | Pre-trained on cetaceans |
 | `humpback` | Humpback song specifically | Narrow but accurate |
-| `surfperch` | Coral reef soundscapes | Not ideal for deep-water MBARI sites |
+| `surfperch` | Coral reef soundscapes | Not suitable for deep-water MBARI sites |
 | `perch_8` | Bird sounds only | Not useful for marine work |
 
-For MBARI data, start with `perch_v2`. If baleen whale performance is
-insufficient after agile modeling, re-embed with `multispecies_whale`
-(requires a new separate DB — models cannot be mixed in one DB).
+Each model requires its own separate DB — embeddings from different models
+cannot be mixed in a single database.
 
 ---
 
-## Disk Usage Monitoring
+## Disk Usage
 
 ```bash
-# Quick check — add to ~/.bashrc as alias diskcheck
-df -h / /mnt/PAM_Analysis /mnt/PAM_Archive
-du -sh /home/duane/perch_work/db/* 2>/dev/null | sort -h
+df -h /mnt/PAM_Analysis /mnt/PAM_Archive
 du -sh /mnt/PAM_Analysis/duane_scratch/perch_hoplite/db/* 2>/dev/null | sort -h
 ```
 
-PAM_Analysis is at 94% full (3.4 TB free). Keep an eye on DB sizes.
-Rough estimate: ~9 MB per hour of audio embedded at Perch V2 defaults.
-
+PAM_Analysis: ~94% full as of June 2026 (3.4 TB free). Monitor before large embedding runs.
+Rough estimate: ~9 MB per hour of audio at Perch V2 defaults (5-second windows, 1536-dim float16).
