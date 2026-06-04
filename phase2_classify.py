@@ -393,6 +393,53 @@ def load_db(db_dir: str):
     return db
 
 
+def _get_source(db, window_id):
+    """Retrieve embedding source metadata using whichever API the installed
+    perch-hoplite version exposes. Tries several known method names and falls
+    back to a direct SQLite query if none exist."""
+    for method_name in (
+        "get_source_by_id",
+        "get_embedding_source",
+        "get_window_source",
+        "get_source",
+    ):
+        method = getattr(db, method_name, None)
+        if method is not None:
+            try:
+                return method(window_id)
+            except Exception:
+                pass
+    # Last resort: direct SQLite query
+    import sqlite3 as _sqlite3
+    # Locate the DB file from the db object
+    db_path = None
+    for attr in ("db_path", "_db_path", "path"):
+        p = getattr(db, attr, None)
+        if p:
+            db_path = str(p)
+            break
+    if db_path is None:
+        raise RuntimeError(
+            f"Cannot find DB path on {type(db).__name__} — "
+            "no known get_source method and no db_path attribute."
+        )
+    con = _sqlite3.connect(db_path)
+    row = con.execute(
+        "SELECT source_id, dataset, start_s, end_s FROM windows WHERE id=?",
+        (int(window_id),)
+    ).fetchone()
+    con.close()
+    if row is None:
+        raise KeyError(f"window_id {window_id} not found in DB")
+    class _EmbSource:
+        source_id = row[0]
+        dataset   = row[1]
+        offsets   = (row[2] if row[2] is not None else 0.0,
+                     row[3] if row[3] is not None else 5.0)
+        recording_id = None  # not available via this path
+    return _EmbSource()
+
+
 def load_model_from_db(db):
     from perch_hoplite.zoo import model_configs
     from perch_hoplite.agile import source_info
@@ -440,8 +487,36 @@ def make_audio_loader(db, embedding_model, audio_sources, sample_rate_hz=None):
                 return str(candidate)
         return None
 
+    def _get_source(window_id):
+        """Try all known method names for retrieving an embedding source."""
+        for method_name in (
+            "get_source_by_id",
+            "get_embedding_source",
+            "get_window_source",
+            "get_source",
+        ):
+            method = getattr(db, method_name, None)
+            if method is not None:
+                return method(window_id)
+        # Last resort: query the SQLite DB directly
+        import sqlite3 as _sqlite3
+        db_file = str(db_dir) + "/hoplite.sqlite"
+        con = _sqlite3.connect(db_file)
+        row = con.execute(
+            "SELECT source_id, dataset, start_s, end_s FROM windows WHERE id=?",
+            (int(window_id),)
+        ).fetchone()
+        con.close()
+        if row is None:
+            raise KeyError(f"window_id {window_id} not found in DB")
+        class _Source:
+            source_id = row[0]
+            dataset   = row[1]
+            offsets   = (row[2], row[3])
+        return _Source()
+
     def loader_fn(window_id) -> tuple:
-        source = db.get_embedding_source(window_id)
+        source = _get_source(window_id)
         filename = getattr(source, "source_id", None) or str(window_id)
         offsets = getattr(source, "offsets", (0.0, window_size_s))
         offset_s = offsets[0] if offsets else 0.0
@@ -555,7 +630,7 @@ def cmd_label(args) -> int:
     try:
         all_ids = db.match_window_ids(limit=None)
         for wid in all_ids:
-            src = db.get_embedding_source(wid)
+            src = _get_source(db, wid)
             fname = getattr(src, "source_id", None) or ""
             rec_id = getattr(src, "recording_id", None)
             if fname and rec_id is not None:
@@ -697,7 +772,7 @@ def _write_search_csv(results_obj, db, output_csv: str) -> None:
         writer.writerow(["window_id", "recording_id", "offset_s", "end_offset_s", "score"])
         for r in results_obj.search_results:
             wid = r.window_id
-            source = db.get_embedding_source(wid)
+            source = _get_source(db, wid)
             writer.writerow([
                 int(wid),
                 source.source_id if hasattr(source, "source_id") else str(source),
@@ -1108,7 +1183,7 @@ def _launch_labeling_gui(
         wid = r.window_id
         try:
             audio, sr_actual = audio_filepath_loader(wid)
-            source = db.get_embedding_source(wid)
+            source = _get_source(db, wid)
             recording_id = getattr(source, "source_id", str(wid))
             offsets = getattr(source, "offsets", (0.0, 5.0))
         except Exception as exc:
@@ -1214,7 +1289,7 @@ Click **Positive** (🟢) or **Negative** (🔴) for each segment, then **Save L
                     else iface.LabelType.NEGATIVE
                 )
                 try:
-                    source = db.get_embedding_source(wid)
+                    source = _get_source(db, wid)
                     # insert_annotation requires the integer recording_id stored on
                     # the EmbeddingSource, NOT the filename string (source_id).
                     rec_int_id = getattr(source, "recording_id", None)
