@@ -760,7 +760,7 @@ def _run_search(db, embedding_model, args_query_audio, args_offset_s,
     query_embedding = embedding_model.embed(audio_window).embeddings[0, 0]
     log.info("Query embedding shape: %s", query_embedding.shape)
 
-    score_fn = score_functions.get_score_fn(args_score_fn, target_score=args_target_score)
+    score_fn = score_functions_mod.get_score_fn(args_score_fn, target_score=args_target_score)
 
     log.info(
         "Searching DB (exact=%s, num_results=%d, score_fn=%s)...",
@@ -1042,7 +1042,7 @@ def cmd_review(args) -> int:
         args.target_label, idx,
     )
 
-    score_fn = score_functions.get_score_fn(
+    score_fn = score_functions_mod.get_score_fn(
         "dot", bias=bias_val, target_score=args.margin_target_score,
     )
     results_obj, all_scores = brutalism_mod.threaded_brute_search(
