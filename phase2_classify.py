@@ -525,6 +525,24 @@ def make_audio_loader(db, embedding_model, audio_sources, sample_rate_hz=None):
                 return str(candidate)
         return None
 
+    # Resolve the SQLite file path once at loader construction time.
+    # None of the standard method names may exist on this DB object, so we
+    # need a direct SQLite fallback.  Probe the DB object for path attributes.
+    _sqlite_path = None
+    for _attr in ("db_path", "_db_path", "path", "sqlite_path", "db_dir", "_db_dir"):
+        _p = getattr(db, _attr, None)
+        if _p:
+            import os as _os
+            _p = str(_p)
+            # It might be the directory containing the sqlite file
+            for _fname in ("hoplite.sqlite", "hoplite.db", "db.sqlite"):
+                _candidate = _os.path.join(_p, _fname) if _os.path.isdir(_p) else _p
+                if _os.path.isfile(_candidate):
+                    _sqlite_path = _candidate
+                    break
+            if _sqlite_path:
+                break
+
     def _get_source(window_id):
         """Try all known method names for retrieving an embedding source."""
         for method_name in (
@@ -536,10 +554,17 @@ def make_audio_loader(db, embedding_model, audio_sources, sample_rate_hz=None):
             method = getattr(db, method_name, None)
             if method is not None:
                 return method(window_id)
-        # Last resort: query the SQLite DB directly
+        # Last resort: query the SQLite DB directly using path resolved above
         import sqlite3 as _sqlite3
-        db_file = str(db_dir) + "/hoplite.sqlite"
-        con = _sqlite3.connect(db_file)
+        if _sqlite_path is None:
+            _path_attrs = {a: getattr(db, a, None)
+                           for a in dir(db)
+                           if "path" in a.lower() or "dir" in a.lower() or "file" in a.lower()}
+            raise RuntimeError(
+                f"No source-lookup method on {type(db).__name__} and SQLite path unknown. "
+                f"Path-like attrs: {_path_attrs}"
+            )
+        con = _sqlite3.connect(_sqlite_path)
         row = con.execute(
             "SELECT source_id, dataset, start_s, end_s FROM windows WHERE id=?",
             (int(window_id),)
