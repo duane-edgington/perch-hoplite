@@ -136,6 +136,24 @@ def _setup_logging(log_dir: Path, verbose: bool) -> None:
 
 log = logging.getLogger(__name__)
 
+class _LT:
+    """LabelType constants — works across perch-hoplite versions."""
+    try:
+        from perch_hoplite.db import annotations as _a
+        POSITIVE      = _a.LabelType.POSITIVE
+        NEGATIVE      = _a.LabelType.NEGATIVE
+        WEAK_NEGATIVE = _a.LabelType.WEAK_NEGATIVE
+    except Exception:
+        try:
+            from perch_hoplite.db import interface as _b
+            POSITIVE      = _b.LabelType.POSITIVE
+            NEGATIVE      = _b.LabelType.NEGATIVE
+            WEAK_NEGATIVE = _b.LabelType.NEGATIVE
+        except Exception:
+            POSITIVE      = 1
+            NEGATIVE      = 2
+            WEAK_NEGATIVE = 3
+
 
 def _get_label_type_enum():
     """Return the LabelType enum from wherever perch-hoplite 1.0.1 exposes it.
@@ -596,8 +614,8 @@ def cmd_stats(args) -> int:
     log.info("Total annotations: %d", ann_count)
     if ann_count > 0:
         try:
-            pos = db.count_each_label(label_type=interface.LabelType.POSITIVE)
-            neg = db.count_each_label(label_type=interface.LabelType.NEGATIVE)
+            pos = db.count_each_label(label_type=_LT.POSITIVE)
+            neg = db.count_each_label(label_type=_LT.NEGATIVE)
             log.info("Positive labels: %s", dict(pos))
             log.info("Negative labels: %s", dict(neg))
         except Exception as exc:
@@ -621,10 +639,10 @@ def cmd_label(args) -> int:
     from perch_hoplite.db import interface as iface
 
     label_type_map = {
-        "positive": interface.LabelType.POSITIVE,
-        "negative": interface.LabelType.NEGATIVE,
+        "positive": _LT.POSITIVE,
+        "negative": _LT.NEGATIVE,
         "weak_negative": getattr(interface.LabelType, "WEAK_NEGATIVE",
-                         interface.LabelType.NEGATIVE),
+                         _LT.NEGATIVE),
     }
 
     csv_path = Path(args.labels_csv)
@@ -1319,63 +1337,8 @@ def _launch_labeling_gui(
         fname = seg["recording_id"].split("/")[-1]
         pid = f"player_{idx}"   # unique ID for JS targeting
 
-        # Custom audio player with high-contrast progress bar.
-        # Unplayed = dark blue-grey (#1e3a5f), played = bright cyan (#00e5ff).
-        # A canvas draws the progress bar; JS updates it on timeupdate.
-        player_html = f"""
-<div id='{pid}_wrap' style='margin-top:8px;'>
-  <audio id='{pid}' src='{wav_b64}'
-         style='display:none;'></audio>
-  <!-- Play/Pause button -->
-  <div style='display:flex;align-items:center;gap:10px;'>
-    <button id='{pid}_btn'
-      onclick="(function(){{
-        var a=document.getElementById('{pid}');
-        var b=document.getElementById('{pid}_btn');
-        if(a.paused){{a.play();b.textContent='⏸';}}
-        else{{a.pause();b.textContent='▶';}}
-      }})()"
-      style='background:#0ea5e9;color:#fff;border:none;border-radius:6px;
-             padding:6px 14px;font-size:16px;cursor:pointer;flex-shrink:0;'>▶</button>
-    <!-- Progress bar canvas -->
-    <div style='flex:1;position:relative;height:28px;border-radius:4px;
-                overflow:hidden;background:#1e3a5f;cursor:pointer;'
-         id='{pid}_bar'
-         onclick="(function(e){{
-           var a=document.getElementById('{pid}');
-           var r=document.getElementById('{pid}_bar').getBoundingClientRect();
-           a.currentTime=((e.clientX-r.left)/r.width)*a.duration;
-         }})(event)">
-      <div id='{pid}_prog'
-           style='height:100%;width:0%;background:linear-gradient(90deg,#00e5ff,#0ea5e9);
-                  transition:width 0.1s linear;border-radius:4px;'></div>
-      <span id='{pid}_time'
-            style='position:absolute;right:6px;top:50%;transform:translateY(-50%);
-                   color:#e2e8f0;font-size:11px;font-family:monospace;pointer-events:none;'>
-        0.0 / {seg["end_offset_s"]-seg["offset_s"]:.1f}s
-      </span>
-    </div>
-  </div>
-  <script>
-  (function(){{
-    var a=document.getElementById('{pid}');
-    var p=document.getElementById('{pid}_prog');
-    var t=document.getElementById('{pid}_time');
-    var b=document.getElementById('{pid}_btn');
-    var dur={seg["end_offset_s"]-seg["offset_s"]:.2f};
-    setInterval(function(){{
-      if(!a) return;
-      var ct=a.currentTime||0;
-      var d=a.duration||dur;
-      var pct=(d>0)?(ct/d*100):0;
-      p.style.width=pct+'%';
-      t.textContent=ct.toFixed(1)+' / '+d.toFixed(1)+'s';
-      if(a.ended){{b.textContent='▶';}}
-    }}, 80);
-  }})();
-  </script>
-</div>"""
-
+        wav_b64  = _make_audio_b64(seg["audio"], seg["sample_rate"])
+        player_html = f"<audio controls style='width:100%;margin-top:6px;height:40px;' src='{wav_b64}'></audio>"
         return (
             f"<div style='background:#1e293b;border-radius:8px;padding:12px;"
             f"margin-bottom:8px;color:#e2e8f0;font-family:monospace;font-size:11px;'>"
@@ -1428,7 +1391,6 @@ Click **Positive** (🟢) or **Negative** (🔴) for each segment, then **Save L
                         radio_components.append((seg["window_id"], radio))
 
         def save_labels(*radio_values):
-            from perch_hoplite.db import interface as _iface
             saved = 0
             skipped = 0
             for (wid, _), choice in zip(radio_components, radio_values):
@@ -1436,9 +1398,9 @@ Click **Positive** (🟢) or **Negative** (🔴) for each segment, then **Save L
                     skipped += 1
                     continue
                 lt = (
-                    _iface.LabelType.POSITIVE
+                    _LT.POSITIVE
                     if choice == "positive"
-                    else _iface.LabelType.NEGATIVE
+                    else _LT.NEGATIVE
                 )
                 try:
                     source = _get_source(db, wid)
@@ -1461,8 +1423,8 @@ Click **Positive** (🟢) or **Negative** (🔴) for each segment, then **Save L
                     log.warning("Failed to save label for window %s: %s", wid, exc)
 
             try:
-                pos_counts = db.count_each_label(label_type=_iface.LabelType.POSITIVE)
-                neg_counts = db.count_each_label(label_type=_iface.LabelType.NEGATIVE)
+                pos_counts = db.count_each_label(label_type=_LT.POSITIVE)
+                neg_counts = db.count_each_label(label_type=_LT.NEGATIVE)
                 counts_str = (
                     f"Total positive: {dict(pos_counts)}\n"
                     f"Total negative: {dict(neg_counts)}"
