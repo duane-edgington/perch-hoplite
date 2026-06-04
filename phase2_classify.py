@@ -1362,13 +1362,16 @@ def _launch_labeling_gui(
     var p=document.getElementById('{pid}_prog');
     var t=document.getElementById('{pid}_time');
     var b=document.getElementById('{pid}_btn');
-    a.addEventListener('timeupdate',function(){{
-      var pct=(a.duration>0)?(a.currentTime/a.duration*100):0;
+    var dur={seg["end_offset_s"]-seg["offset_s"]:.2f};
+    setInterval(function(){{
+      if(!a) return;
+      var ct=a.currentTime||0;
+      var d=a.duration||dur;
+      var pct=(d>0)?(ct/d*100):0;
       p.style.width=pct+'%';
-      t.textContent=a.currentTime.toFixed(1)+' / '+
-                    (a.duration?a.duration.toFixed(1):'?')+'s';
-    }});
-    a.addEventListener('ended',function(){{b.textContent='▶';}});
+      t.textContent=ct.toFixed(1)+' / '+d.toFixed(1)+'s';
+      if(a.ended){{b.textContent='▶';}}
+    }}, 80);
   }})();
   </script>
 </div>"""
