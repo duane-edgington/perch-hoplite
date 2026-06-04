@@ -547,6 +547,14 @@ def make_audio_loader(db, embedding_model, audio_sources, sample_rate_hz=None):
             except ImportError:
                 pass  # live with wrong sample rate rather than crash
 
+        # Normalize to -3 dBFS peak so audio is audible in browser.
+        # The resampled MARS files have very low amplitude and are inaudible
+        # without this step.
+        peak = np.abs(audio).max()
+        if peak > 1e-6:  # avoid divide-by-zero on silence
+            target_peak = 10 ** (-3.0 / 20)   # -3 dBFS ≈ 0.708
+            audio = audio * (target_peak / peak)
+
         return audio, sample_rate_hz
 
     return loader_fn, sample_rate_hz, window_size_s
@@ -1201,17 +1209,68 @@ def _launch_labeling_gui(
 
     log.info("Loaded %d audio segments for labeling.", len(segments))
 
-    def _make_waveform_image(audio_array: "np.ndarray", sr: int) -> str:
-        """Return a base64-encoded PNG waveform."""
-        fig, ax = plt_mod.subplots(figsize=(6, 1.5))
-        t = np_mod.linspace(0, len(audio_array) / sr, len(audio_array))
-        ax.plot(t, audio_array, color="#00aacc", linewidth=0.5)
-        ax.set_xlim([0, t[-1]])
-        ax.set_axis_off()
+    def _make_spectrogram_image(audio_array: "np.ndarray", sr: int) -> str:
+        """Return a base64-encoded PNG spectrogram (linear-frequency STFT).
+
+        Frequency axis covers 0 – 16 kHz (useful range for cetaceans at 32 kHz
+        sample rate).  Color scale is log-power (dB), clipped to a 60 dB dynamic
+        range so low-energy calls remain visible against broadband background.
+        """
+        import numpy as _np2
+        from scipy.signal import spectrogram as _spec
+
+        # Compute spectrogram: 512-sample window, 75% overlap
+        nperseg = min(512, len(audio_array) // 4)
+        f, t, Sxx = _spec(
+            audio_array, fs=sr,
+            nperseg=nperseg, noverlap=nperseg * 3 // 4,
+            scaling="density",
+        )
+        # Convert to log power (dB), clip to 60 dB dynamic range
+        Sxx_db = 10 * _np2.log10(Sxx + 1e-10)
+        vmax = Sxx_db.max()
+        vmin = vmax - 60.0
+
+        # Only show up to 16 kHz
+        f_max = min(16000, sr // 2)
+        f_mask = f <= f_max
+        f_plot = f[f_mask]
+        S_plot = Sxx_db[f_mask, :]
+
+        fig, axes = plt_mod.subplots(
+            2, 1, figsize=(7, 3),
+            gridspec_kw={"height_ratios": [2.5, 1], "hspace": 0.05},
+        )
         fig.patch.set_facecolor("#111827")
-        ax.set_facecolor("#111827")
+
+        # Spectrogram (top panel)
+        ax_spec = axes[0]
+        ax_spec.pcolormesh(
+            t, f_plot, S_plot,
+            vmin=vmin, vmax=vmax,
+            cmap="inferno", shading="gouraud",
+        )
+        ax_spec.set_ylabel("Hz", color="#94a3b8", fontsize=8)
+        ax_spec.tick_params(colors="#94a3b8", labelsize=7)
+        ax_spec.set_facecolor("#111827")
+        for spine in ax_spec.spines.values():
+            spine.set_edgecolor("#334155")
+        ax_spec.tick_params(bottom=False, labelbottom=False)
+
+        # Waveform (bottom panel)
+        ax_wave = axes[1]
+        t_wave = _np2.linspace(0, len(audio_array) / sr, len(audio_array))
+        ax_wave.plot(t_wave, audio_array, color="#38bdf8", linewidth=0.4)
+        ax_wave.set_xlim([0, t_wave[-1]])
+        ax_wave.set_xlabel("Time (s)", color="#94a3b8", fontsize=8)
+        ax_wave.set_facecolor("#111827")
+        ax_wave.tick_params(colors="#94a3b8", labelsize=7)
+        for spine in ax_wave.spines.values():
+            spine.set_edgecolor("#334155")
+        ax_wave.set_yticks([])
+
         buf = io.BytesIO()
-        fig.savefig(buf, format="png", dpi=100, bbox_inches="tight",
+        fig.savefig(buf, format="png", dpi=110, bbox_inches="tight",
                     facecolor="#111827")
         plt_mod.close(fig)
         buf.seek(0)
@@ -1226,14 +1285,19 @@ def _launch_labeling_gui(
 
     # Build per-segment HTML card
     def _segment_card(seg: dict, idx: int) -> str:
-        wav_b64 = _make_audio_b64(seg["audio"], seg["sample_rate"])
+        wav_b64  = _make_audio_b64(seg["audio"], seg["sample_rate"])
+        spec_b64 = _make_spectrogram_image(seg["audio"], seg["sample_rate"])
+        fname = seg["recording_id"].split("/")[-1]   # basename only for display
         return (
             f"<div style='background:#1e293b;border-radius:8px;padding:12px;"
-            f"margin-bottom:8px;color:#e2e8f0;font-family:monospace;font-size:12px;'>"
-            f"<b>#{idx+1}</b> &nbsp; {seg['recording_id']} "
-            f"&nbsp; offset={seg['offset_s']:.2f}s – {seg['end_offset_s']:.2f}s "
-            f"&nbsp; score={seg['score']:.4f}<br>"
-            f"<audio controls style='width:100%;margin-top:4px;' src='{wav_b64}'></audio>"
+            f"margin-bottom:8px;color:#e2e8f0;font-family:monospace;font-size:11px;'>"
+            f"<b>#{idx+1}</b> &nbsp; <span style='color:#7dd3fc'>{fname}</span>"
+            f" &nbsp; <span style='color:#94a3b8'>"
+            f"{seg['offset_s']:.1f}s – {seg['end_offset_s']:.1f}s</span>"
+            f" &nbsp; <span style='color:#fbbf24'>score={seg['score']:.3f}</span><br>"
+            f"<img src='{spec_b64}' style='width:100%;margin-top:6px;"
+            f"border-radius:4px;display:block;'/>"
+            f"<audio controls style='width:100%;margin-top:6px;' src='{wav_b64}'></audio>"
             f"</div>"
         )
 
