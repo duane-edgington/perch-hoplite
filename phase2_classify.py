@@ -845,7 +845,8 @@ def cmd_search(args) -> int:
     if getattr(args, "audio_dir", None):
         from perch_hoplite.agile import source_info as _si
         patched_globs = []
-        for ag in audio_sources.audio_sources:
+        _globs = getattr(audio_sources, 'audio_globs', getattr(audio_sources, 'audio_sources', []))
+        for ag in _globs:
             patched = _si.AudioSourceConfig(
                 dataset_name=ag.dataset_name,
                 base_path=args.audio_dir,
@@ -988,7 +989,8 @@ def cmd_review(args) -> int:
     if getattr(args, "audio_dir", None):
         from perch_hoplite.agile import source_info as _si
         patched_globs = []
-        for ag in audio_sources.audio_sources:
+        _globs = getattr(audio_sources, 'audio_globs', getattr(audio_sources, 'audio_sources', []))
+        for ag in _globs:
             patched = _si.AudioSourceConfig(
                 dataset_name=ag.dataset_name,
                 base_path=args.audio_dir,
