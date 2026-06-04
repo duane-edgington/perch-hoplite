@@ -375,51 +375,40 @@ def build_parser() -> argparse.ArgumentParser:
 # ---------------------------------------------------------------------------
 
 def _patch_usearch_get_embeddings_batch(db) -> None:
-    """Monkey-patch get_embeddings_batch to handle USearch API version differences.
+    """Patch the USearch index .get() method to handle API version differences.
 
-    perch-hoplite 1.0.1 was written against an older USearch where index.get(keys)
-    returned a single np.ndarray.  Newer USearch (>=2.9) changed get() to always
-    return a tuple of arrays (one per key), even for a single key.  The mismatch
-    causes a RuntimeError inside threaded_brute_search.
+    Newer USearch (>=2.9) changed index.get(keys) to always return a tuple of
+    1-D arrays instead of a single stacked np.ndarray.  perch-hoplite 1.0.1
+    expects the old behaviour and raises RuntimeError on the new API.
 
-    This patch wraps get_embeddings_batch so it works with both API versions.
+    threaded_brute_search spawns threads that each call db.ui.get() directly,
+    bypassing any patch on db.get_embeddings_batch.  So we patch db.ui.get()
+    itself — the USearch index object — which IS shared across threads.
     """
     import numpy as np
-    import types
 
-    original_fn = db.get_embeddings_batch.__func__  # unbound method
+    ui = getattr(db, "ui", None)
+    if ui is None:
+        log.warning("DB has no .ui attribute — cannot patch USearch get().")
+        return
 
-    def patched_get_embeddings_batch(self, emb_ids):
-        # Try the original implementation first
-        try:
-            result = original_fn(self, emb_ids)
-            # If it returned without error it's the old API — pass through
+    original_get = ui.get  # bound method on the index
+
+    def patched_get(keys, *args, **kwargs):
+        result = original_get(keys, *args, **kwargs)
+        # Old API: returns np.ndarray of shape (n_keys, dim) — pass through
+        if isinstance(result, np.ndarray):
             return result
-        except RuntimeError as exc:
-            if "Expected np.ndarray" not in str(exc):
-                raise  # unrelated error, re-raise
+        # New API: returns a tuple of 1-D arrays — stack into 2-D ndarray
+        if isinstance(result, tuple):
+            arrays = [arr for arr in result if isinstance(arr, np.ndarray)]
+            if arrays:
+                return np.stack(arrays, axis=0)
+        # Unexpected — return as-is and let caller handle it
+        return result
 
-        # New USearch API: index.get(keys) returns a tuple of 1-D arrays.
-        # Re-implement the batch fetch manually.
-        keys = [int(eid) for eid in emb_ids]
-        results = self.ui.get(keys)           # returns tuple of arrays
-        if isinstance(results, np.ndarray):
-            # Shouldn't happen here (old API) but be safe
-            return results
-        # Stack the tuple of 1-D vectors into a 2-D array
-        arrays = []
-        for arr in results:
-            if isinstance(arr, np.ndarray):
-                arrays.append(arr)
-            else:
-                raise RuntimeError(
-                    f"Unexpected type in USearch get() result: {type(arr)}"
-                )
-        return np.stack(arrays, axis=0)
-
-    # Bind the patched method to the instance
-    db.get_embeddings_batch = types.MethodType(patched_get_embeddings_batch, db)
-    log.debug("Applied USearch get_embeddings_batch compatibility patch.")
+    ui.get = patched_get
+    log.debug("Applied USearch index.get() compatibility patch.")
 
 
 def load_db(db_dir: str):
