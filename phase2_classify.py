@@ -943,11 +943,28 @@ def cmd_review(args) -> int:
     else:
         sampled_ids = None  # search full DB
 
-    results_obj, all_scores = brutalism_mod.threaded_brute_search(
-        db, class_query, args.num_results,
-        score_fn=_biased_dot,
-        **({"window_id_list": sampled_ids} if sampled_ids is not None else {}),
-    )
+    # threaded_brute_search always searches the full DB and accepts no
+    # window_id_list / sample_size kwarg in perch-hoplite 1.0.1.
+    # When we have a sampled subset, run the dot product search manually
+    # so we only score the sampled embeddings.
+    if sampled_ids is not None:
+        import numpy as _np3
+        from perch_hoplite.db import search_results as _sr
+
+        ids_arr = list(sampled_ids)
+        # Fetch all sampled embeddings in one batch (uses our patched method)
+        emb_matrix = db.get_embeddings_batch(ids_arr)   # shape (N, D)
+        raw_scores = emb_matrix @ class_query + _bias_val  # (N,)
+
+        results_obj = _sr.TopKSearchResults(top_k=args.num_results)
+        for wid, sc in zip(ids_arr, raw_scores):
+            results_obj.update(_sr.SearchResult(wid, float(sc)))
+        all_scores = raw_scores
+    else:
+        results_obj, all_scores = brutalism_mod.threaded_brute_search(
+            db, class_query, args.num_results,
+            score_fn=_biased_dot,
+        )
 
     hit_scores = [r.sort_score for r in results_obj.search_results]
     log.info(
