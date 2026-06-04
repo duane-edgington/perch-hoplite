@@ -965,7 +965,7 @@ def cmd_train(args) -> int:
         json.dump(
             {
                 "labels": target_labels,
-                "eval_scores": {k: float(v.item() if hasattr(v, "item") else v) for k, v in eval_scores.items()},
+                "eval_scores": {k: float(v.flat[0] if hasattr(v, "flat") else v) for k, v in eval_scores.items()},
                 "train_args": {
                     "num_steps": args.num_steps,
                     "learning_rate": args.learning_rate,
