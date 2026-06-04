@@ -332,6 +332,54 @@ def build_parser() -> argparse.ArgumentParser:
 # DB helpers
 # ---------------------------------------------------------------------------
 
+def _patch_usearch_get_embeddings_batch(db) -> None:
+    """Monkey-patch get_embeddings_batch to handle USearch API version differences.
+
+    perch-hoplite 1.0.1 was written against an older USearch where index.get(keys)
+    returned a single np.ndarray.  Newer USearch (>=2.9) changed get() to always
+    return a tuple of arrays (one per key), even for a single key.  The mismatch
+    causes a RuntimeError inside threaded_brute_search.
+
+    This patch wraps get_embeddings_batch so it works with both API versions.
+    """
+    import numpy as np
+    import types
+
+    original_fn = db.get_embeddings_batch.__func__  # unbound method
+
+    def patched_get_embeddings_batch(self, emb_ids):
+        # Try the original implementation first
+        try:
+            result = original_fn(self, emb_ids)
+            # If it returned without error it's the old API — pass through
+            return result
+        except RuntimeError as exc:
+            if "Expected np.ndarray" not in str(exc):
+                raise  # unrelated error, re-raise
+
+        # New USearch API: index.get(keys) returns a tuple of 1-D arrays.
+        # Re-implement the batch fetch manually.
+        keys = [int(eid) for eid in emb_ids]
+        results = self.ui.get(keys)           # returns tuple of arrays
+        if isinstance(results, np.ndarray):
+            # Shouldn't happen here (old API) but be safe
+            return results
+        # Stack the tuple of 1-D vectors into a 2-D array
+        arrays = []
+        for arr in results:
+            if isinstance(arr, np.ndarray):
+                arrays.append(arr)
+            else:
+                raise RuntimeError(
+                    f"Unexpected type in USearch get() result: {type(arr)}"
+                )
+        return np.stack(arrays, axis=0)
+
+    # Bind the patched method to the instance
+    db.get_embeddings_batch = types.MethodType(patched_get_embeddings_batch, db)
+    log.debug("Applied USearch get_embeddings_batch compatibility patch.")
+
+
 def load_db(db_dir: str):
     from perch_hoplite.db import sqlite_usearch_impl
     db_dir = str(db_dir)
@@ -341,6 +389,7 @@ def load_db(db_dir: str):
     log.info("Database loaded — %d embeddings", count)
     if count == 0:
         log.warning("Database contains zero embeddings. Run phase1_embed.py first.")
+    _patch_usearch_get_embeddings_batch(db)
     return db
 
 
@@ -356,17 +405,76 @@ def load_model_from_db(db):
     return embedding_model, audio_sources
 
 
-def make_audio_loader(embedding_model, audio_sources, sample_rate_hz=None):
-    from perch_hoplite.agile import audio_loader
+def make_audio_loader(db, embedding_model, audio_sources, sample_rate_hz=None):
+    """Return (loader_fn, sample_rate_hz, window_size_s).
+
+    loader_fn(window_id) -> (audio_array, sample_rate_hz)
+
+    perch-hoplite 1.0.1 does not expose a make_filepath_loader factory.
+    We reconstruct the audio by:
+      1. Reading the embedding source (filename + offsets) from the DB.
+      2. Resolving the absolute path via the AudioSources config.
+      3. Loading the window with soundfile + resampy.
+    """
+    import numpy as np
+    import soundfile as sf
+
     if sample_rate_hz is None:
-        sample_rate_hz = embedding_model.sample_rate
+        sample_rate_hz = getattr(embedding_model, "sample_rate", 32_000)
     window_size_s = getattr(embedding_model, "window_size_s", 5.0)
-    loader = audio_loader.make_filepath_loader(
-        audio_sources=audio_sources,
-        window_size_s=window_size_s,
-        sample_rate_hz=sample_rate_hz,
-    )
-    return loader, sample_rate_hz, window_size_s
+
+    # Build filename -> base_path lookup from audio_sources config.
+    # AudioSources holds a tuple of AudioSourceConfig objects.
+    source_configs = getattr(audio_sources, "audio_sources", ())
+
+    def _resolve_path(filename: str) -> str | None:
+        """Try each audio source base_path to find the file."""
+        from pathlib import Path as _Path
+        # filename may already be an absolute path
+        p = _Path(filename)
+        if p.exists():
+            return str(p)
+        for sc in source_configs:
+            candidate = _Path(sc.base_path) / filename
+            if candidate.exists():
+                return str(candidate)
+        return None
+
+    def loader_fn(window_id) -> tuple:
+        source = db.get_embedding_source(window_id)
+        filename = getattr(source, "source_id", None) or str(window_id)
+        offsets = getattr(source, "offsets", (0.0, window_size_s))
+        offset_s = offsets[0] if offsets else 0.0
+        end_s = offsets[1] if offsets and len(offsets) > 1 else offset_s + window_size_s
+
+        filepath = _resolve_path(filename)
+        if filepath is None:
+            log.warning("Audio file not found for window %s: %s", window_id, filename)
+            # Return silence so the GUI can still show the card
+            n_samples = int((end_s - offset_s) * sample_rate_hz)
+            return np.zeros(n_samples, dtype=np.float32), sample_rate_hz
+
+        with sf.SoundFile(filepath) as f:
+            file_sr = f.samplerate
+            start_frame = int(offset_s * file_sr)
+            n_frames = int((end_s - offset_s) * file_sr)
+            f.seek(start_frame)
+            audio = f.read(n_frames, dtype="float32", always_2d=False)
+            # Mix down to mono
+            if audio.ndim > 1:
+                audio = audio.mean(axis=1)
+
+        # Resample if needed
+        if file_sr != sample_rate_hz:
+            try:
+                import resampy
+                audio = resampy.resample(audio, file_sr, sample_rate_hz)
+            except ImportError:
+                pass  # live with wrong sample rate rather than crash
+
+        return audio, sample_rate_hz
+
+    return loader_fn, sample_rate_hz, window_size_s
 
 
 def _format_duration(seconds: float) -> str:
@@ -398,8 +506,8 @@ def cmd_stats(args) -> int:
     log.info("Total annotations: %d", ann_count)
     if ann_count > 0:
         try:
-            pos = db.count_each_label(label_type=iface.datatypes.LabelType.POSITIVE)
-            neg = db.count_each_label(label_type=iface.datatypes.LabelType.NEGATIVE)
+            pos = db.count_each_label(label_type=iface.LabelType.POSITIVE)
+            neg = db.count_each_label(label_type=iface.LabelType.NEGATIVE)
             log.info("Positive labels: %s", dict(pos))
             log.info("Negative labels: %s", dict(neg))
         except Exception as exc:
@@ -423,9 +531,9 @@ def cmd_label(args) -> int:
     from perch_hoplite.db import interface as iface
 
     label_type_map = {
-        "positive": iface.datatypes.LabelType.POSITIVE,
-        "negative": iface.datatypes.LabelType.NEGATIVE,
-        "weak_negative": iface.datatypes.LabelType.UNCERTAIN,
+        "positive": iface.LabelType.POSITIVE,
+        "negative": iface.LabelType.NEGATIVE,
+        "weak_negative": getattr(iface.LabelType, "WEAK_NEGATIVE", getattr(iface.LabelType, "UNCERTAIN", iface.LabelType.NEGATIVE)),
     }
 
     csv_path = Path(args.labels_csv)
@@ -437,20 +545,27 @@ def cmd_label(args) -> int:
     skipped = 0
     errors = 0
 
-    # Build filename -> integer recording_id lookup from the DB.
-    # insert_annotation requires an integer ID, not a filename string.
-    # Labels whose recording_id filename is not in the DB are silently
-    # skipped — this is expected when a label CSV covers more dates than
-    # the current database (e.g. full-month labels on a single-day DB).
-    log.info("Building recording filename lookup from DB...")
-    all_recordings = db.get_all_recordings()
-    filename_to_id = {}
-    for rec in all_recordings:
-        # Index by full filename and also by stem (without .wav extension)
-        filename_to_id[rec.filename] = rec.id
-        stem = rec.filename.rsplit('.', 1)[0] if '.' in rec.filename else rec.filename
-        filename_to_id[stem] = rec.id
-    log.info("  DB contains %d recordings.", len(all_recordings))
+    # Build filename -> integer recording_id map from DB embedding sources.
+    # insert_annotation requires the integer primary key, not a filename string.
+    # We scan all window IDs and collect (filename, recording_id) pairs.
+    # This is the only reliable way in perch-hoplite 1.0.1 — there is no
+    # get_all_recordings() method on the SQLiteUSearchDB.
+    log.info("Building filename -> recording_id lookup from DB (scanning embeddings)...")
+    filename_to_rec_id: dict[str, int] = {}
+    try:
+        all_ids = db.match_window_ids(limit=None)
+        for wid in all_ids:
+            src = db.get_embedding_source(wid)
+            fname = getattr(src, "source_id", None) or ""
+            rec_id = getattr(src, "recording_id", None)
+            if fname and rec_id is not None:
+                filename_to_rec_id[fname] = int(rec_id)
+                # Also index by stem (without extension) for flexible matching
+                stem = fname.rsplit(".", 1)[0] if "." in fname else fname
+                filename_to_rec_id[stem] = int(rec_id)
+        log.info("  Found %d unique recordings in DB.", len({v for v in filename_to_rec_id.values()}))
+    except Exception as exc:
+        log.warning("Could not build filename lookup: %s — will try direct int cast.", exc)
 
     log.info("Reading labels from %s", csv_path)
     with open(csv_path, newline="", encoding="utf-8") as f:
@@ -472,10 +587,16 @@ def cmd_label(args) -> int:
                     skipped += 1
                     continue
 
-                # Look up integer recording ID — skip if not in DB
                 csv_filename = row["recording_id"].strip()
-                rec_int_id = filename_to_id.get(csv_filename)
+                # Resolve to integer recording_id
+                rec_int_id = filename_to_rec_id.get(csv_filename)
                 if rec_int_id is None:
+                    stem = csv_filename.rsplit(".", 1)[0] if "." in csv_filename else csv_filename
+                    rec_int_id = filename_to_rec_id.get(stem)
+                if rec_int_id is None:
+                    # File not in this DB — expected when label CSV covers more
+                    # dates than the current DB (e.g. full-month labels on a
+                    # single-day DB).
                     skipped += 1
                     continue
 
@@ -485,7 +606,7 @@ def cmd_label(args) -> int:
 
                 if args.dry_run:
                     log.debug(
-                        "DRY RUN row %d: recording_id=%s (id=%d) offset=%.2f label=%s type=%s",
+                        "DRY RUN row %d: %s (rec_id=%d) offset=%.2f label=%s type=%s",
                         i, csv_filename, rec_int_id, offset_s, row["label"], lt_str,
                     )
                     inserted += 1
@@ -497,28 +618,13 @@ def cmd_label(args) -> int:
                     label=row["label"].strip(),
                     label_type=lt,
                     provenance=f"csv_import:{args.annotator_id}",
-                    handle_duplicates="skip",
+                    handle_duplicates="update",
                 )
                 inserted += 1
 
             except Exception as exc:
                 log.warning("Row %d error: %s  Row data: %s", i, exc, row)
                 errors += 1
-
-    # Flush WAL to main database file so annotations are visible to other connections
-    if not args.dry_run and inserted > 0:
-        try:
-            db.commit()
-            log.info("Database committed.")
-        except AttributeError:
-            # db may not have a commit() method — use SQLite directly
-            import sqlite3 as _sqlite3
-            db_file = str(Path(args.db_dir) / "hoplite.sqlite")
-            conn = _sqlite3.connect(db_file)
-            conn.execute("PRAGMA wal_checkpoint(TRUNCATE);")
-            conn.commit()
-            conn.close()
-            log.info("WAL checkpoint complete.")
 
     action = "DRY RUN — would insert" if args.dry_run else "Inserted"
     log.info("%s %d labels (%d skipped, %d errors).", action, inserted, skipped, errors)
@@ -634,7 +740,7 @@ def cmd_search(args) -> int:
     db = load_db(args.db_dir)
     embedding_model, audio_sources = load_model_from_db(db)
     audio_filepath_loader, sr, window_size_s = make_audio_loader(
-        embedding_model, audio_sources, args.sample_rate_hz
+        db, embedding_model, audio_sources, args.sample_rate_hz
     )
 
     results_obj, all_scores, sr, window_size_s = _run_search(
@@ -727,7 +833,7 @@ def cmd_train(args) -> int:
         json.dump(
             {
                 "labels": target_labels,
-                "eval_scores": {k: float(v.item()) if hasattr(v, "item") else float(v) for k, v in eval_scores.items()},
+                "eval_scores": {k: float(v) for k, v in eval_scores.items()},
                 "train_args": {
                     "num_steps": args.num_steps,
                     "learning_rate": args.learning_rate,
@@ -757,49 +863,25 @@ def cmd_review(args) -> int:
     db = load_db(args.db_dir)
     embedding_model, audio_sources = load_model_from_db(db)
     audio_filepath_loader, sr, _ = make_audio_loader(
-        embedding_model, audio_sources, args.sample_rate_hz
+        db, embedding_model, audio_sources, args.sample_rate_hz
     )
 
     log.info("Loading classifier from %s", args.classifier)
     linear_classifier = classifier_mod.LinearClassifier.load(args.classifier)
 
-    # Retrieve the label list for this classifier.
-    # Try several approaches in order of reliability.
-    target_labels = []
-
-    # 1. Try classifier's own label list (API varies by version)
-    for attr in ("labels", "class_list", "get_labels"):
-        try:
-            val = getattr(linear_classifier, attr)
-            target_labels = val() if callable(val) else list(val)
-            if target_labels:
-                break
-        except Exception:
-            continue
-
-    # 2. Try companion metrics JSON
-    if not target_labels:
+    # Retrieve the weight vector for the target label
+    try:
+        target_labels = linear_classifier.get_labels()
+    except Exception:
+        # Fallback: try reading from companion metrics JSON
         metrics_path = Path(args.classifier).with_suffix(".metrics.json")
         if metrics_path.exists():
-            try:
-                with open(metrics_path) as f:
-                    content_str = f.read().strip()
-                    target_labels = json.loads(content_str).get("labels", []) if content_str else []
-            except Exception:
-                target_labels = []
-
-    # 3. Fall back to --target-label argument
-    if not target_labels:
-        if args.target_label:
-            log.warning(
-                "Could not read labels from classifier or metrics.json — "
-                "using --target-label '%s'.", args.target_label,
-            )
-            target_labels = [args.target_label]
+            with open(metrics_path) as f:
+                target_labels = json.load(f).get("labels", [])
         else:
             log.error(
                 "Cannot determine classifier labels. "
-                "Pass --target-label or ensure the .metrics.json companion file exists."
+                "Ensure the .metrics.json companion file exists."
             )
             return 1
 
@@ -811,19 +893,60 @@ def cmd_review(args) -> int:
         return 1
 
     idx = target_labels.index(args.target_label)
-    class_query = linear_classifier.beta[:, idx]
-    bias = linear_classifier.beta_bias[idx]
+
+    # perch-hoplite 1.0.1: weights are in linear_classifier.params dict.
+    # Older builds exposed them as direct attributes; support both.
+    params = getattr(linear_classifier, "params", None)
+    if params is not None and "beta" in params:
+        beta  = params["beta"]      # shape: (embedding_dim, n_classes)
+        beta_bias = params["beta_bias"]  # shape: (n_classes,)
+    else:
+        # Fallback for builds that expose attributes directly
+        beta = linear_classifier.beta
+        beta_bias = linear_classifier.beta_bias
+
+    class_query = beta[:, idx]
+    bias_val = float(beta_bias[idx])
     log.info(
         "Using classifier weight vector for label '%s' (index %d)",
         args.target_label, idx,
     )
 
-    score_fn = score_functions_mod.get_score_fn(
-        "dot", bias=bias, target_score=args.margin_target_score
-    )
+    # Fold the bias into the query vector so we can use the standard dot
+    # score function.  threaded_brute_search computes score = query · emb,
+    # so appending bias_val to query and 1.0 to each embedding is equivalent
+    # to score = (W·emb + bias).  However since we cannot modify stored
+    # embeddings we instead shift scores post-hoc by adding bias_val to the
+    # dot product.  The simplest correct approach: use a custom score_fn closure.
+    import numpy as _np
+    _bias_val = bias_val  # capture in closure
+
+    def _biased_dot(query, emb):
+        return float(_np.dot(query, emb)) + _bias_val
+
+    # Pre-sample embeddings if sample_size is set (threaded_brute_search in
+    # perch-hoplite 1.0.1 does not accept a sample_size kwarg).
+    if args.sample_size and args.sample_size > 0:
+        import numpy as _np2
+        all_ids = db.match_window_ids(limit=None)
+        if len(all_ids) > args.sample_size:
+            chosen = _np2.random.default_rng().choice(
+                len(all_ids), size=args.sample_size, replace=False
+            )
+            sampled_ids = [all_ids[i] for i in sorted(chosen)]
+            log.info(
+                "Pre-sampled %d / %d embeddings for review search.",
+                args.sample_size, len(all_ids),
+            )
+        else:
+            sampled_ids = all_ids
+    else:
+        sampled_ids = None  # search full DB
+
     results_obj, all_scores = brutalism_mod.threaded_brute_search(
         db, class_query, args.num_results,
-        score_fn=score_fn, sample_size=args.sample_size,
+        score_fn=_biased_dot,
+        **({"window_id_list": sampled_ids} if sampled_ids is not None else {}),
     )
 
     hit_scores = [r.sort_score for r in results_obj.search_results]
@@ -1061,21 +1184,28 @@ Click **Positive** (🟢) or **Negative** (🔴) for each segment, then **Save L
                         radio_components.append((seg["window_id"], radio))
 
         def save_labels(*radio_values):
-            from perch_hoplite.db import interface as iface_local
+            # iface is already imported at the top of _launch_labeling_gui
             saved = 0
+            skipped = 0
             for (wid, _), choice in zip(radio_components, radio_values):
                 if choice == "unlabeled":
+                    skipped += 1
                     continue
                 lt = (
-                    iface_local.LabelType.POSITIVE
+                    iface.LabelType.POSITIVE
                     if choice == "positive"
-                    else iface_local.LabelType.NEGATIVE
+                    else iface.LabelType.NEGATIVE
                 )
                 try:
                     source = db.get_embedding_source(wid)
+                    # insert_annotation requires the integer recording_id stored on
+                    # the EmbeddingSource, NOT the filename string (source_id).
+                    rec_int_id = getattr(source, "recording_id", None)
+                    if rec_int_id is None:
+                        rec_int_id = int(wid)
                     offsets = getattr(source, "offsets", (0.0, 5.0))
                     db.insert_annotation(
-                        recording_id=getattr(source, "source_id", str(wid)),
+                        recording_id=rec_int_id,
                         offsets=offsets,
                         label=query_label,
                         label_type=lt,
@@ -1086,14 +1216,17 @@ Click **Positive** (🟢) or **Negative** (🔴) for each segment, then **Save L
                 except Exception as exc:
                     log.warning("Failed to save label for window %s: %s", wid, exc)
 
-            from perch_hoplite.db import interface as iface_local2
-            pos_counts = db.count_each_label(label_type=iface_local2.LabelType.POSITIVE)
-            neg_counts = db.count_each_label(label_type=iface_local2.LabelType.NEGATIVE)
-            msg = (
-                f"Saved {saved} labels to DB.\n"
-                f"Total positive: {dict(pos_counts)}\n"
-                f"Total negative: {dict(neg_counts)}"
-            )
+            try:
+                pos_counts = db.count_each_label(label_type=iface.LabelType.POSITIVE)
+                neg_counts = db.count_each_label(label_type=iface.LabelType.NEGATIVE)
+                counts_str = (
+                    f"Total positive: {dict(pos_counts)}\n"
+                    f"Total negative: {dict(neg_counts)}"
+                )
+            except Exception as exc:
+                counts_str = f"(Could not read label counts: {exc})"
+
+            msg = f"Saved {saved} labels ({skipped} unlabeled skipped).\n{counts_str}"
             log.info(msg)
             return msg
 
