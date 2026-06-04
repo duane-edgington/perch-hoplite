@@ -263,14 +263,30 @@ pkill -f "phase2_classify.py review"
 #### Step 5 — Retrain with new labels
 
 ```bash
-python3 phase2_classify.py train \
+nohup python3 phase2_classify.py train \
     --db-dir /mnt/PAM_Analysis/duane_scratch/perch_hoplite/db/MARS_20180413_20180413_32kHz \
     --classifier-out /mnt/PAM_Analysis/duane_scratch/perch_hoplite/models/orca_v2.pt \
-    --num-steps 256
+    --num-steps 256 \
+    > /mnt/PAM_Analysis/duane_scratch/perch_hoplite/logs/train_orca_v2.log 2>&1 &
+tail -f /mnt/PAM_Analysis/duane_scratch/perch_hoplite/logs/train_orca_v2.log
 ```
 
 Repeat Steps 4–5 until ROC-AUC is satisfactory. Increment the version number
 (`orca_v2.pt`, `orca_v3.pt`, ...) to preserve each iteration.
+
+For margin sampling (finding hard negatives near the decision boundary):
+```bash
+nohup python3 phase2_classify.py review \
+    --db-dir /mnt/PAM_Analysis/duane_scratch/perch_hoplite/db/MARS_20180413_20180413_32kHz \
+    --classifier /mnt/PAM_Analysis/duane_scratch/perch_hoplite/models/orca_v2.pt \
+    --target-label orca_call \
+    --num-results 50 \
+    --sample-size 17280 \
+    --margin-target-score 0.0 \
+    --audio-dir /mnt/PAM_Analysis/GoogleMultiSpeciesWhaleModel2/resampled_32kHz/2018/04 \
+    --serve --port 7860 \
+    > /mnt/PAM_Analysis/duane_scratch/perch_hoplite/logs/review_7860.log 2>&1 &
+```
 
 #### Step 6 — Check label counts at any time
 
@@ -292,16 +308,23 @@ python3 phase2_classify.py infer \
 
 ---
 
-## Current Status (as of June 2026)
+## Current Status (as of June 4 2026)
 
 | Item | Status |
 |---|---|
 | DB: MARS April 13 2018 | ✅ 144 files, 17,280 embeddings |
-| Bootstrap labels | ✅ 464 positive orca_call, 3 negative |
-| orca_v1.pt | ✅ trained, ROC-AUC 0.754 |
-| Active learning loop | 🔄 in progress — adding negatives |
-| orca_v2.pt | 🔲 pending first review batch |
+| Bootstrap labels | ✅ 464 positive orca_call, 3 negative (from Google model scores) |
+| orca_v1.pt | ✅ ROC-AUC 0.754 — too few negatives |
+| Active learning round 1 | ✅ +58 positives, +39 negatives via Gradio GUI |
+| orca_v2.pt | ✅ ROC-AUC 0.690 — class imbalance 522 pos / 42 neg |
+| Active learning round 2 | 🔄 in progress — margin sampling near score=0 |
+| orca_v3.pt | 🔲 pending round 2 labels |
 | Full April 2018 DB | 🔲 planned |
+| Multi-class labels | 🔲 planned — dolphin_whistle, dolphin_click, boat_motor, background |
+
+**Note on ROC-AUC trajectory:** v2 dropped from 0.754 to 0.690 due to 12:1
+class imbalance. Round 2 uses `--margin-target-score 0.0` to surface clips
+near the decision boundary. Target: ROC-AUC > 0.90 by v4–v5.
 
 ---
 
@@ -336,7 +359,7 @@ Per-clip display:
 - **Header**: filename, time offset, classifier score
 - **Spectrogram**: 0–16 kHz, 60 dB dynamic range, inferno colormap
 - **Waveform**: full 5-second window
-- **Player**: custom ▶/⏸ button + animated progress bar (dark navy = unplayed, cyan = played)
+- **Player**: HTML5 audio player with normalization to −3 dBFS
 - **Radio**: positive / negative / unlabeled
 
 Labels are written to the Hoplite SQLite DB on click of **💾 Save Labels to DB**.
