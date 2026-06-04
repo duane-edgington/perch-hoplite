@@ -1083,13 +1083,28 @@ def cmd_review(args) -> int:
     query_f32 = _np_rev.array(class_query, dtype=_np_rev.float32)
     all_scores = emb_f32 @ query_f32 + bias_val        # (N,) logit scores
 
-    # Build TopKSearchResults keeping highest scores
+    # Build TopKSearchResults.
+    # If margin_target_score is set, sort by PROXIMITY to that target score
+    # (i.e. |score - target|) so we surface clips near the decision boundary
+    # or near any specified logit value.
+    # Otherwise keep the highest-scoring clips (standard top-k).
     results_obj = search_results_mod.TopKSearchResults(top_k=args.num_results)
+    margin_target = args.margin_target_score
     for wid, score in zip(sample_ids, all_scores):
-        results_obj.update(search_results_mod.SearchResult(int(wid), float(score)))
+        if margin_target is not None:
+            # Negate distance so TopK (which keeps highest) keeps closest
+            sort_score = -abs(float(score) - margin_target)
+        else:
+            sort_score = float(score)
+        results_obj.update(search_results_mod.SearchResult(int(wid), sort_score))
 
-    log.info("Scoring complete: %d candidates, top-%d selected.",
-             sample_n, args.num_results)
+    # Restore actual logit scores for display (not the sort key)
+    score_map = {int(wid): float(s) for wid, s in zip(sample_ids, all_scores)}
+    for r in results_obj.search_results:
+        r.sort_score = score_map.get(r.window_id, r.sort_score)
+
+    log.info("Scoring complete: %d candidates, top-%d selected (margin_target=%s).",
+             sample_n, args.num_results, margin_target)
 
     # Log the window IDs selected for review so they can be reconstructed
     selected_ids = [r.window_id for r in results_obj.search_results]
