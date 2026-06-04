@@ -343,6 +343,10 @@ def build_parser() -> argparse.ArgumentParser:
                     help="Save score histogram PNG.")
     pr.add_argument("--annotator-id", default="analyst")
     pr.add_argument("--sample-rate-hz", type=int, default=None)
+    pr.add_argument("--audio-dir", default=None,
+        help="Override audio base path stored in DB (needed when DB was built "
+             "on a different machine e.g. Colab). "
+             "Example: /mnt/PAM_Analysis/GoogleMultiSpeciesWhaleModel2/resampled_32kHz/2018/04")
     add_serve(pr)
 
     # ---- infer ----
@@ -432,12 +436,15 @@ def load_db(db_dir: str):
 
 
 def _get_source(db, window_id):
-    """Retrieve embedding source metadata using whichever API the installed
-    perch-hoplite version exposes. Tries several known method names and falls
-    back to a direct SQLite query if none exist."""
+    """Retrieve embedding source metadata (filename + offsets) for a window.
+
+    Tries the known perch-hoplite method names in order, then falls back to
+    a direct SQLite query using the db_config path stored on the DB object.
+    """
+    # Try every known method name
     for method_name in (
-        "get_source_by_id",
-        "get_embedding_source",
+        "get_source_by_id",       # perch-hoplite 1.0.x
+        "get_embedding_source",   # older builds
         "get_window_source",
         "get_source",
     ):
@@ -447,34 +454,82 @@ def _get_source(db, window_id):
                 return method(window_id)
             except Exception:
                 pass
-    # Last resort: direct SQLite query
-    import sqlite3 as _sqlite3
-    # Locate the DB file from the db object
-    db_path = None
-    for attr in ("db_path", "_db_path", "path"):
-        p = getattr(db, attr, None)
-        if p:
-            db_path = str(p)
-            break
-    if db_path is None:
+
+    # Last resort: direct SQLite query.
+    # SQLiteUSearchDB stores its path in db_config.db_path
+    import sqlite3 as _sqlite3, os as _os
+    db_path_str = None
+    # Try db_config path (the real location in SQLiteUSearchDB)
+    db_cfg = getattr(db, "db_config", None)
+    if db_cfg is not None:
+        db_path_str = str(getattr(db_cfg, "db_path", None) or "")
+    # Fallback: other attribute names
+    if not db_path_str:
+        for attr in ("db_path", "_db_path", "path", "sqlite_path"):
+            v = getattr(db, attr, None)
+            if v:
+                db_path_str = str(v)
+                break
+
+    if not db_path_str:
+        available = [a for a in dir(db)
+                     if not a.startswith("__")
+                     and ("path" in a.lower() or "dir" in a.lower()
+                          or "source" in a.lower() or "config" in a.lower())]
         raise RuntimeError(
-            f"Cannot find DB path on {type(db).__name__} — "
-            "no known get_source method and no db_path attribute."
+            f"Cannot find SQLite path on {type(db).__name__}. "
+            f"Relevant attrs: {available}"
         )
-    con = _sqlite3.connect(db_path)
-    row = con.execute(
-        "SELECT source_id, dataset, start_s, end_s FROM windows WHERE id=?",
-        (int(window_id),)
-    ).fetchone()
+
+    # db_path_str may be the directory; find the sqlite file inside it
+    sqlite_file = db_path_str
+    if _os.path.isdir(sqlite_file):
+        for fname in ("hoplite.sqlite", "hoplite.db", "db.sqlite"):
+            candidate = _os.path.join(sqlite_file, fname)
+            if _os.path.isfile(candidate):
+                sqlite_file = candidate
+                break
+
+    con = _sqlite3.connect(sqlite_file)
+    # Schema: windows(id, recording_id, offsets)
+    #         recordings(id, filename, datetime, deployment_id)
+    #         deployments(id, name, project, ...)
+    # offsets is stored as a FLOAT_LIST blob — two little-endian float64s.
+    row = con.execute("""
+        SELECT r.filename, d.project, w.offsets
+        FROM windows w
+        JOIN recordings r ON r.id = w.recording_id
+        LEFT JOIN deployments d ON d.id = r.deployment_id
+        WHERE w.id = ?
+    """, (int(window_id),)).fetchone()
     con.close()
+
     if row is None:
-        raise KeyError(f"window_id {window_id} not found in DB")
+        raise KeyError(f"window_id {window_id} not found in DB at {sqlite_file}")
+
+    filename, project, offsets_blob = row
+
+    # Decode FLOAT_LIST blob: two little-endian float64 values (start_s, end_s)
+    import struct as _struct
+    if isinstance(offsets_blob, (bytes, bytearray)) and len(offsets_blob) >= 16:
+        start_s, end_s = _struct.unpack_from("<dd", offsets_blob, 0)
+    elif isinstance(offsets_blob, (bytes, bytearray)) and len(offsets_blob) >= 8:
+        start_s = _struct.unpack_from("<d", offsets_blob, 0)[0]
+        end_s = start_s + 5.0
+    else:
+        # Fallback: offsets_blob might be a string like "[0.0, 5.0]"
+        try:
+            import json as _json
+            vals = _json.loads(str(offsets_blob))
+            start_s, end_s = float(vals[0]), float(vals[1])
+        except Exception:
+            start_s, end_s = 0.0, 5.0
+
     class _EmbSource:
-        source_id = row[0]
-        dataset   = row[1]
-        offsets   = (row[2] if row[2] is not None else 0.0,
-                     row[3] if row[3] is not None else 5.0)
-        recording_id = None  # not available via this path
+        source_id    = filename
+        dataset      = project or ""
+        offsets      = (start_s, end_s)
+        recording_id = None
     return _EmbSource()
 
 
@@ -491,136 +546,36 @@ def load_model_from_db(db):
 
 
 def make_audio_loader(db, embedding_model, audio_sources, sample_rate_hz=None):
-    """Return (loader_fn, sample_rate_hz, window_size_s).
+    """Return (loader_fn, sample_rate_hz, window_size_s) using the real
+    perch-hoplite audio_loader.make_filepath_loader() API.
 
-    loader_fn(window_id) -> (audio_array, sample_rate_hz)
-
-    perch-hoplite 1.0.1 does not expose a make_filepath_loader factory.
-    We reconstruct the audio by:
-      1. Reading the embedding source (filename + offsets) from the DB.
-      2. Resolving the absolute path via the AudioSources config.
-      3. Loading the window with soundfile + resampy.
+    The returned loader normalizes audio to -3 dBFS peak so clips are
+    audible in the browser (MARS 32 kHz files have very low amplitude).
     """
-    import numpy as np
-    import soundfile as sf
+    import numpy as _np
+    from perch_hoplite.agile import audio_loader as _al
 
     if sample_rate_hz is None:
-        sample_rate_hz = getattr(embedding_model, "sample_rate", 32_000)
+        sample_rate_hz = embedding_model.sample_rate
     window_size_s = getattr(embedding_model, "window_size_s", 5.0)
 
-    # Build filename -> base_path lookup from audio_sources config.
-    # AudioSources holds a tuple of AudioSourceConfig objects.
-    source_configs = getattr(audio_sources, "audio_sources", ())
+    _raw_loader = _al.make_filepath_loader(
+        audio_sources=audio_sources,
+        window_size_s=window_size_s,
+        sample_rate_hz=sample_rate_hz,
+    )
 
-    def _resolve_path(filename: str) -> str | None:
-        """Try each audio source base_path to find the file."""
-        from pathlib import Path as _Path
-        # filename may already be an absolute path
-        p = _Path(filename)
-        if p.exists():
-            return str(p)
-        for sc in source_configs:
-            candidate = _Path(sc.base_path) / filename
-            if candidate.exists():
-                return str(candidate)
-        return None
+    _target_peak = 10 ** (-3.0 / 20)   # -3 dBFS ≈ 0.708
 
-    # Resolve the SQLite file path once at loader construction time.
-    # None of the standard method names may exist on this DB object, so we
-    # need a direct SQLite fallback.  Probe the DB object for path attributes.
-    _sqlite_path = None
-    for _attr in ("db_path", "_db_path", "path", "sqlite_path", "db_dir", "_db_dir"):
-        _p = getattr(db, _attr, None)
-        if _p:
-            import os as _os
-            _p = str(_p)
-            # It might be the directory containing the sqlite file
-            for _fname in ("hoplite.sqlite", "hoplite.db", "db.sqlite"):
-                _candidate = _os.path.join(_p, _fname) if _os.path.isdir(_p) else _p
-                if _os.path.isfile(_candidate):
-                    _sqlite_path = _candidate
-                    break
-            if _sqlite_path:
-                break
+    def loader(window_source):
+        audio, sr = _raw_loader(window_source)
+        # Normalize to -3 dBFS
+        peak = _np.abs(audio).max()
+        if peak > 1e-6:
+            audio = audio * (_target_peak / peak)
+        return audio, sr
 
-    def _get_source(window_id):
-        """Try all known method names for retrieving an embedding source."""
-        for method_name in (
-            "get_source_by_id",
-            "get_embedding_source",
-            "get_window_source",
-            "get_source",
-        ):
-            method = getattr(db, method_name, None)
-            if method is not None:
-                return method(window_id)
-        # Last resort: query the SQLite DB directly using path resolved above
-        import sqlite3 as _sqlite3
-        if _sqlite_path is None:
-            _path_attrs = {a: getattr(db, a, None)
-                           for a in dir(db)
-                           if "path" in a.lower() or "dir" in a.lower() or "file" in a.lower()}
-            raise RuntimeError(
-                f"No source-lookup method on {type(db).__name__} and SQLite path unknown. "
-                f"Path-like attrs: {_path_attrs}"
-            )
-        con = _sqlite3.connect(_sqlite_path)
-        row = con.execute(
-            "SELECT source_id, dataset, start_s, end_s FROM windows WHERE id=?",
-            (int(window_id),)
-        ).fetchone()
-        con.close()
-        if row is None:
-            raise KeyError(f"window_id {window_id} not found in DB")
-        class _Source:
-            source_id = row[0]
-            dataset   = row[1]
-            offsets   = (row[2], row[3])
-        return _Source()
-
-    def loader_fn(window_id) -> tuple:
-        source = _get_source(window_id)
-        filename = getattr(source, "source_id", None) or str(window_id)
-        offsets = getattr(source, "offsets", (0.0, window_size_s))
-        offset_s = offsets[0] if offsets else 0.0
-        end_s = offsets[1] if offsets and len(offsets) > 1 else offset_s + window_size_s
-
-        filepath = _resolve_path(filename)
-        if filepath is None:
-            log.warning("Audio file not found for window %s: %s", window_id, filename)
-            # Return silence so the GUI can still show the card
-            n_samples = int((end_s - offset_s) * sample_rate_hz)
-            return np.zeros(n_samples, dtype=np.float32), sample_rate_hz
-
-        with sf.SoundFile(filepath) as f:
-            file_sr = f.samplerate
-            start_frame = int(offset_s * file_sr)
-            n_frames = int((end_s - offset_s) * file_sr)
-            f.seek(start_frame)
-            audio = f.read(n_frames, dtype="float32", always_2d=False)
-            # Mix down to mono
-            if audio.ndim > 1:
-                audio = audio.mean(axis=1)
-
-        # Resample if needed
-        if file_sr != sample_rate_hz:
-            try:
-                import resampy
-                audio = resampy.resample(audio, file_sr, sample_rate_hz)
-            except ImportError:
-                pass  # live with wrong sample rate rather than crash
-
-        # Normalize to -3 dBFS peak so audio is audible in browser.
-        # The resampled MARS files have very low amplitude and are inaudible
-        # without this step.
-        peak = np.abs(audio).max()
-        if peak > 1e-6:  # avoid divide-by-zero on silence
-            target_peak = 10 ** (-3.0 / 20)   # -3 dBFS ≈ 0.708
-            audio = audio * (target_peak / peak)
-
-        return audio, sample_rate_hz
-
-    return loader_fn, sample_rate_hz, window_size_s
+    return loader, sample_rate_hz, window_size_s
 
 
 def _format_duration(seconds: float) -> str:
@@ -652,9 +607,8 @@ def cmd_stats(args) -> int:
     log.info("Total annotations: %d", ann_count)
     if ann_count > 0:
         try:
-            _LT = _get_label_type_enum()
-            pos = db.count_each_label(label_type=_LT.POSITIVE)
-            neg = db.count_each_label(label_type=_LT.NEGATIVE)
+            pos = db.count_each_label(label_type=interface.LabelType.POSITIVE)
+            neg = db.count_each_label(label_type=interface.LabelType.NEGATIVE)
             log.info("Positive labels: %s", dict(pos))
             log.info("Negative labels: %s", dict(neg))
         except Exception as exc:
@@ -678,11 +632,10 @@ def cmd_label(args) -> int:
     from perch_hoplite.db import interface as iface
 
     label_type_map = {
-        "positive": _get_label_type_enum().POSITIVE,
-        "negative": _get_label_type_enum().NEGATIVE,
-        "weak_negative": getattr(_get_label_type_enum(), "WEAK_NEGATIVE",
-                         getattr(_get_label_type_enum(), "UNCERTAIN",
-                         _get_label_type_enum().NEGATIVE)),
+        "positive": interface.LabelType.POSITIVE,
+        "negative": interface.LabelType.NEGATIVE,
+        "weak_negative": getattr(interface.LabelType, "WEAK_NEGATIVE",
+                         interface.LabelType.NEGATIVE),
     }
 
     csv_path = Path(args.labels_csv)
@@ -888,6 +841,23 @@ def cmd_search(args) -> int:
 
     db = load_db(args.db_dir)
     embedding_model, audio_sources = load_model_from_db(db)
+
+    if getattr(args, "audio_dir", None):
+        from perch_hoplite.agile import source_info as _si
+        patched_globs = []
+        for ag in audio_sources.audio_sources:
+            patched = _si.AudioSourceConfig(
+                dataset_name=ag.dataset_name,
+                base_path=args.audio_dir,
+                file_glob=ag.file_glob,
+                min_audio_len_s=ag.min_audio_len_s,
+                target_sample_rate_hz=ag.target_sample_rate_hz,
+                shard_len_s=ag.shard_len_s,
+            )
+            patched_globs.append(patched)
+        audio_sources = _si.AudioSources(tuple(patched_globs))
+        log.info("Audio base path overridden to: %s", args.audio_dir)
+
     audio_filepath_loader, sr, window_size_s = make_audio_loader(
         db, embedding_model, audio_sources, args.sample_rate_hz
     )
@@ -1011,6 +981,26 @@ def cmd_review(args) -> int:
 
     db = load_db(args.db_dir)
     embedding_model, audio_sources = load_model_from_db(db)
+
+    # If --audio-dir is given, override every base_path in audio_sources.
+    # This is needed when the DB was built on a different machine (e.g. Colab)
+    # and the audio files are now at a different path on this server.
+    if getattr(args, "audio_dir", None):
+        from perch_hoplite.agile import source_info as _si
+        patched_globs = []
+        for ag in audio_sources.audio_sources:
+            patched = _si.AudioSourceConfig(
+                dataset_name=ag.dataset_name,
+                base_path=args.audio_dir,
+                file_glob=ag.file_glob,
+                min_audio_len_s=ag.min_audio_len_s,
+                target_sample_rate_hz=ag.target_sample_rate_hz,
+                shard_len_s=ag.shard_len_s,
+            )
+            patched_globs.append(patched)
+        audio_sources = _si.AudioSources(tuple(patched_globs))
+        log.info("Audio base path overridden to: %s", args.audio_dir)
+
     audio_filepath_loader, sr, _ = make_audio_loader(
         db, embedding_model, audio_sources, args.sample_rate_hz
     )
@@ -1043,77 +1033,22 @@ def cmd_review(args) -> int:
 
     idx = target_labels.index(args.target_label)
 
-    # perch-hoplite 1.0.1: weights are in linear_classifier.params dict.
-    # Older builds exposed them as direct attributes; support both.
-    params = getattr(linear_classifier, "params", None)
-    if params is not None and "beta" in params:
-        beta  = params["beta"]      # shape: (embedding_dim, n_classes)
-        beta_bias = params["beta_bias"]  # shape: (n_classes,)
-    else:
-        # Fallback for builds that expose attributes directly
-        beta = linear_classifier.beta
-        beta_bias = linear_classifier.beta_bias
-
-    class_query = beta[:, idx]
-    bias_val = float(beta_bias[idx])
+    class_query = linear_classifier.beta[:, idx]
+    bias_val = float(linear_classifier.beta_bias[idx])
     log.info(
         "Using classifier weight vector for label '%s' (index %d)",
         args.target_label, idx,
     )
 
-    # Fold the bias into the query vector so we can use the standard dot
-    # score function.  threaded_brute_search computes score = query · emb,
-    # so appending bias_val to query and 1.0 to each embedding is equivalent
-    # to score = (W·emb + bias).  However since we cannot modify stored
-    # embeddings we instead shift scores post-hoc by adding bias_val to the
-    # dot product.  The simplest correct approach: use a custom score_fn closure.
-    import numpy as _np
-    _bias_val = bias_val  # capture in closure
+    score_fn = score_functions.get_score_fn(
+        "dot", bias=bias_val, target_score=args.margin_target_score,
+    )
+    results_obj, all_scores = brutalism_mod.threaded_brute_search(
+        db, class_query, args.num_results,
+        score_fn=score_fn,
+        sample_size=args.sample_size if args.sample_size else None,
+    )
 
-    def _biased_dot(query, emb):
-        return float(_np.dot(query, emb)) + _bias_val
-
-    # Pre-sample embeddings if sample_size is set (threaded_brute_search in
-    # perch-hoplite 1.0.1 does not accept a sample_size kwarg).
-    if args.sample_size and args.sample_size > 0:
-        import numpy as _np2
-        all_ids = db.match_window_ids(limit=None)
-        if len(all_ids) > args.sample_size:
-            chosen = _np2.random.default_rng().choice(
-                len(all_ids), size=args.sample_size, replace=False
-            )
-            sampled_ids = [all_ids[i] for i in sorted(chosen)]
-            log.info(
-                "Pre-sampled %d / %d embeddings for review search.",
-                args.sample_size, len(all_ids),
-            )
-        else:
-            sampled_ids = all_ids
-    else:
-        sampled_ids = None  # search full DB
-
-    # threaded_brute_search always searches the full DB and accepts no
-    # window_id_list / sample_size kwarg in perch-hoplite 1.0.1.
-    # When we have a sampled subset, run the dot product search manually
-    # so we only score the sampled embeddings.
-    if sampled_ids is not None:
-        import numpy as _np3
-        from perch_hoplite.db import search_results as _sr
-
-        ids_arr = list(sampled_ids)
-        # Fetch all sampled embeddings in one batch (uses our patched method)
-        emb_matrix = db.get_embeddings_batch(ids_arr)   # shape (N, D)
-        raw_scores = emb_matrix @ class_query + _bias_val  # (N,)
-
-        results_obj = _sr.TopKSearchResults(top_k=args.num_results)
-        for wid, sc in zip(ids_arr, raw_scores):
-            results_obj.update(_sr.SearchResult(wid, float(sc)))
-        all_scores = raw_scores
-    else:
-        results_obj, all_scores = brutalism_mod.threaded_brute_search(
-            db, class_query, args.num_results,
-            score_fn=_biased_dot,
-        )
 
     hit_scores = [r.sort_score for r in results_obj.search_results]
     log.info(
@@ -1415,11 +1350,10 @@ Click **Positive** (🟢) or **Negative** (🔴) for each segment, then **Save L
                 if choice == "unlabeled":
                     skipped += 1
                     continue
-                _LT = _get_label_type_enum()
                 lt = (
-                    _LT.POSITIVE
+                    interface.LabelType.POSITIVE
                     if choice == "positive"
-                    else _LT.NEGATIVE
+                    else interface.LabelType.NEGATIVE
                 )
                 try:
                     source = _get_source(db, wid)
@@ -1442,9 +1376,8 @@ Click **Positive** (🟢) or **Negative** (🔴) for each segment, then **Save L
                     log.warning("Failed to save label for window %s: %s", wid, exc)
 
             try:
-                _LT2 = _get_label_type_enum()
-                pos_counts = db.count_each_label(label_type=_LT2.POSITIVE)
-                neg_counts = db.count_each_label(label_type=_LT2.NEGATIVE)
+                pos_counts = db.count_each_label(label_type=interface.LabelType.POSITIVE)
+                neg_counts = db.count_each_label(label_type=interface.LabelType.NEGATIVE)
                 counts_str = (
                     f"Total positive: {dict(pos_counts)}\n"
                     f"Total negative: {dict(neg_counts)}"
