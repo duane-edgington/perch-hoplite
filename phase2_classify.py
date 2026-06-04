@@ -1031,14 +1031,36 @@ def cmd_review(args) -> int:
         args.target_label, idx,
     )
 
-    score_fn = score_functions_mod.get_score_fn(
-        "dot", bias=bias_val, target_score=args.margin_target_score,
-    )
-    results_obj, all_scores = brutalism_mod.threaded_brute_search(
-        db, class_query, args.num_results,
-        score_fn=score_fn,
-        sample_size=args.sample_size if args.sample_size else None,
-    )
+    # Use USearch approximate nearest-neighbor search (db.ui.search) which
+    # does NOT call get_embeddings_batch and therefore avoids the USearch
+    # API version mismatch that breaks threaded_brute_search on this system.
+    # We search with the classifier weight vector as the query; USearch uses
+    # inner-product metric (IP) which matches the dot-score function.
+    log.info("Running ANN search with classifier weight vector (%d dims)...",
+             len(class_query))
+
+    import numpy as _np_rev
+
+    # Normalise query to float32 as USearch expects
+    query_f32 = _np_rev.array(class_query, dtype=_np_rev.float32)
+
+    search_k = max(args.num_results * 4, 500)  # over-fetch then re-rank
+    if args.sample_size and args.sample_size > 0:
+        search_k = min(search_k, args.sample_size)
+
+    ann_matches = db.ui.search(query_f32, count=search_k)
+
+    # Build TopKSearchResults from ANN hits
+    results_obj = search_results_mod.TopKSearchResults(top_k=args.num_results)
+    all_scores = []
+    for key, dist in zip(ann_matches.keys, ann_matches.distances):
+        # dist is inner-product score (higher = better match)
+        score = float(dist) + bias_val
+        all_scores.append(score)
+        results_obj.update(search_results_mod.SearchResult(int(key), score))
+
+    all_scores = _np_rev.array(all_scores)
+    log.info("ANN search complete: %d candidates scored.", len(all_scores))
 
 
     hit_scores = [r.sort_score for r in results_obj.search_results]
