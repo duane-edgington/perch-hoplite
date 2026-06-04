@@ -1031,36 +1031,46 @@ def cmd_review(args) -> int:
         args.target_label, idx,
     )
 
-    # Use USearch approximate nearest-neighbor search (db.ui.search) which
-    # does NOT call get_embeddings_batch and therefore avoids the USearch
-    # API version mismatch that breaks threaded_brute_search on this system.
-    # We search with the classifier weight vector as the query; USearch uses
-    # inner-product metric (IP) which matches the dot-score function.
-    log.info("Running ANN search with classifier weight vector (%d dims)...",
+    # Compute classifier scores directly on the main thread using
+    # get_embeddings_batch (our patched version handles the USearch API
+    # version difference). Fetch a random sample, score with dot product,
+    # keep top-k. This is single-threaded so avoids the thread-safety issue
+    # with threaded_brute_search.
+    log.info("Scoring embeddings with classifier weight vector (%d dims)...",
              len(class_query))
 
     import numpy as _np_rev
 
-    # Normalise query to float32 as USearch expects
+    all_ids = db.match_window_ids(limit=None)
+    total = len(all_ids)
+
+    # Random subsample
+    sample_n = args.sample_size if args.sample_size and args.sample_size > 0 else total
+    sample_n = min(sample_n, total)
+    if sample_n < total:
+        chosen = _np_rev.random.default_rng().choice(total, size=sample_n, replace=False)
+        sample_ids = [all_ids[i] for i in sorted(chosen)]
+    else:
+        sample_ids = all_ids
+    log.info("Scoring %d / %d embeddings...", sample_n, total)
+
+    # Fetch all sampled embeddings in one batch on main thread
+    emb_matrix = db.get_embeddings_batch(sample_ids)   # (N, D) float16
+    emb_f32 = emb_matrix.astype(_np_rev.float32)
     query_f32 = _np_rev.array(class_query, dtype=_np_rev.float32)
+    all_scores = emb_f32 @ query_f32 + bias_val        # (N,) logit scores
 
-    search_k = max(args.num_results * 4, 500)  # over-fetch then re-rank
-    if args.sample_size and args.sample_size > 0:
-        search_k = min(search_k, args.sample_size)
-
-    ann_matches = db.ui.search(query_f32, count=search_k)
-
-    # Build TopKSearchResults from ANN hits
+    # Build TopKSearchResults keeping highest scores
     results_obj = search_results_mod.TopKSearchResults(top_k=args.num_results)
-    all_scores = []
-    for key, dist in zip(ann_matches.keys, ann_matches.distances):
-        # dist is inner-product score (higher = better match)
-        score = float(dist) + bias_val
-        all_scores.append(score)
-        results_obj.update(search_results_mod.SearchResult(int(key), score))
+    for wid, score in zip(sample_ids, all_scores):
+        results_obj.update(search_results_mod.SearchResult(int(wid), float(score)))
 
-    all_scores = _np_rev.array(all_scores)
-    log.info("ANN search complete: %d candidates scored.", len(all_scores))
+    log.info("Scoring complete: %d candidates, top-%d selected.",
+             sample_n, args.num_results)
+
+    # Log the window IDs selected for review so they can be reconstructed
+    selected_ids = [r.window_id for r in results_obj.search_results]
+    log.info("Selected window IDs: %s", selected_ids)
 
 
     hit_scores = [r.sort_score for r in results_obj.search_results]
@@ -1306,7 +1316,63 @@ def _launch_labeling_gui(
     def _segment_card(seg: dict, idx: int) -> str:
         wav_b64  = _make_audio_b64(seg["audio"], seg["sample_rate"])
         spec_b64 = _make_spectrogram_image(seg["audio"], seg["sample_rate"])
-        fname = seg["recording_id"].split("/")[-1]   # basename only for display
+        fname = seg["recording_id"].split("/")[-1]
+        pid = f"player_{idx}"   # unique ID for JS targeting
+
+        # Custom audio player with high-contrast progress bar.
+        # Unplayed = dark blue-grey (#1e3a5f), played = bright cyan (#00e5ff).
+        # A canvas draws the progress bar; JS updates it on timeupdate.
+        player_html = f"""
+<div id='{pid}_wrap' style='margin-top:8px;'>
+  <audio id='{pid}' src='{wav_b64}'
+         style='display:none;'></audio>
+  <!-- Play/Pause button -->
+  <div style='display:flex;align-items:center;gap:10px;'>
+    <button id='{pid}_btn'
+      onclick="(function(){{
+        var a=document.getElementById('{pid}');
+        var b=document.getElementById('{pid}_btn');
+        if(a.paused){{a.play();b.textContent='⏸';}}
+        else{{a.pause();b.textContent='▶';}}
+      }})()"
+      style='background:#0ea5e9;color:#fff;border:none;border-radius:6px;
+             padding:6px 14px;font-size:16px;cursor:pointer;flex-shrink:0;'>▶</button>
+    <!-- Progress bar canvas -->
+    <div style='flex:1;position:relative;height:28px;border-radius:4px;
+                overflow:hidden;background:#1e3a5f;cursor:pointer;'
+         id='{pid}_bar'
+         onclick="(function(e){{
+           var a=document.getElementById('{pid}');
+           var r=document.getElementById('{pid}_bar').getBoundingClientRect();
+           a.currentTime=((e.clientX-r.left)/r.width)*a.duration;
+         }})(event)">
+      <div id='{pid}_prog'
+           style='height:100%;width:0%;background:linear-gradient(90deg,#00e5ff,#0ea5e9);
+                  transition:width 0.1s linear;border-radius:4px;'></div>
+      <span id='{pid}_time'
+            style='position:absolute;right:6px;top:50%;transform:translateY(-50%);
+                   color:#e2e8f0;font-size:11px;font-family:monospace;pointer-events:none;'>
+        0.0 / {seg["end_offset_s"]-seg["offset_s"]:.1f}s
+      </span>
+    </div>
+  </div>
+  <script>
+  (function(){{
+    var a=document.getElementById('{pid}');
+    var p=document.getElementById('{pid}_prog');
+    var t=document.getElementById('{pid}_time');
+    var b=document.getElementById('{pid}_btn');
+    a.addEventListener('timeupdate',function(){{
+      var pct=(a.duration>0)?(a.currentTime/a.duration*100):0;
+      p.style.width=pct+'%';
+      t.textContent=a.currentTime.toFixed(1)+' / '+
+                    (a.duration?a.duration.toFixed(1):'?')+'s';
+    }});
+    a.addEventListener('ended',function(){{b.textContent='▶';}});
+  }})();
+  </script>
+</div>"""
+
         return (
             f"<div style='background:#1e293b;border-radius:8px;padding:12px;"
             f"margin-bottom:8px;color:#e2e8f0;font-family:monospace;font-size:11px;'>"
@@ -1316,7 +1382,7 @@ def _launch_labeling_gui(
             f" &nbsp; <span style='color:#fbbf24'>score={seg['score']:.3f}</span><br>"
             f"<img src='{spec_b64}' style='width:100%;margin-top:6px;"
             f"border-radius:4px;display:block;'/>"
-            f"<audio controls style='width:100%;margin-top:6px;' src='{wav_b64}'></audio>"
+            f"{player_html}"
             f"</div>"
         )
 
@@ -1359,7 +1425,7 @@ Click **Positive** (🟢) or **Negative** (🔴) for each segment, then **Save L
                         radio_components.append((seg["window_id"], radio))
 
         def save_labels(*radio_values):
-            # iface is already imported at the top of _launch_labeling_gui
+            from perch_hoplite.db import interface as _iface
             saved = 0
             skipped = 0
             for (wid, _), choice in zip(radio_components, radio_values):
@@ -1367,9 +1433,9 @@ Click **Positive** (🟢) or **Negative** (🔴) for each segment, then **Save L
                     skipped += 1
                     continue
                 lt = (
-                    interface.LabelType.POSITIVE
+                    _iface.LabelType.POSITIVE
                     if choice == "positive"
-                    else interface.LabelType.NEGATIVE
+                    else _iface.LabelType.NEGATIVE
                 )
                 try:
                     source = _get_source(db, wid)
@@ -1392,8 +1458,8 @@ Click **Positive** (🟢) or **Negative** (🔴) for each segment, then **Save L
                     log.warning("Failed to save label for window %s: %s", wid, exc)
 
             try:
-                pos_counts = db.count_each_label(label_type=interface.LabelType.POSITIVE)
-                neg_counts = db.count_each_label(label_type=interface.LabelType.NEGATIVE)
+                pos_counts = db.count_each_label(label_type=_iface.LabelType.POSITIVE)
+                neg_counts = db.count_each_label(label_type=_iface.LabelType.NEGATIVE)
                 counts_str = (
                     f"Total positive: {dict(pos_counts)}\n"
                     f"Total negative: {dict(neg_counts)}"
