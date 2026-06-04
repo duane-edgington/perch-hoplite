@@ -136,6 +136,44 @@ def _setup_logging(log_dir: Path, verbose: bool) -> None:
 
 log = logging.getLogger(__name__)
 
+
+def _get_label_type_enum():
+    """Return the LabelType enum from wherever perch-hoplite 1.0.1 exposes it.
+
+    The location changed across versions:
+      - perch_hoplite.db.interface          (older builds)
+      - perch_hoplite.db.annotations        (1.0.x)
+      - perch_hoplite.agile.source_info     (some builds)
+    Falls back to a simple namespace object so labeling still works.
+    """
+    for mod_path, attr in (
+        ("perch_hoplite.db.annotations",    "LabelType"),
+        ("perch_hoplite.db.interface",       "LabelType"),
+        ("perch_hoplite.agile.source_info",  "LabelType"),
+        ("perch_hoplite.db.sqlite_usearch_impl", "LabelType"),
+    ):
+        try:
+            import importlib
+            mod = importlib.import_module(mod_path)
+            lt = getattr(mod, attr, None)
+            if lt is not None:
+                return lt
+        except ImportError:
+            continue
+
+    # Ultimate fallback: plain namespace with integer values
+    # (perch-hoplite uses these ints internally in SQLite)
+    log.warning(
+        "Could not import LabelType from perch_hoplite — "
+        "using integer fallback (0=positive, 1=negative, 2=weak_negative)."
+    )
+    class _LabelType:
+        POSITIVE      = 1
+        NEGATIVE      = 2
+        WEAK_NEGATIVE = 3
+        UNCERTAIN     = 3
+    return _LabelType
+
 # ---------------------------------------------------------------------------
 # Lazy imports
 # ---------------------------------------------------------------------------
@@ -589,8 +627,9 @@ def cmd_stats(args) -> int:
     log.info("Total annotations: %d", ann_count)
     if ann_count > 0:
         try:
-            pos = db.count_each_label(label_type=iface.LabelType.POSITIVE)
-            neg = db.count_each_label(label_type=iface.LabelType.NEGATIVE)
+            _LT = _get_label_type_enum()
+            pos = db.count_each_label(label_type=_LT.POSITIVE)
+            neg = db.count_each_label(label_type=_LT.NEGATIVE)
             log.info("Positive labels: %s", dict(pos))
             log.info("Negative labels: %s", dict(neg))
         except Exception as exc:
@@ -614,9 +653,11 @@ def cmd_label(args) -> int:
     from perch_hoplite.db import interface as iface
 
     label_type_map = {
-        "positive": iface.LabelType.POSITIVE,
-        "negative": iface.LabelType.NEGATIVE,
-        "weak_negative": getattr(iface.LabelType, "WEAK_NEGATIVE", getattr(iface.LabelType, "UNCERTAIN", iface.LabelType.NEGATIVE)),
+        "positive": _get_label_type_enum().POSITIVE,
+        "negative": _get_label_type_enum().NEGATIVE,
+        "weak_negative": getattr(_get_label_type_enum(), "WEAK_NEGATIVE",
+                         getattr(_get_label_type_enum(), "UNCERTAIN",
+                         _get_label_type_enum().NEGATIVE)),
     }
 
     csv_path = Path(args.labels_csv)
@@ -1195,7 +1236,9 @@ def _launch_labeling_gui(
             recording_id = getattr(source, "source_id", str(wid))
             offsets = getattr(source, "offsets", (0.0, 5.0))
         except Exception as exc:
-            log.warning("Could not load audio for window %s: %s", wid, exc)
+            import traceback as _tb
+            log.warning("Could not load audio for window %s: %s\n%s",
+                        wid, exc, _tb.format_exc())
             continue
         segments.append({
             "window_id": int(wid),
@@ -1347,10 +1390,11 @@ Click **Positive** (🟢) or **Negative** (🔴) for each segment, then **Save L
                 if choice == "unlabeled":
                     skipped += 1
                     continue
+                _LT = _get_label_type_enum()
                 lt = (
-                    iface.LabelType.POSITIVE
+                    _LT.POSITIVE
                     if choice == "positive"
-                    else iface.LabelType.NEGATIVE
+                    else _LT.NEGATIVE
                 )
                 try:
                     source = _get_source(db, wid)
@@ -1373,8 +1417,9 @@ Click **Positive** (🟢) or **Negative** (🔴) for each segment, then **Save L
                     log.warning("Failed to save label for window %s: %s", wid, exc)
 
             try:
-                pos_counts = db.count_each_label(label_type=iface.LabelType.POSITIVE)
-                neg_counts = db.count_each_label(label_type=iface.LabelType.NEGATIVE)
+                _LT2 = _get_label_type_enum()
+                pos_counts = db.count_each_label(label_type=_LT2.POSITIVE)
+                neg_counts = db.count_each_label(label_type=_LT2.NEGATIVE)
                 counts_str = (
                     f"Total positive: {dict(pos_counts)}\n"
                     f"Total negative: {dict(neg_counts)}"
