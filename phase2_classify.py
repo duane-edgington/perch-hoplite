@@ -134,6 +134,11 @@ def _setup_logging(log_dir: Path, verbose: bool) -> None:
     root.addHandler(fh)
     logging.info("Logging to %s", log_file)
 
+    # Suppress absl per-SQL-statement INFO spam — floods terminal and
+    # generates huge NFS writes during training. Still captures WARNING+.
+    for _noisy in ("absl", "absl-py"):
+        logging.getLogger(_noisy).setLevel(logging.WARNING)
+
 log = logging.getLogger(__name__)
 
 class _LT:
@@ -960,7 +965,7 @@ def cmd_train(args) -> int:
         json.dump(
             {
                 "labels": target_labels,
-                "eval_scores": {k: float(v) for k, v in eval_scores.items()},
+                "eval_scores": {k: float(v.item() if hasattr(v, "item") else v) for k, v in eval_scores.items()},
                 "train_args": {
                     "num_steps": args.num_steps,
                     "learning_rate": args.learning_rate,
