@@ -557,7 +557,10 @@ def make_audio_loader(db, embedding_model, audio_sources, sample_rate_hz=None):
     _target_peak = 10 ** (-3.0 / 20)   # -3 dBFS ≈ 0.708
 
     def loader(filename, offset_s):
-        audio, sr = _raw_loader(filename, offset_s)
+        result = _raw_loader(filename, offset_s)
+        # make_filepath_loader may return (audio, sr) or (audio, sr, extra...)
+        audio = result[0]
+        sr = result[1]
         # Normalize to -3 dBFS
         peak = _np.abs(audio).max()
         if peak > 1e-6:
@@ -1210,7 +1213,8 @@ def _launch_labeling_gui(
             offsets = getattr(source, "offsets", (0.0, 5.0))
             offset_s = float(offsets[0]) if offsets else 0.0
             end_s    = float(offsets[1]) if offsets and len(offsets) > 1 else offset_s + 5.0
-            audio, sr_actual = audio_filepath_loader(recording_id, offset_s)
+            _result = audio_filepath_loader(recording_id, offset_s)
+            audio, sr_actual = _result[0], _result[1]
         except Exception as exc:
             import traceback as _tb
             log.warning("Could not load audio for window %s: %s\n%s",
