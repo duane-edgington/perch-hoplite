@@ -556,8 +556,8 @@ def make_audio_loader(db, embedding_model, audio_sources, sample_rate_hz=None):
 
     _target_peak = 10 ** (-3.0 / 20)   # -3 dBFS ≈ 0.708
 
-    def loader(window_source):
-        audio, sr = _raw_loader(window_source)
+    def loader(filename, offset_s, end_offset_s):
+        audio, sr = _raw_loader(filename, offset_s, end_offset_s)
         # Normalize to -3 dBFS
         peak = _np.abs(audio).max()
         if peak > 1e-6:
@@ -1199,15 +1199,18 @@ def _launch_labeling_gui(
 
     log.info("Building Gradio labeling interface...")
 
-    # Pre-load all result segments into memory
+    # Pre-load all result segments into memory.
+    # make_filepath_loader returns loader(filename, offset_s, end_offset_s).
     segments = []
     for r in results_obj.search_results:
         wid = r.window_id
         try:
-            audio, sr_actual = audio_filepath_loader(wid)
             source = _get_source(db, wid)
             recording_id = getattr(source, "source_id", str(wid))
             offsets = getattr(source, "offsets", (0.0, 5.0))
+            offset_s = float(offsets[0]) if offsets else 0.0
+            end_s    = float(offsets[1]) if offsets and len(offsets) > 1 else offset_s + 5.0
+            audio, sr_actual = audio_filepath_loader(recording_id, offset_s, end_s)
         except Exception as exc:
             import traceback as _tb
             log.warning("Could not load audio for window %s: %s\n%s",
