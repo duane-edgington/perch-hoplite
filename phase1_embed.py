@@ -381,7 +381,8 @@ def embed_audio(args, configs, db) -> None:
     """Run the embedding loop."""
     from perch_hoplite.agile import embed as embed_mod
 
-    audio_glob = configs.audio_sources_config.audio_sources[0]
+    _as = configs.audio_sources_config
+    audio_glob = (getattr(_as, "audio_globs", None) or getattr(_as, "audio_sources", None))[0]
 
     log.info("=" * 60)
     log.info("EMBEDDING START")
