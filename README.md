@@ -308,23 +308,43 @@ python3 phase2_classify.py infer \
 
 ---
 
-## Current Status (as of June 4 2026)
+## Current Status (as of June 5 2026)
 
 | Item | Status |
 |---|---|
 | DB: MARS April 13 2018 | ✅ 144 files, 17,280 embeddings |
-| Bootstrap labels | ✅ 464 positive orca_call, 3 negative (from Google model scores) |
-| orca_v1.pt | ✅ ROC-AUC 0.754 — too few negatives |
-| Active learning round 1 | ✅ +58 positives, +39 negatives via Gradio GUI |
+| DB: MARS April 1 2018 | ✅ 144 files, 17,280 embeddings (separate) |
+| DB: MARS_combined | ✅ 34,560 embeddings (Apr 1 + Apr 13 merged) |
+| Bootstrap labels | ✅ 464 pos, 3 neg (from Google model scores) |
+| orca_v1.pt | ✅ ROC-AUC 0.754 — Apr 13 only, too few negatives |
 | orca_v2.pt | ✅ ROC-AUC 0.690 — class imbalance 522 pos / 42 neg |
-| Active learning round 2 | 🔄 in progress — margin sampling near score=0 |
-| orca_v3.pt | 🔲 pending round 2 labels |
-| Full April 2018 DB | 🔲 planned |
-| Multi-class labels | 🔲 planned — dolphin_whistle, dolphin_click, boat_motor, background |
+| orca_v3.pt | ✅ ROC-AUC 0.778 — added orca positives from review |
+| orca_v4.pt | ✅ ROC-AUC 0.787 — Apr 13 only, 782 pos / 83 neg |
+| orca_v5.pt | ⚠️ ROC-AUC 0.664 — combined DB degraded performance (see notes) |
+| Active learning | 🔄 continuing on Apr 13 DB only with orca_v4 as base |
+| Multi-class labels | 🔲 planned — dolphin_whistle, dolphin_click, boat_motor |
+| Full April 2018 DB | 🔲 planned via Colab Pro batches |
 
-**Note on ROC-AUC trajectory:** v2 dropped from 0.754 to 0.690 due to 12:1
-class imbalance. Round 2 uses `--margin-target-score 0.0` to surface clips
-near the decision boundary. Target: ROC-AUC > 0.90 by v4–v5.
+### Key Finding: Cross-day DB merging degrades performance
+
+Merging April 1 and April 13 embeddings into a combined DB caused ROC-AUC
+to drop from 0.787 to 0.664. The likely cause: acoustic conditions differ
+between days (noise floor, background soundscape), making it harder for a
+linear classifier to find a single separating hyperplane across both days.
+
+**Current plan:** Stay within April 13 DB for training. The 17,280 windows
+on that day include many non-orca segments that serve as natural negatives.
+Use alternating top-scoring and margin-sampling review rounds to build a
+balanced label set. Target ROC-AUC > 0.90 before full inference.
+
+**ROC-AUC trajectory:**
+| Version | ROC-AUC | Pos | Neg | Notes |
+|---|---|---|---|---|
+| v1 | 0.754 | 464 | 3 | Bootstrap only |
+| v2 | 0.690 | 522 | 42 | Imbalanced — too few negatives |
+| v3 | 0.778 | ~648 | ~57 | Added positives from review |
+| v4 | 0.787 | 782 | 83 | Marginal gain |
+| v5 | 0.664 | 782 | 133 | Combined DB hurt — reverted to Apr 13 only |
 
 ---
 
@@ -374,6 +394,87 @@ docker run -d -p 8080:8080 \
 Access at http://134.89.11.107:8080
 
 ---
+
+## Provenance and Reproducibility
+
+Every labeling session and training run writes a JSON audit record so that
+any classifier can be fully reproduced from scratch given the original audio.
+
+### Directory structure
+
+```
+/mnt/PAM_Analysis/duane_scratch/perch_hoplite/provenance/
+    labels/
+        labels_20260604_132500_analyst.json   ← one file per labeling session
+        labels_20260605_110000_analyst.json
+    training/
+        train_20260604_150000_orca_v1.json    ← one file per training run
+        train_20260605_125234_orca_v5.json
+```
+
+### Labeling session record
+
+Written automatically when **💾 Save Labels to DB** is clicked.
+
+```json
+{
+  "session_id":        "20260605_132500_analyst",
+  "timestamp":         "2026-06-05T13:25:00",
+  "db_dir":            "/mnt/.../MARS_20180413_20180413_32kHz",
+  "classifier":        "/mnt/.../models/orca_v4.pt",
+  "annotator_id":      "analyst",
+  "query_label":       "orca_call",
+  "annotation_count":  50,
+  "positive_count":    6,
+  "negative_count":    44,
+  "annotations": [
+    {
+      "window_id": 2398,
+      "filename":  "MARS_20180413_143913_resampled_32kHz.wav",
+      "offset_s":  95.0,
+      "end_s":     100.0,
+      "label":     "negative",
+      "label_type": 2,
+      "score":     3.241
+    }
+  ]
+}
+```
+
+### Training run record
+
+Written automatically after each `train` command completes.
+
+```json
+{
+  "session_id":    "20260605_135000_orca_v5",
+  "timestamp":     "2026-06-05T13:50:15",
+  "db_dir":        "/mnt/.../MARS_20180413_20180413_32kHz",
+  "classifier_out": "/mnt/.../models/orca_v5.pt",
+  "elapsed_s":     530.1,
+  "eval_scores":   {"roc_auc": 0.787, "top1_acc": 1.0, "cmap": 0.703},
+  "annotation_counts": {"orca_call_type1": 782, "orca_call_type2": 83},
+  "train_args":    {"num_steps": 256, "learning_rate": 0.001, ...}
+}
+```
+
+### Reproducing a classifier from scratch
+
+Given a provenance record and the original audio:
+
+1. Re-embed the audio with `phase1_embed.py` using the same `--model` and `--shard-len`
+2. Import the annotations using the window filenames and offsets from the label records:
+   ```bash
+   python3 phase2_classify.py label        --db-dir <new_db>        --labels-csv <reconstructed_from_provenance.csv>        --annotator-id duane
+   ```
+3. Train with the same parameters from the training record
+
+## Utilities
+
+| File | Purpose |
+|---|---|
+| `merge_annotations.py` | Copy annotations between DBs (annotations only — use with care) |
+| `merge_dbs.py` | Full DB merge: SQLite + USearch index (correct way to combine DBs) |
 
 ## Model Selection Guide
 
