@@ -242,6 +242,16 @@ def build_parser() -> argparse.ArgumentParser:
         help="Validate configuration and print a summary without embedding.",
     )
     out.add_argument(
+        "--cpu-only",
+        action="store_true",
+        default=False,
+        help=(
+            "Disable all GPU/Metal backends and run on CPU only. "
+            "Required on Apple Silicon (M1/M2/M3) where Perch V2 XLA ops "
+            "are incompatible with the Metal backend."
+        ),
+    )
+    out.add_argument(
         "--stats-only",
         action="store_true",
         default=False,
@@ -276,33 +286,22 @@ def _require_imports():
 
 
 def _check_gpu():
-    """Log GPU status and enable memory growth (avoids nvidia-smi version mismatch on DGX SPARC).
-
-    Memory growth means TensorFlow allocates GPU RAM incrementally as needed
-    rather than reserving all available memory at startup. Important on the
-    GB10 which has only ~3.7 GB total GPU memory.
-    Must be called before any TF operations that allocate tensors.
-    """
+    """Warn if no GPU is detected (required for perch_v2)."""
     try:
-        import tensorflow as tf
-        gpus = tf.config.list_physical_devices("GPU")
-        if gpus:
-            for g in gpus:
-                try:
-                    tf.config.experimental.set_memory_growth(g, True)
-                except RuntimeError as e:
-                    log.debug("Memory growth already set or GPU initialized: %s", e)
-                details = tf.config.experimental.get_device_details(g)
-                name = details.get("device_name", g.name)
-                log.info("GPU ready: %s (memory growth enabled)", name)
+        import subprocess
+        result = subprocess.run(
+            ["nvidia-smi", "--query-gpu=name,memory.total", "--format=csv,noheader"],
+            capture_output=True, text=True, timeout=10,
+        )
+        if result.returncode == 0:
+            for line in result.stdout.strip().splitlines():
+                log.info("GPU detected: %s", line.strip())
         else:
-            log.warning(
-                "No GPU visible to TensorFlow. "
-                "Embedding will run on CPU and be very slow. "
-                "Check that nvidia-tensorflow is installed and CUDA is available."
-            )
+            log.warning("nvidia-smi returned non-zero exit code. GPU may not be available.")
+    except FileNotFoundError:
+        log.warning("nvidia-smi not found — GPU status unknown.")
     except Exception as exc:
-        log.warning("Could not query GPU via TensorFlow: %s", exc)
+        log.warning("Could not query GPU: %s", exc)
 
 
 def _format_duration(seconds: float) -> str:
@@ -382,7 +381,7 @@ def embed_audio(args, configs, db) -> None:
     """Run the embedding loop."""
     from perch_hoplite.agile import embed as embed_mod
 
-    audio_glob = configs.audio_sources_config.audio_globs[0]
+    audio_glob = configs.audio_sources_config.audio_sources[0]
 
     log.info("=" * 60)
     log.info("EMBEDDING START")
@@ -447,7 +446,23 @@ def main(argv=None) -> int:
     log.info("Perch Hoplite Phase 1 — Audio Embedding Pipeline")
     log.info("Python %s", sys.version.split()[0])
 
-    _check_gpu()
+    # If --cpu-only, disable all GPU/Metal before TF loads.
+    # Must be set before any tensorflow import.
+    if getattr(args, "cpu_only", False):
+        import os as _os
+        _os.environ["CUDA_VISIBLE_DEVICES"] = ""
+        _os.environ["TF_DISABLE_MKL"] = "1"
+        _os.environ["TF_XLA_FLAGS"] = "--tf_xla_enable_xla_devices=false"
+        _os.environ["TF_CPP_MIN_LOG_LEVEL"] = "2"
+        # Disable Metal after TF imports via config
+        try:
+            import tensorflow as _tf
+            _tf.config.set_visible_devices([], "GPU")
+            log.info("CPU-only mode: GPU/Metal disabled.")
+        except Exception as _e:
+            log.warning("Could not disable GPU via TF config: %s", _e)
+    else:
+        _check_gpu()
 
     # Lazy imports
     (colab_utils, embed_mod, source_info,
