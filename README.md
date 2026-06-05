@@ -320,39 +320,59 @@ python3 phase2_classify.py infer \
 
 | Item | Status |
 |---|---|
-| DB: MARS April 13 2018 | ✅ 144 files, 17,280 embeddings |
-| DB: MARS April 1 2018 | ✅ 144 files, 17,280 embeddings (separate) |
-| DB: MARS_combined | ✅ 34,560 embeddings (Apr 1 + Apr 13 merged) |
-| Bootstrap labels | ✅ 464 pos, 3 neg (from Google model scores) |
-| orca_v1.pt | ✅ ROC-AUC 0.754 — Apr 13 only, too few negatives |
-| orca_v2.pt | ✅ ROC-AUC 0.690 — class imbalance 522 pos / 42 neg |
-| orca_v3.pt | ✅ ROC-AUC 0.778 — added orca positives from review |
-| orca_v4.pt | ✅ ROC-AUC 0.787 — Apr 13 only, 782 pos / 83 neg |
-| orca_v5.pt | ⚠️ ROC-AUC 0.664 — combined DB degraded performance (see notes) |
-| Active learning | 🔄 continuing on Apr 13 DB only with orca_v4 as base |
+| DB: MARS April 13 2018 | ✅ 144 files, 17,280 embeddings — **RESET, 0 annotations** |
+| DB: MARS April 1 2018 | ✅ 144 files, 17,280 embeddings (separate, 0 annotations) |
+| DB: MARS_combined | ✅ 34,560 embeddings (Apr 1 + Apr 13 merged, experimental) |
+| orca_v1_clean.pt | 🔄 in progress — first clean run with full provenance |
 | Multi-class labels | 🔲 planned — dolphin_whistle, dolphin_click, boat_motor |
 | Full April 2018 DB | 🔲 planned via Colab Pro batches |
 
-### Key Finding: Cross-day DB merging degrades performance
+### Orca event timing on April 13 2018 (UTC)
 
-Merging April 1 and April 13 embeddings into a combined DB caused ROC-AUC
-to drop from 0.787 to 0.664. The likely cause: acoustic conditions differ
-between days (noise floor, background soundscape), making it harder for a
-linear classifier to find a single separating hyperplane across both days.
+From annotation analysis, orca calls were detected during:
+- **00:19–00:29 UTC** — brief overnight activity
+- **06:49–09:49 UTC** — morning feeding event
+- **12:59 UTC** — midday
+- **14:19–18:29 UTC** — main afternoon feeding event (densest)
+- **20:49 UTC** — late activity
 
-**Current plan:** Stay within April 13 DB for training. The 17,280 windows
-on that day include many non-orca segments that serve as natural negatives.
-Use alternating top-scoring and margin-sampling review rounds to build a
-balanced label set. Target ROC-AUC > 0.90 before full inference.
+In **Pacific Daylight Time (UTC−7):** main event was 07:19–11:29 local —
+consistent with morning gray whale calf migration through the bay.
 
-**ROC-AUC trajectory:**
-| Version | ROC-AUC | Pos | Neg | Notes |
-|---|---|---|---|---|
-| v1 | 0.754 | 464 | 3 | Bootstrap only |
-| v2 | 0.690 | 522 | 42 | Imbalanced — too few negatives |
-| v3 | 0.778 | ~648 | ~57 | Added positives from review |
-| v4 | 0.787 | 782 | 83 | Marginal gain |
-| v5 | 0.664 | 782 | 133 | Combined DB hurt — reverted to Apr 13 only |
+**Best windows for NEGATIVE labels (quiet hours on April 13 UTC):**
+- 03:00–06:00 UTC (20:00–23:00 PDT previous day)
+- 10:00–12:00 UTC (03:00–05:00 PDT)
+- 21:00–23:59 UTC (14:00–16:59 PDT)
+
+### Key Lessons from Development Phase
+
+1. **Dolphin false positives** — Perch V2 embeddings place dolphin whistles
+   near orca calls. High classifier scores do NOT always mean orca. Always
+   listen and check the spectrogram. Dolphin whistles show high-frequency
+   (3–14 kHz) upsweeping/downsweeping tonal arcs vs orca's 1–6 kHz banded
+   harmonic bursts.
+
+2. **Cross-day DB merging degrades performance** — merging embeddings from
+   different days hurt ROC-AUC. Stay within one deployment day for training.
+   The 17,280 windows on April 13 contain natural negatives in the quiet hours.
+
+3. **Kill Gradio before training** — review server holds GPU memory; training
+   will fail with OOM if both run simultaneously.
+
+4. **Eval set size matters** — with train_ratio=0.9 and ~550 labels, only
+   ~55 eval examples → high ROC-AUC variance. Use --train-ratio 0.8 for
+   reliable metrics.
+
+5. **Label deliberately** — target positives from known active UTC hours,
+   negatives from known quiet UTC hours. Random sampling wastes labeling effort.
+
+### Clean labeling strategy (current)
+
+- **Positive labels:** target files from UTC 06:49–20:49 (orca active hours)
+- **Negative labels:** target files from UTC 21:00–06:00 (quiet hours)
+- **Goal:** 150 positives + 100 negatives before first clean training run
+- **Train ratio:** 0.8 for reliable eval signal
+- **Target ROC-AUC:** > 0.90 before full inference
 
 ---
 
