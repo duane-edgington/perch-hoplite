@@ -1508,6 +1508,19 @@ def _launch_labeling_gui(
             "body { background: #0f172a; color: #e2e8f0; font-family: 'Courier New', monospace; }"
             ".gr-button-primary { background: #0ea5e9 !important; }"
             ".gr-button { border-radius: 6px !important; }"
+            ".label-radio .wrap { display: flex; flex-direction: column; gap: 6px !important; }"
+            ".label-radio .wrap label { border-radius: 8px; padding: 7px 14px;"
+            "  font-weight: 700; font-size: 13px; cursor: pointer;"
+            "  transition: box-shadow 0.15s; }"
+            ".label-radio .wrap label:nth-child(1) { background:#15803d; color:#dcfce7; }"
+            ".label-radio .wrap label:nth-child(2) { background:#b91c1c; color:#fee2e2; }"
+            ".label-radio .wrap label:nth-child(3) { background:#374151; color:#d1d5db; }"
+            ".label-radio .wrap label:nth-child(1):has(input:checked)"
+            "  { background:#16a34a; box-shadow:0 0 0 3px #86efac; }"
+            ".label-radio .wrap label:nth-child(2):has(input:checked)"
+            "  { background:#dc2626; box-shadow:0 0 0 3px #fca5a5; }"
+            ".label-radio .wrap label:nth-child(3):has(input:checked)"
+            "  { background:#4b5563; box-shadow:0 0 0 3px #9ca3af; }"
         ),
     ) as demo:
         gr.Markdown(
@@ -1625,6 +1638,7 @@ Click **Positive** (🟢) or **Negative** (🔴) for each segment, then **Save L
                             choices=["positive", "negative", "unlabeled"],
                             value="unlabeled",
                             label=f"Label #{i+1}  (wid={seg['window_id']})",
+                            elem_classes=["label-radio"],
                         )
                         radio_components.append((seg["window_id"], radio))
 
