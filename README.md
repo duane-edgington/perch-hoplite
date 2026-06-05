@@ -323,7 +323,7 @@ python3 phase2_classify.py infer \
 | DB: MARS April 13 2018 | ✅ 144 files, 17,280 embeddings — **RESET, 0 annotations** |
 | DB: MARS April 1 2018 | ✅ 144 files, 17,280 embeddings (separate, 0 annotations) |
 | DB: MARS_combined | ✅ 34,560 embeddings (Apr 1 + Apr 13 merged, experimental) |
-| orca_v1_clean.pt | 🔄 in progress — first clean run with full provenance |
+| orca_v1_clean.pt | ✅ **ROC-AUC 0.9821** — 44 pos / 56 neg, clean labels, train_ratio=0.8 |
 | Multi-class labels | 🔲 planned — dolphin_whistle, dolphin_click, boat_motor |
 | Full April 2018 DB | 🔲 planned via Colab Pro batches |
 
@@ -395,6 +395,84 @@ boat_motor          # vessel engine noise
 rov_thruster        # ROV/AUV thruster noise
 background          # featureless background / flow noise
 ```
+
+### Species acoustic signatures for MARS hydrophone
+
+Understanding where each species' energy falls in the spectrogram is
+critical for correct labeling, especially since the Gradio spectrogram
+displays 0–16 kHz. Note that blue whale and fin whale calls are
+**infrasonic** — their fundamental energy is below the 0 Hz axis of
+the display. They appear as very low-frequency energy near the bottom
+of the spectrogram, and only their harmonics may be visible.
+
+#### Orca (Killer Whale) — `orca_call`
+- **Frequency range:** 0.5–25 kHz, most energy 1–6 kHz
+- **Call types:** discrete pulsed calls, whistles, echolocation clicks
+- **Spectrogram signature:** structured banded harmonic bursts, 1–6 kHz,
+  clearly distinct from background. Duration 0.5–2 seconds per call.
+- **Monterey Bay seasonality:** peak mid-March through mid-May (Bigg's orca
+  hunting gray whale calves). Other ecotypes present year-round.
+
+#### Common/Bottlenose Dolphin — `dolphin_whistle`, `dolphin_click`
+- **Whistles:** 3–14 kHz, upsweeping/downsweeping tonal arcs
+- **Clicks:** broadband, >10 kHz
+- **Important:** Perch V2 embeddings place dolphin and orca calls near
+  each other — dolphin whistles are the most common **false positive**
+  for the orca classifier. Score alone cannot distinguish them; always
+  check the spectrogram.
+
+#### Blue Whale — `blue_whale_call`
+- **Frequency range:** 10–40 Hz (infrasonic — below display range)
+- **Peak energy:** "B call" harmonics centered at 15–16 Hz and 30–43 Hz
+- **Intensity:** up to 189 dB re 1 μPa — among the loudest animal sounds
+- **Propagation:** hundreds to thousands of miles across ocean basins
+- **Spectrogram signature:** very low-frequency energy at bottom of display,
+  may appear as bright band near 0 Hz. Harmonics occasionally visible up
+  to ~80 Hz.
+- **References:** [Thompson et al. 2017](https://www.nature.com/articles/s41598-017-09423-7),
+  [DOSITS](https://dosits.org/galleries/audio-gallery/marine-mammals/baleen-whales/blue-whale/)
+
+#### Fin Whale — `fin_whale_call`
+- **Frequency range:** 13–40 Hz (infrasonic), peak at ~20 Hz
+- **Call structure:** "20-Hz pulse" — short downsweep ~1 second, 40→13 Hz
+- **Secondary component:** higher-frequency component (HFC) at 85–140 Hz
+  occasionally visible in spectrogram
+- **Peak energy:** tightly centered at 20 Hz
+- **Spectrogram signature:** very similar to blue whale — near-bottom energy.
+  The HFC at 85–140 Hz may be the only visible feature in the 0–16 kHz display.
+- **References:** [DOSITS](https://dosits.org/galleries/audio-gallery/marine-mammals/baleen-whales/fin-whale/),
+  [Širović et al. 2019](https://www.sciencedirect.com/science/article/abs/pii/S0967064519300736)
+
+#### Humpback Whale — `humpback_song`
+- **Frequency range:** 20 Hz–10 kHz, most energy 100 Hz–4 kHz
+- **Spectrogram signature:** complex song units with rich harmonic structure,
+  visible across a wide frequency range. Clearly audible and visually
+  distinctive.
+
+#### Gray Whale — `gray_whale_call`
+- **Frequency range:** 40 Hz–1.6 kHz, peak energy below 100 Hz
+- **Call types:**
+  - **M3 migratory moan** — most common during migration; dominant energy
+    20–200 Hz, narrow bandwidth, low-frequency moan
+  - **S1/M1 knocks** — bongo- or metallic-drum-like broadband pulses;
+    peak energy 100 Hz–1.6 kHz
+- **Spectrogram signature:** M3 moans appear as faint low-frequency energy
+  near the bottom of the display. S1/M1 knocks may be visible up to ~1.6 kHz
+  as broadband transient bursts.
+- **Ecological note:** Gray whale calves migrate northward through Monterey
+  Bay mid-March through mid-May — the same window as peak Bigg's orca activity.
+  Orca prey on these calves. Gray whale vocalizations and orca attack calls
+  may co-occur in the same recordings.
+- **References:** [DOSITS](https://dosits.org/galleries/audio-gallery/marine-mammals/baleen-whales/gray-whale/),
+  [Tyack & Clark 2000](https://pdfs.semanticscholar.org/bc3c/b56a934cc176b7afc3847257e8730df06747.pdf)
+
+#### Note on infrasonic species at 32 kHz sample rate
+The MARS files are resampled to 32 kHz, giving a Nyquist of 16 kHz.
+Blue whale and fin whale fundamentals (10–40 Hz) are well within this
+range and fully captured. However, the Gradio spectrogram uses a linear
+frequency axis — the bottom ~2% of the display covers 0–320 Hz where
+all baleen whale energy concentrates. Consider using a log-frequency
+spectrogram for baleen whale work (future enhancement).
 
 ---
 
