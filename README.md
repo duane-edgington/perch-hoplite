@@ -262,6 +262,14 @@ pkill -f "phase2_classify.py review"
 
 #### Step 5 — Retrain with new labels
 
+⚠️ **Always kill the Gradio review server before training.** The review server
+holds several GB of GPU memory. Training will fail with `cudaSetDevice() out of memory`
+if both run simultaneously.
+
+```bash
+pkill -f "phase2_classify.py review"
+```
+
 ```bash
 nohup python3 phase2_classify.py train \
     --db-dir /mnt/PAM_Analysis/duane_scratch/perch_hoplite/db/MARS_20180413_20180413_32kHz \
@@ -367,6 +375,55 @@ boat_motor          # vessel engine noise
 rov_thruster        # ROV/AUV thruster noise
 background          # featureless background / flow noise
 ```
+
+---
+
+## Spectrogram Examples — What to Look For
+
+These examples show the three main patterns you will encounter in the
+Gradio labeling interface. The spectrogram shows frequency (Hz) on the
+Y axis and time (0–5 seconds) on the X axis. Color intensity indicates
+sound energy (bright = loud).
+
+### Orca call — label POSITIVE
+**Score: 3.629 | File: MARS_20180413_083913 | 495–500s**
+
+![Orca call spectrogram](orca.png)
+
+Characteristic orca call signature: discrete bright energy bursts with
+harmonic stacking visible between 1–6 kHz, appearing as horizontal
+banded structures. The call is clearly structured and distinct from
+background noise. The waveform shows clear amplitude peaks corresponding
+to the calls. UTC 08:39 = PDT 01:39 — overnight orca feeding activity.
+
+---
+
+### Ocean background — label NEGATIVE
+**Score: −2.815 | File: MARS_20180413_235913 | 130–135s**
+
+![Background noise spectrogram](background.png)
+
+Featureless broadband noise across all frequencies. Energy is uniformly
+distributed with no structured features. This is typical deep-water
+ambient noise — flow noise, distant shipping, and biological background.
+The waveform is stationary with no transients. UTC 23:59 = PDT 16:59 —
+mid-afternoon, well outside the orca event window. Label confidently negative.
+
+---
+
+### Dolphin — label NEGATIVE (for orca classifier)
+**Score: 3.709 | File: MARS_20180413_163913 | 310–315s**
+
+![Dolphin spectrogram](dolphin.png)
+
+High-frequency tonal whistles with distinctive upsweeping and downsweeping
+frequency modulation, extending from ~3 kHz up to 14+ kHz. These are
+common/bottlenose dolphin whistles — entirely different structure from
+orca calls. Score is high (3.709) because the Perch V2 embedding places
+dolphin and orca calls near each other in embedding space. This is a
+classic **false positive** case — mark NEGATIVE for the orca classifier.
+When building a multi-class classifier, these would be labeled
+`dolphin_whistle` as a separate positive class.
 
 ---
 
