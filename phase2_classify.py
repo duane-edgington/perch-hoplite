@@ -1432,13 +1432,18 @@ Click **Positive** (🟢) or **Negative** (🔴) for each segment, then **Save L
                 start_s, end_s = 0.0, 5.0
             off_enc = _stg.pack("<dd", start_s, end_s)
             prov = f"gradio_gui:{annotator_id}"
+            # DELETE existing annotation for this window+label first,
+            # then INSERT fresh. This avoids duplicate rows caused by the
+            # (id, recording_id, offsets) unique constraint not catching
+            # re-saves with different auto-incremented ids.
+            con.execute("""
+                DELETE FROM annotations
+                WHERE recording_id=? AND offsets=? AND label=?
+            """, (rec_id, off_enc, query_label))
             con.execute("""
                 INSERT INTO annotations
                     (recording_id, offsets, label, label_type, provenance)
                 VALUES (?, ?, ?, ?, ?)
-                ON CONFLICT DO UPDATE SET
-                    label_type=excluded.label_type,
-                    provenance=excluded.provenance
             """, (rec_id, off_enc, query_label, int(lt), prov))
             con.commit()
             con.close()
