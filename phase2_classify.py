@@ -199,8 +199,19 @@ def _save_training_provenance(
     eval_scores: dict,
     annotation_counts: dict,
     elapsed_s: float,
+    full_annotations: list[dict] | None = None,
+    audio_sources: list[dict] | None = None,
 ) -> Path | None:
-    """Write a training run provenance record."""
+    """Write a training run provenance record.
+
+    full_annotations — complete list of every annotation used for training,
+    with window_id, filename, offset_s, end_s, label, label_type.
+    Combined with the audio files and embedding parameters, this allows
+    full reproduction of the classifier from scratch.
+
+    audio_sources — list of audio source configs from the DB metadata,
+    recording exactly which audio directories and file globs were used.
+    """
     import datetime as _dt
     model_name = Path(classifier_out).stem
     ts = _dt.datetime.now().strftime("%Y%m%d_%H%M%S")
@@ -214,6 +225,8 @@ def _save_training_provenance(
         "train_args":        train_args,
         "eval_scores":       eval_scores,
         "annotation_counts": annotation_counts,
+        "audio_sources":     audio_sources or [],
+        "annotations":       full_annotations or [],
     }
     stem = f"train_{ts}_{model_name}"
     out = _provenance_path("training", stem)
@@ -1078,6 +1091,46 @@ def cmd_train(args) -> int:
         ann_counts = {f"{r[0]}_type{r[1]}": r[2] for r in rows}
     except Exception:
         pass
+    # Build full annotation list for provenance — every labeled window
+    full_anns = []
+    try:
+        _con2 = _sq3t.connect(os.path.join(args.db_dir, "hoplite.sqlite"))
+        ann_rows = _con2.execute("""
+            SELECT a.id, r.filename, w.id as window_id, w.offsets,
+                   a.label, a.label_type, a.provenance
+            FROM annotations a
+            JOIN recordings r ON r.id = a.recording_id
+            LEFT JOIN windows w ON w.recording_id = a.recording_id
+                AND w.offsets = a.offsets
+        """).fetchall()
+        import struct as _st2
+        for row in ann_rows:
+            ann_id, fname, wid, off_blob, label, ltype, prov = row
+            if isinstance(off_blob, (bytes, bytearray)) and len(off_blob) >= 16:
+                s, e = _st2.unpack_from("<dd", off_blob)
+            else:
+                s, e = 0.0, 5.0
+            full_anns.append({
+                "annotation_id": ann_id,
+                "window_id":     wid,
+                "filename":      fname,
+                "offset_s":      round(s, 3),
+                "end_s":         round(e, 3),
+                "label":         label,
+                "label_type":    ltype,
+                "provenance":    prov,
+            })
+        # Get audio sources from DB metadata
+        src_row = _con2.execute(
+            "SELECT value FROM hoplite_metadata WHERE key='audio_sources'"
+        ).fetchone()
+        audio_srcs = json.loads(src_row[0]).get("audio_globs", []) if src_row else []
+        _con2.close()
+    except Exception as _e:
+        log.warning("Could not build full annotation list for provenance: %s", _e)
+        full_anns = []
+        audio_srcs = []
+
     _save_training_provenance(
         db_dir=args.db_dir,
         classifier_out=str(out_path),
@@ -1094,6 +1147,8 @@ def cmd_train(args) -> int:
                      for k, v in eval_scores.items()},
         annotation_counts=ann_counts,
         elapsed_s=elapsed,
+        full_annotations=full_anns,
+        audio_sources=audio_srcs,
     )
     return 0
 
