@@ -1363,7 +1363,9 @@ def _launch_labeling_gui(
     log.info("Building Gradio labeling interface...")
 
     import datetime as _dt_gui
-    session_id = _dt_gui.datetime.now().strftime("%Y%m%d_%H%M%S") + f"_{annotator_id}"
+    session_id     = _dt_gui.datetime.now().strftime("%Y%m%d_%H%M%S") + f"_{annotator_id}"
+    _db_dir_cap    = getattr(args, "db_dir", str(db))        # capture for closure
+    _classifier_cap = getattr(args, "classifier", None)       # capture for closure
     log.info("Labeling session ID: %s", session_id)
 
     # Pre-load all result segments into memory.
@@ -1669,8 +1671,8 @@ Click **Positive** (🟢) or **Negative** (🔴) for each segment, then **Save L
             # Write provenance record for this session
             _save_label_provenance(
                 session_id=session_id,
-                db_dir=args.db_dir,
-                classifier_path=getattr(args, "classifier", None),
+                db_dir=_db_dir_cap,
+                classifier_path=_classifier_cap,
                 annotator_id=annotator_id,
                 query_label=query_label,
                 annotations=list(_session_annotations.values()),
