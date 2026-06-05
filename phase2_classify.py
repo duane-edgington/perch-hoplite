@@ -141,6 +141,91 @@ def _setup_logging(log_dir: Path, verbose: bool) -> None:
 
 log = logging.getLogger(__name__)
 
+# ── Provenance / audit trail ──────────────────────────────────────────────
+# Every labeling session and training run writes a JSON record to:
+#   <nfs_base>/provenance/labels/labels_<timestamp>_<annotator>.json
+#   <nfs_base>/provenance/training/train_<timestamp>_<model>.json
+# These records — combined with the audio files — allow full reproduction
+# of any classifier from scratch.
+
+PROVENANCE_BASE = "/mnt/PAM_Analysis/duane_scratch/perch_hoplite/provenance"
+
+
+def _provenance_path(subdir: str, stem: str) -> Path:
+    p = Path(PROVENANCE_BASE) / subdir
+    p.mkdir(parents=True, exist_ok=True)
+    return p / f"{stem}.json"
+
+
+def _save_label_provenance(
+    session_id: str,
+    db_dir: str,
+    classifier_path: str | None,
+    annotator_id: str,
+    query_label: str,
+    annotations: list[dict],   # list of {window_id, filename, offset_s, end_s, label, score}
+) -> Path | None:
+    """Write a labeling session provenance record."""
+    import datetime as _dt
+    record = {
+        "session_id":       session_id,
+        "timestamp":        _dt.datetime.now().isoformat(),
+        "db_dir":           str(db_dir),
+        "classifier":       str(classifier_path) if classifier_path else None,
+        "annotator_id":     annotator_id,
+        "query_label":      query_label,
+        "annotation_count": len(annotations),
+        "positive_count":   sum(1 for a in annotations if a["label"] == "positive"),
+        "negative_count":   sum(1 for a in annotations if a["label"] == "negative"),
+        "annotations":      annotations,
+    }
+    stem = f"labels_{session_id}"
+    out = _provenance_path("labels", stem)
+    try:
+        with open(out, "w") as f:
+            json.dump(record, f, indent=2)
+        log.info("Label provenance saved to %s", out)
+        return out
+    except Exception as exc:
+        log.warning("Could not save label provenance: %s", exc)
+        return None
+
+
+def _save_training_provenance(
+    db_dir: str,
+    classifier_out: str,
+    target_labels: list[str],
+    train_args: dict,
+    eval_scores: dict,
+    annotation_counts: dict,
+    elapsed_s: float,
+) -> Path | None:
+    """Write a training run provenance record."""
+    import datetime as _dt
+    model_name = Path(classifier_out).stem
+    ts = _dt.datetime.now().strftime("%Y%m%d_%H%M%S")
+    record = {
+        "session_id":        f"{ts}_{model_name}",
+        "timestamp":         _dt.datetime.now().isoformat(),
+        "db_dir":            str(db_dir),
+        "classifier_out":    str(classifier_out),
+        "target_labels":     target_labels,
+        "elapsed_s":         round(elapsed_s, 1),
+        "train_args":        train_args,
+        "eval_scores":       eval_scores,
+        "annotation_counts": annotation_counts,
+    }
+    stem = f"train_{ts}_{model_name}"
+    out = _provenance_path("training", stem)
+    try:
+        with open(out, "w") as f:
+            json.dump(record, f, indent=2)
+        log.info("Training provenance saved to %s", out)
+        return out
+    except Exception as exc:
+        log.warning("Could not save training provenance: %s", exc)
+        return None
+
 class _LT:
     """LabelType constants — works across perch-hoplite versions."""
     try:
@@ -978,6 +1063,36 @@ def cmd_train(args) -> int:
             f, indent=2,
         )
     log.info("Eval metrics written to %s", metrics_path)
+
+    # Save training provenance record
+    import sqlite3 as _sq3t
+    ann_counts = {}
+    try:
+        _con = _sq3t.connect(os.path.join(args.db_dir, "hoplite.sqlite"))
+        rows = _con.execute(
+            "SELECT label, label_type, COUNT(*) FROM annotations GROUP BY label, label_type"
+        ).fetchall()
+        _con.close()
+        ann_counts = {f"{r[0]}_type{r[1]}": r[2] for r in rows}
+    except Exception:
+        pass
+    _save_training_provenance(
+        db_dir=args.db_dir,
+        classifier_out=str(out_path),
+        target_labels=target_labels,
+        train_args={
+            "num_steps":       args.num_steps,
+            "learning_rate":   args.learning_rate,
+            "weak_neg_weight": args.weak_neg_weight,
+            "batch_size":      args.batch_size,
+            "train_ratio":     args.train_ratio,
+            "seed":            args.seed,
+        },
+        eval_scores={k: float(v.flat[0] if hasattr(v, "flat") else v)
+                     for k, v in eval_scores.items()},
+        annotation_counts=ann_counts,
+        elapsed_s=elapsed,
+    )
     return 0
 
 
@@ -1247,6 +1362,10 @@ def _launch_labeling_gui(
 
     log.info("Building Gradio labeling interface...")
 
+    import datetime as _dt_gui
+    session_id = _dt_gui.datetime.now().strftime("%Y%m%d_%H%M%S") + f"_{annotator_id}"
+    log.info("Labeling session ID: %s", session_id)
+
     # Pre-load all result segments into memory.
     # make_filepath_loader returns loader(filename, offset_s, end_offset_s).
     segments = []
@@ -1411,10 +1530,14 @@ Click **Positive** (🟢) or **Negative** (🔴) for each segment, then **Save L
                 p = _osg.path.join(p, "hoplite.sqlite")
             return p
 
+        # Accumulate per-session annotation records for provenance
+        _session_annotations: dict = {}  # wid -> annotation record
+
         def _write_label(wid, choice):
             """Write a single label directly to SQLite (thread-safe).
             Returns True on success, False on skip, raises on error."""
             if choice == "unlabeled":
+                _session_annotations.pop(int(wid), None)
                 return False
             lt = _LT.POSITIVE if choice == "positive" else _LT.NEGATIVE
             dbp = _sqlite_path()
@@ -1446,7 +1569,23 @@ Click **Positive** (🟢) or **Negative** (🔴) for each segment, then **Save L
                 VALUES (?, ?, ?, ?, ?)
             """, (rec_id, off_enc, query_label, int(lt), prov))
             con.commit()
+            # Get filename for provenance
+            fname_row = con.execute(
+                "SELECT filename FROM recordings WHERE id=?",
+                (rec_id,)).fetchone()
             con.close()
+            fname = fname_row[0] if fname_row else str(rec_id)
+            # Find score for this window from segments list
+            score = next((s["score"] for s in segments if s["window_id"] == int(wid)), None)
+            _session_annotations[int(wid)] = {
+                "window_id":  int(wid),
+                "filename":   fname,
+                "offset_s":   round(start_s, 3),
+                "end_s":      round(end_s, 3),
+                "label":      choice,
+                "label_type": int(lt),
+                "score":      round(score, 4) if score is not None else None,
+            }
             return True
 
         def _label_counts():
@@ -1527,6 +1666,15 @@ Click **Positive** (🟢) or **Negative** (🔴) for each segment, then **Save L
                 f"Labels are also auto-saved on each click — reload is safe."
             )
             log.info(msg)
+            # Write provenance record for this session
+            _save_label_provenance(
+                session_id=session_id,
+                db_dir=args.db_dir,
+                classifier_path=getattr(args, "classifier", None),
+                annotator_id=annotator_id,
+                query_label=query_label,
+                annotations=list(_session_annotations.values()),
+            )
             return msg
 
         save_btn.click(
