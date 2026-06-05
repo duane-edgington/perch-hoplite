@@ -986,6 +986,8 @@ def cmd_search(args) -> int:
             host=args.host,
             port=args.port,
             share=args.share,
+            db_dir=args.db_dir,
+            classifier_path=None,
         )
     else:
         log.info(
@@ -1252,6 +1254,8 @@ def cmd_review(args) -> int:
             host=args.host,
             port=args.port,
             share=args.share,
+            db_dir=args.db_dir,
+            classifier_path=getattr(args, "classifier", None),
         )
 
     return 0
@@ -1341,6 +1345,8 @@ def _launch_labeling_gui(
     host: str,
     port: int,
     share: bool,
+    db_dir: str = "",
+    classifier_path: str | None = None,
 ) -> None:
     """
     Launch a Gradio web app for interactive audio labeling.
@@ -1363,9 +1369,9 @@ def _launch_labeling_gui(
     log.info("Building Gradio labeling interface...")
 
     import datetime as _dt_gui
-    session_id     = _dt_gui.datetime.now().strftime("%Y%m%d_%H%M%S") + f"_{annotator_id}"
-    _db_dir_cap    = getattr(args, "db_dir", str(db))        # capture for closure
-    _classifier_cap = getattr(args, "classifier", None)       # capture for closure
+    session_id      = _dt_gui.datetime.now().strftime("%Y%m%d_%H%M%S") + f"_{annotator_id}"
+    _db_dir_cap     = db_dir       # passed as parameter
+    _classifier_cap = classifier_path  # passed as parameter
     log.info("Labeling session ID: %s", session_id)
 
     # Pre-load all result segments into memory.
