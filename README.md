@@ -7,6 +7,8 @@
 Built on Google perch-hoplite
 https://github.com/google-research/perch-hoplite
 
+https://github.com/google-research/perch/blob/main/chirp/projects/whale_demo/agile_modeling_noaa_demo.ipynb
+
 Hoplite is a system for storing large volumes of embeddings from machine
 perception models. We focus on combining vector search with active learning
 workflows, aka [agile modeling](https://arxiv.org/abs/2505.03071).
@@ -30,6 +32,10 @@ re-train the classifier.
 A key feature of this workflow is that we pre-compute the embeddings. This
 may take a while if you have a large amount of data, but the subsequent search
 and classifier training is very efficient.
+
+https://research.google/blog/how-ai-trained-on-birds-is-surfacing-underwater-mysteries/ 
+
+
 ## System Overview
 
 | Machine | Role | IP / Access |
