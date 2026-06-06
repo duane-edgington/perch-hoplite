@@ -42,7 +42,7 @@ and classifier training is very efficient.
 ### Why the split?
 
 The spark servers have NVIDIA GB10 (Blackwell, compute capability 12.1) GPUs.
-TensorFlow 2.17 does not support XLA on compute capability 12.x, so the
+TensorFlow 2.17 is the highest version ported to GB10 ARM/Nvidia chip, which does not support XLA on compute capability 12.x, so the
 Perch V2 model cannot run inference on spark for embedding. The Colab A100
 (compute capability 8.0) works fine. Once the embedding database is built on
 Colab and transferred to NFS, all subsequent steps (training, review, inference)
@@ -136,7 +136,7 @@ Known harmless warnings at startup (not errors):
 
 ### Phase 1 — Build the Embedding Database (Colab)
 
-The embedding step requires a GPU compatible with TF 2.17 + XLA. Use Google
+The embedding step requires a GPU compatible with TF 2.20r0 or higher + XLA. Use Google
 Colab (A100 runtime) because the spark GB10 GPUs are not compatible.
 
 #### Step 1a — Prepare audio on ICEFISH
