@@ -324,6 +324,7 @@ python3 phase2_classify.py infer \
 | DB: MARS April 1 2018 | ✅ 144 files, 17,280 embeddings (separate, 0 annotations) |
 | DB: MARS_combined | ✅ 34,560 embeddings (Apr 1 + Apr 13 merged, experimental) |
 | orca_v1_clean.pt | ✅ **ROC-AUC 0.9821** — 44 pos / 56 neg, clean labels, train_ratio=0.8 |
+| orca_v2_clean.pt | ✅ **ROC-AUC 0.9191** — 54 pos / 56 neg, 110 clean labels, train_ratio=0.8 |
 | Multi-class labels | 🔲 planned — dolphin_whistle, dolphin_click, boat_motor |
 | Full April 2018 DB | 🔲 planned via Colab Pro batches |
 
