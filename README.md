@@ -136,7 +136,7 @@ Known harmless warnings at startup (not errors):
 
 ### Phase 1 — Build the Embedding Database (Colab)
 
-The embedding step requires a GPU compatible with TF 2.20r0 or higher + XLA. Use Google
+The embedding step requires a GPU compatible with TF 2.20rc or higher + XLA. Use Google
 Colab (A100 runtime) because the spark GB10 GPUs are not compatible.
 
 #### Step 1a — Prepare audio on ICEFISH
