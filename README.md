@@ -35,6 +35,8 @@ and classifier training is very efficient.
 
 https://research.google/blog/how-ai-trained-on-birds-is-surfacing-underwater-mysteries/ 
 
+https://arxiv.org/abs/2512.03219 
+
 
 ## System Overview
 
