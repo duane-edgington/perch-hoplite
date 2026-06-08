@@ -1817,7 +1817,7 @@ def main(argv=None) -> int:
     log_dir = Path(args.log_dir) if args.log_dir else db_dir / "logs"
     _setup_logging(log_dir, args.verbose)
 
-    log.info("Perch Hoplite Phase 2 — Search / Classify / Infer (Log-Mel spectrogram variant)")
+    log.info("Perch Hoplite Phase 2 — Search / Classify / Infer [Log-Mel variant]")
     log.info("Python %s  Command: %s", sys.version.split()[0], args.command)
 
     fn = COMMANDS.get(args.command)
