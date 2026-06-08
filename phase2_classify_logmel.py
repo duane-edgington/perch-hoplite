@@ -1,0 +1,1879 @@
+#!/usr/bin/env python3
+"""
+phase2_classify.py — Perch Hoplite Phase 2: Search, Label, Classify & Inference
+=================================================================================
+Loads a Hoplite vector database produced by phase1_embed.py, then provides a
+suite of sub-commands for the complete agile modeling workflow:
+
+  search      Embed a query audio clip and find nearest neighbours.
+  label       Import a CSV of labels (recording_id, offset_s, label, type) into the DB.
+  train       Train a linear classifier on the current DB labels.
+  review      Run the trained classifier over the DB and write top-scoring results.
+  infer       Run full inference over all embeddings and write a results CSV.
+  stats       Print DB statistics (label counts, embedding counts).
+
+The GUI for interactive labeling (audio playback + click-to-label) is served as
+a Gradio web app via --serve, accessible from any browser on the MBARI network.
+
+Environment
+-----------
+MBARI NVIDIA DGX SPARC nodes: spark-ae0e (134.89.11.107)
+                               spark-0626 (134.89.11.174)
+NFS base : /mnt/PAM_Analysis/duane_scratch/perch_hoplite/
+Audio    : /mnt/PAM_Archive/<year>/<deployment>/
+
+Path constants are in:
+  /mnt/PAM_Analysis/duane_scratch/perch_hoplite/.perch_env
+  source that file to avoid typing long paths.
+
+Usage examples
+--------------
+# 0. Source path constants (optional but convenient):
+source /mnt/PAM_Analysis/duane_scratch/perch_hoplite/.perch_env
+
+# 1. Search and launch Gradio labeling GUI:
+#    Browser: http://134.89.11.107:7860  (spark-ae0e)
+#          or http://134.89.11.174:7860  (spark-0626)
+python3 phase2_classify.py search \
+    --db-dir /mnt/PAM_Analysis/duane_scratch/perch_hoplite/db/MARS_2018 \
+    --query-audio /mnt/PAM_Analysis/duane_scratch/perch_hoplite/queries/cetaceans/orca_call.wav \
+    --query-label orca_call \
+    --num-results 200 \
+    --output-csv /mnt/PAM_Analysis/duane_scratch/perch_hoplite/results/MARS_2018_orca_search.csv \
+    --serve --port 7860
+
+# 2. Import labels from Raven Pro / PAMGuard CSV:
+#    CSV columns: recording_id, offset_s, end_offset_s, label, label_type
+#    label_type values: positive | negative | weak_negative
+python3 phase2_classify.py label \
+    --db-dir /mnt/PAM_Analysis/duane_scratch/perch_hoplite/db/MARS_2018 \
+    --labels-csv /mnt/PAM_Analysis/duane_scratch/perch_hoplite/labels/orca_raven.csv \
+    --annotator-id duane
+
+# 3. Train a linear classifier:
+python3 phase2_classify.py train \
+    --db-dir /mnt/PAM_Analysis/duane_scratch/perch_hoplite/db/MARS_2018 \
+    --classifier-out /mnt/PAM_Analysis/duane_scratch/perch_hoplite/models/orca_v1.pt \
+    --num-steps 256 --learning-rate 0.001
+
+# 4. Active learning — review classifier results and add more labels:
+python3 phase2_classify.py review \
+    --db-dir /mnt/PAM_Analysis/duane_scratch/perch_hoplite/db/MARS_2018 \
+    --classifier /mnt/PAM_Analysis/duane_scratch/perch_hoplite/models/orca_v1.pt \
+    --target-label orca_call \
+    --num-results 100 \
+    --serve --port 7860
+
+# 5. Full inference — write detections CSV:
+python3 phase2_classify.py infer \
+    --db-dir /mnt/PAM_Analysis/duane_scratch/perch_hoplite/db/MARS_2018 \
+    --classifier /mnt/PAM_Analysis/duane_scratch/perch_hoplite/models/orca_v1.pt \
+    --output-csv /mnt/PAM_Analysis/duane_scratch/perch_hoplite/results/MARS_2018_orca_detections.csv \
+    --logit-threshold 0.0
+
+# 6. Check DB statistics:
+python3 phase2_classify.py stats \
+    --db-dir /mnt/PAM_Analysis/duane_scratch/perch_hoplite/db/MARS_2018
+
+GUI
+---
+Gradio is already installed (v6.15.1). Add --serve --port 7860 to any
+search or review command. The terminal will print the URL; open it in
+any browser on the MBARI network. Press Ctrl+C to stop the server.
+
+For multi-analyst annotation campaigns, use Label Studio (Docker):
+  docker run -d -p 8080:8080 \
+      -v /mnt/PAM_Analysis/duane_scratch/perch_hoplite/labelstudio:/label-studio/data \
+      heartexlabs/label-studio:latest
+  Access at http://134.89.11.107:8080
+
+Known harmless warnings
+-----------------------
+  "Unable to register cuFFT/cuDNN/cuBLAS factory" — two TF builds
+  registering CUDA plugins; GPU works correctly regardless.
+  "MessageFactory has no attribute GetPrototype" — protobuf mismatch,
+  cosmetic only.
+  "NUMA node read from SysFS had negative value" — BIOS limitation,
+  TF defaults to node zero correctly.
+"""
+
+import argparse
+import csv
+import json
+import logging
+import logging.handlers
+import os
+import sys
+import time
+from pathlib import Path
+from typing import Optional
+
+# ---------------------------------------------------------------------------
+# Logging
+# ---------------------------------------------------------------------------
+LOG_FORMAT = "%(asctime)s  %(levelname)-8s  %(name)s  %(message)s"
+LOG_DATE   = "%Y-%m-%d %H:%M:%S"
+
+def _setup_logging(log_dir: Path, verbose: bool) -> None:
+    level = logging.DEBUG if verbose else logging.INFO
+    root = logging.getLogger()
+    root.setLevel(level)
+
+    ch = logging.StreamHandler(sys.stdout)
+    ch.setLevel(level)
+    ch.setFormatter(logging.Formatter(LOG_FORMAT, datefmt=LOG_DATE))
+    root.addHandler(ch)
+
+    log_dir.mkdir(parents=True, exist_ok=True)
+    log_file = log_dir / "phase2_classify.log"
+    fh = logging.handlers.RotatingFileHandler(
+        log_file, maxBytes=50 * 1024 * 1024, backupCount=5
+    )
+    fh.setLevel(logging.DEBUG)
+    fh.setFormatter(logging.Formatter(LOG_FORMAT, datefmt=LOG_DATE))
+    root.addHandler(fh)
+    logging.info("Logging to %s", log_file)
+
+    # Suppress absl per-SQL-statement INFO spam — floods terminal and
+    # generates huge NFS writes during training. Still captures WARNING+.
+    for _noisy in ("absl", "absl-py"):
+        logging.getLogger(_noisy).setLevel(logging.WARNING)
+
+log = logging.getLogger(__name__)
+
+# ── Provenance / audit trail ──────────────────────────────────────────────
+# Every labeling session and training run writes a JSON record to:
+#   <nfs_base>/provenance/labels/labels_<timestamp>_<annotator>.json
+#   <nfs_base>/provenance/training/train_<timestamp>_<model>.json
+# These records — combined with the audio files — allow full reproduction
+# of any classifier from scratch.
+
+PROVENANCE_BASE = "/mnt/PAM_Analysis/duane_scratch/perch_hoplite/provenance"
+
+
+def _provenance_path(subdir: str, stem: str) -> Path:
+    p = Path(PROVENANCE_BASE) / subdir
+    p.mkdir(parents=True, exist_ok=True)
+    return p / f"{stem}.json"
+
+
+def _save_label_provenance(
+    session_id: str,
+    db_dir: str,
+    classifier_path: str | None,
+    annotator_id: str,
+    query_label: str,
+    annotations: list[dict],   # list of {window_id, filename, offset_s, end_s, label, score}
+) -> Path | None:
+    """Write a labeling session provenance record."""
+    import datetime as _dt
+    record = {
+        "session_id":       session_id,
+        "timestamp":        _dt.datetime.now().isoformat(),
+        "db_dir":           str(db_dir),
+        "classifier":       str(classifier_path) if classifier_path else None,
+        "annotator_id":     annotator_id,
+        "query_label":      query_label,
+        "annotation_count": len(annotations),
+        "positive_count":   sum(1 for a in annotations if a["label"] == "positive"),
+        "negative_count":   sum(1 for a in annotations if a["label"] == "negative"),
+        "annotations":      annotations,
+    }
+    stem = f"labels_{session_id}"
+    out = _provenance_path("labels", stem)
+    try:
+        with open(out, "w") as f:
+            json.dump(record, f, indent=2)
+        log.info("Label provenance saved to %s", out)
+        return out
+    except Exception as exc:
+        log.warning("Could not save label provenance: %s", exc)
+        return None
+
+
+def _save_training_provenance(
+    db_dir: str,
+    classifier_out: str,
+    target_labels: list[str],
+    train_args: dict,
+    eval_scores: dict,
+    annotation_counts: dict,
+    elapsed_s: float,
+    full_annotations: list[dict] | None = None,
+    audio_sources: list[dict] | None = None,
+) -> Path | None:
+    """Write a training run provenance record.
+
+    full_annotations — complete list of every annotation used for training,
+    with window_id, filename, offset_s, end_s, label, label_type.
+    Combined with the audio files and embedding parameters, this allows
+    full reproduction of the classifier from scratch.
+
+    audio_sources — list of audio source configs from the DB metadata,
+    recording exactly which audio directories and file globs were used.
+    """
+    import datetime as _dt
+    model_name = Path(classifier_out).stem
+    ts = _dt.datetime.now().strftime("%Y%m%d_%H%M%S")
+    record = {
+        "session_id":        f"{ts}_{model_name}",
+        "timestamp":         _dt.datetime.now().isoformat(),
+        "db_dir":            str(db_dir),
+        "classifier_out":    str(classifier_out),
+        "target_labels":     target_labels,
+        "elapsed_s":         round(elapsed_s, 1),
+        "train_args":        train_args,
+        "eval_scores":       eval_scores,
+        "annotation_counts": annotation_counts,
+        "audio_sources":     audio_sources or [],
+        "annotations":       full_annotations or [],
+    }
+    stem = f"train_{ts}_{model_name}"
+    out = _provenance_path("training", stem)
+    try:
+        with open(out, "w") as f:
+            json.dump(record, f, indent=2)
+        log.info("Training provenance saved to %s", out)
+        return out
+    except Exception as exc:
+        log.warning("Could not save training provenance: %s", exc)
+        return None
+
+class _LT:
+    """LabelType constants — works across perch-hoplite versions."""
+    try:
+        from perch_hoplite.db import annotations as _a
+        POSITIVE      = _a.LabelType.POSITIVE
+        NEGATIVE      = _a.LabelType.NEGATIVE
+        WEAK_NEGATIVE = _a.LabelType.WEAK_NEGATIVE
+    except Exception:
+        try:
+            from perch_hoplite.db import interface as _b
+            POSITIVE      = _b.LabelType.POSITIVE
+            NEGATIVE      = _b.LabelType.NEGATIVE
+            WEAK_NEGATIVE = _b.LabelType.NEGATIVE
+        except Exception:
+            POSITIVE      = 1
+            NEGATIVE      = 2
+            WEAK_NEGATIVE = 3
+
+
+def _get_label_type_enum():
+    """Return the LabelType enum from wherever perch-hoplite 1.0.1 exposes it.
+
+    The location changed across versions:
+      - perch_hoplite.db.interface          (older builds)
+      - perch_hoplite.db.annotations        (1.0.x)
+      - perch_hoplite.agile.source_info     (some builds)
+    Falls back to a simple namespace object so labeling still works.
+    """
+    for mod_path, attr in (
+        ("perch_hoplite.db.annotations",    "LabelType"),
+        ("perch_hoplite.db.interface",       "LabelType"),
+        ("perch_hoplite.agile.source_info",  "LabelType"),
+        ("perch_hoplite.db.sqlite_usearch_impl", "LabelType"),
+    ):
+        try:
+            import importlib
+            mod = importlib.import_module(mod_path)
+            lt = getattr(mod, attr, None)
+            if lt is not None:
+                return lt
+        except ImportError:
+            continue
+
+    # Ultimate fallback: plain namespace with integer values
+    # (perch-hoplite uses these ints internally in SQLite)
+    log.warning(
+        "Could not import LabelType from perch_hoplite — "
+        "using integer fallback (0=positive, 1=negative, 2=weak_negative)."
+    )
+    class _LabelType:
+        POSITIVE      = 1
+        NEGATIVE      = 2
+        WEAK_NEGATIVE = 3
+        UNCERTAIN     = 3
+    return _LabelType
+
+# ---------------------------------------------------------------------------
+# Lazy imports
+# ---------------------------------------------------------------------------
+
+def _require_perch():
+    try:
+        from perch_hoplite.agile import (
+            audio_loader, classifier, classifier_data,
+            embedding_display, source_info,
+        )
+        from perch_hoplite.db import (
+            brutalism, interface, score_functions,
+            search_results, sqlite_usearch_impl,
+        )
+        from perch_hoplite.zoo import model_configs
+        import numpy as np
+    except ImportError as exc:
+        log.error(
+            "perch-hoplite not installed. "
+            "Run: pip install git+https://github.com/google-research/perch-hoplite.git\n"
+            "Error: %s", exc,
+        )
+        sys.exit(1)
+    return (audio_loader, classifier, classifier_data,
+            embedding_display, source_info,
+            brutalism, interface, score_functions,
+            search_results, sqlite_usearch_impl,
+            model_configs, np)
+
+
+def _require_gradio():
+    try:
+        import gradio as gr
+        return gr
+    except ImportError:
+        log.error(
+            "Gradio is not installed. Install with: pip install gradio\n"
+            "Or use --output-csv to write results without the GUI."
+        )
+        sys.exit(1)
+
+
+def _require_matplotlib():
+    try:
+        import matplotlib
+        matplotlib.use("Agg")  # headless backend
+        import matplotlib.pyplot as plt
+        import numpy as np
+        return plt, np
+    except ImportError as exc:
+        log.error("matplotlib not available: %s", exc)
+        sys.exit(1)
+
+
+# ---------------------------------------------------------------------------
+# Argument parsing
+# ---------------------------------------------------------------------------
+
+def build_parser() -> argparse.ArgumentParser:
+    top = argparse.ArgumentParser(
+        prog="phase2_classify.py",
+        description="Perch Hoplite Phase 2 — Search, Label, Train, Infer.",
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+        epilog=__doc__,
+    )
+    top.add_argument("--verbose", "-v", action="store_true", help="DEBUG logging.")
+    top.add_argument("--log-dir", default=None, help="Directory for log files.")
+
+    sub = top.add_subparsers(dest="command", metavar="COMMAND")
+    sub.required = True
+
+    # ---- Common arguments ----
+    def add_db(p):
+        p.add_argument("--db-dir", "-d", required=True,
+                       help="Path to Hoplite database directory.")
+
+    def add_serve(p):
+        p.add_argument("--serve", action="store_true", default=False,
+                       help="Launch the Gradio labeling GUI.")
+        p.add_argument("--port", type=int, default=7860,
+                       help="Port for Gradio server (default: 7860).")
+        p.add_argument("--host", default="0.0.0.0",
+                       help="Bind address for Gradio server (default: 0.0.0.0).")
+        p.add_argument("--share", action="store_true", default=False,
+                       help="Create a public Gradio share link (requires internet).")
+
+    # ---- search ----
+    ps = sub.add_parser("search", help="Embed a query clip and find nearest neighbours.")
+    add_db(ps)
+    ps.add_argument("--query-audio", "-q", required=True,
+                    help="Path or GCS URI to query audio clip (.wav/.flac).")
+    ps.add_argument("--query-label", "-l", required=True,
+                    help="Label string for this query class (e.g. 'orca_call').")
+    ps.add_argument("--offset-s", type=float, default=0.0,
+                    help="Start offset within the query audio (seconds, default: 0).")
+    ps.add_argument("--window-s", type=float, default=5.0,
+                    help="Window duration for query audio (seconds, default: 5).")
+    ps.add_argument("--num-results", type=int, default=100,
+                    help="Number of nearest neighbours to retrieve (default: 100).")
+    ps.add_argument("--score-fn", choices=["dot", "cos", "neg_euclidean"], default="dot",
+                    help="Similarity function (default: dot).")
+    ps.add_argument("--exact", action="store_true", default=True,
+                    help="Use exact brute-force search (default: True).")
+    ps.add_argument("--approx", dest="exact", action="store_false",
+                    help="Use approximate nearest-neighbour search (faster, less accurate).")
+    ps.add_argument("--target-score", type=float, default=None,
+                    help="If set, search for examples near this score (margin sampling).")
+    ps.add_argument("--sample-rate-hz", type=int, default=None,
+                    help="Audio loader sample rate override.")
+    ps.add_argument("--output-csv", default=None,
+                    help="Write search results to this CSV (recording_id, offset_s, score).")
+    ps.add_argument("--plot-scores", default=None,
+                    help="Save score histogram PNG to this path.")
+    ps.add_argument("--annotator-id", default="analyst",
+                    help="Annotator identifier attached to saved labels.")
+    add_serve(ps)
+
+    # ---- label ----
+    pl = sub.add_parser("label", help="Import labels from a CSV into the DB.")
+    add_db(pl)
+    pl.add_argument("--labels-csv", required=True,
+                    help=(
+                        "CSV file with columns: "
+                        "recording_id, offset_s, end_offset_s, label, label_type "
+                        "(label_type: positive|negative|weak_negative)."
+                    ))
+    pl.add_argument("--annotator-id", default="analyst",
+                    help="Annotator ID to attach to imported labels.")
+    pl.add_argument("--dry-run", action="store_true",
+                    help="Validate CSV without writing to DB.")
+
+    # ---- train ----
+    pt = sub.add_parser("train", help="Train a linear classifier on DB labels.")
+    add_db(pt)
+    pt.add_argument("--classifier-out", "-o", required=True,
+                    help="Output path for the trained classifier (.pt file).")
+    pt.add_argument("--target-labels", nargs="+", default=None,
+                    help="Restrict training to these label classes (default: all).")
+    pt.add_argument("--learning-rate", type=float, default=1e-3)
+    pt.add_argument("--num-steps", type=int, default=128)
+    pt.add_argument("--batch-size", type=int, default=128)
+    pt.add_argument("--weak-neg-batch-size", type=int, default=128)
+    pt.add_argument("--weak-neg-weight", type=float, default=0.05)
+    pt.add_argument("--l2-mu", type=float, default=0.0)
+    pt.add_argument("--train-ratio", type=float, default=0.9)
+    pt.add_argument("--loss-fn", choices=["bce", "hinge"], default="bce")
+    pt.add_argument("--seed", type=int, default=42)
+
+    # ---- review ----
+    pr = sub.add_parser(
+        "review",
+        help="Run classifier over DB, display top results for active-learning labeling.",
+    )
+    add_db(pr)
+    pr.add_argument("--classifier", "-c", required=True,
+                    help="Path to trained classifier .pt file.")
+    pr.add_argument("--target-label", required=True,
+                    help="Label class to review.")
+    pr.add_argument("--num-results", type=int, default=100)
+    pr.add_argument("--sample-size", type=int, default=10_000,
+                    help="Randomly sample this many DB entries to search over.")
+    pr.add_argument("--margin-target-score", type=float, default=None,
+                    help="If set, use margin sampling around this logit.")
+    pr.add_argument("--output-csv", default=None,
+                    help="Write review results to this CSV.")
+    pr.add_argument("--plot-scores", default=None,
+                    help="Save score histogram PNG.")
+    pr.add_argument("--annotator-id", default="analyst")
+    pr.add_argument("--sample-rate-hz", type=int, default=None)
+    pr.add_argument("--audio-dir", default=None,
+        help="Override audio base path stored in DB (needed when DB was built "
+             "on a different machine e.g. Colab). "
+             "Example: /mnt/PAM_Analysis/GoogleMultiSpeciesWhaleModel2/resampled_32kHz/2018/04")
+    add_serve(pr)
+
+    # ---- infer ----
+    pi = sub.add_parser("infer", help="Run inference over all embeddings and save CSV.")
+    add_db(pi)
+    pi.add_argument("--classifier", "-c", required=True,
+                    help="Path to trained classifier .pt file.")
+    pi.add_argument("--output-csv", "-o", required=True,
+                    help="Output CSV path for detections.")
+    pi.add_argument("--logit-threshold", type=float, default=0.0,
+                    help="Minimum logit to include in output (default: 0.0).")
+    pi.add_argument("--labels", nargs="+", default=None,
+                    help="Restrict inference to these label classes (default: all).")
+    pi.add_argument("--plot-distribution", default=None,
+                    help="Save logit distribution histogram PNG.")
+
+    # ---- stats ----
+    pst = sub.add_parser("stats", help="Print DB statistics.")
+    add_db(pst)
+
+    return top
+
+
+# ---------------------------------------------------------------------------
+# DB helpers
+# ---------------------------------------------------------------------------
+
+def _patch_usearch_get_embeddings_batch(db) -> None:
+    """Patch the USearch index .get() method to handle API version differences.
+
+    Newer USearch (>=2.9) changed index.get(keys) to always return a tuple of
+    1-D arrays instead of a single stacked np.ndarray.  perch-hoplite 1.0.1
+    expects the old behaviour and raises RuntimeError on the new API.
+
+    threaded_brute_search spawns threads that each call db.ui.get() directly,
+    bypassing any patch on db.get_embeddings_batch.  So we patch db.ui.get()
+    itself — the USearch index object — which IS shared across threads.
+    """
+    import numpy as np
+
+    ui = getattr(db, "ui", None)
+    if ui is None:
+        log.warning("DB has no .ui attribute — cannot patch USearch get().")
+        return
+
+    original_get = ui.get  # bound method on the index
+
+    def patched_get(keys, *args, **kwargs):
+        result = original_get(keys, *args, **kwargs)
+        # Old API: returns np.ndarray of shape (n_keys, dim) — pass through
+        if isinstance(result, np.ndarray):
+            return result
+        # New API: returns a tuple of 1-D arrays — stack into 2-D ndarray
+        if isinstance(result, tuple):
+            arrays = [arr for arr in result if isinstance(arr, np.ndarray)]
+            if arrays:
+                return np.stack(arrays, axis=0)
+        # Unexpected — return as-is and let caller handle it
+        return result
+
+    ui.get = patched_get
+    log.debug("Applied USearch index.get() compatibility patch.")
+
+
+def load_db(db_dir: str):
+    from perch_hoplite.db import sqlite_usearch_impl
+    db_dir = str(db_dir)
+    log.info("Loading database from %s", db_dir)
+    db = sqlite_usearch_impl.SQLiteUSearchDB.create(db_dir)
+    count = db.count_embeddings()
+    log.info("Database loaded — %d embeddings", count)
+    if count == 0:
+        log.warning("Database contains zero embeddings. Run phase1_embed.py first.")
+    _patch_usearch_get_embeddings_batch(db)
+    return db
+
+
+def _get_source(db, window_id):
+    """Retrieve embedding source metadata (filename + offsets) for a window.
+
+    Tries the known perch-hoplite method names in order, then falls back to
+    a direct SQLite query using the db_config path stored on the DB object.
+    """
+    # Try every known method name
+    for method_name in (
+        "get_source_by_id",       # perch-hoplite 1.0.x
+        "get_embedding_source",   # older builds
+        "get_window_source",
+        "get_source",
+    ):
+        method = getattr(db, method_name, None)
+        if method is not None:
+            try:
+                return method(window_id)
+            except Exception:
+                pass
+
+    # Last resort: direct SQLite query.
+    # SQLiteUSearchDB stores its path in db_config.db_path
+    import sqlite3 as _sqlite3, os as _os
+    db_path_str = None
+    # Try db_config path (the real location in SQLiteUSearchDB)
+    db_cfg = getattr(db, "db_config", None)
+    if db_cfg is not None:
+        db_path_str = str(getattr(db_cfg, "db_path", None) or "")
+    # Fallback: other attribute names
+    if not db_path_str:
+        for attr in ("db_path", "_db_path", "path", "sqlite_path"):
+            v = getattr(db, attr, None)
+            if v:
+                db_path_str = str(v)
+                break
+
+    if not db_path_str:
+        available = [a for a in dir(db)
+                     if not a.startswith("__")
+                     and ("path" in a.lower() or "dir" in a.lower()
+                          or "source" in a.lower() or "config" in a.lower())]
+        raise RuntimeError(
+            f"Cannot find SQLite path on {type(db).__name__}. "
+            f"Relevant attrs: {available}"
+        )
+
+    # db_path_str may be the directory; find the sqlite file inside it
+    sqlite_file = db_path_str
+    if _os.path.isdir(sqlite_file):
+        for fname in ("hoplite.sqlite", "hoplite.db", "db.sqlite"):
+            candidate = _os.path.join(sqlite_file, fname)
+            if _os.path.isfile(candidate):
+                sqlite_file = candidate
+                break
+
+    con = _sqlite3.connect(sqlite_file)
+    # Schema: windows(id, recording_id, offsets)
+    #         recordings(id, filename, datetime, deployment_id)
+    #         deployments(id, name, project, ...)
+    # offsets is stored as a FLOAT_LIST blob — two little-endian float64s.
+    row = con.execute("""
+        SELECT r.filename, d.project, w.offsets
+        FROM windows w
+        JOIN recordings r ON r.id = w.recording_id
+        LEFT JOIN deployments d ON d.id = r.deployment_id
+        WHERE w.id = ?
+    """, (int(window_id),)).fetchone()
+    con.close()
+
+    if row is None:
+        raise KeyError(f"window_id {window_id} not found in DB at {sqlite_file}")
+
+    filename, project, offsets_blob = row
+
+    # Decode FLOAT_LIST blob: two little-endian float64 values (start_s, end_s)
+    import struct as _struct
+    if isinstance(offsets_blob, (bytes, bytearray)) and len(offsets_blob) >= 16:
+        start_s, end_s = _struct.unpack_from("<dd", offsets_blob, 0)
+    elif isinstance(offsets_blob, (bytes, bytearray)) and len(offsets_blob) >= 8:
+        start_s = _struct.unpack_from("<d", offsets_blob, 0)[0]
+        end_s = start_s + 5.0
+    else:
+        # Fallback: offsets_blob might be a string like "[0.0, 5.0]"
+        try:
+            import json as _json
+            vals = _json.loads(str(offsets_blob))
+            start_s, end_s = float(vals[0]), float(vals[1])
+        except Exception:
+            start_s, end_s = 0.0, 5.0
+
+    class _EmbSource:
+        source_id    = filename
+        dataset      = project or ""
+        offsets      = (start_s, end_s)
+        recording_id = None
+    return _EmbSource()
+
+
+def load_model_from_db(db):
+    from perch_hoplite.zoo import model_configs
+    from perch_hoplite.agile import source_info
+    db_model_config = db.get_metadata("model_config")
+    embed_config = db.get_metadata("audio_sources")
+    model_class = model_configs.get_model_class(db_model_config.model_key)
+    embedding_model = model_class.from_config(db_model_config.model_config)
+    audio_sources = source_info.AudioSources.from_config_dict(embed_config)
+    log.info("Loaded embedding model: %s", db_model_config.model_key)
+    return embedding_model, audio_sources
+
+
+def make_audio_loader(db, embedding_model, audio_sources, sample_rate_hz=None):
+    """Return (loader_fn, sample_rate_hz, window_size_s) using the real
+    perch-hoplite audio_loader.make_filepath_loader() API.
+
+    The returned loader normalizes audio to -3 dBFS peak so clips are
+    audible in the browser (MARS 32 kHz files have very low amplitude).
+    """
+    import numpy as _np
+    from perch_hoplite.agile import audio_loader as _al
+
+    if sample_rate_hz is None:
+        sample_rate_hz = embedding_model.sample_rate
+    window_size_s = getattr(embedding_model, "window_size_s", 5.0)
+
+    _raw_loader = _al.make_filepath_loader(
+        audio_sources=audio_sources,
+        sample_rate_hz=sample_rate_hz,
+        window_size_s=window_size_s,
+    )
+
+    _target_peak = 10 ** (-3.0 / 20)   # -3 dBFS ≈ 0.708
+
+    def loader(source_id: str, offset_s: float):
+        # Returns np.ndarray only — sample_rate_hz is fixed at construction time
+        audio = _raw_loader(source_id, offset_s)
+        peak = _np.abs(audio).max()
+        if peak > 1e-6:
+            audio = audio * (_target_peak / peak)
+        return audio, sample_rate_hz
+
+    return loader, sample_rate_hz, window_size_s
+
+
+def _format_duration(seconds: float) -> str:
+    h = int(seconds // 3600)
+    m = int((seconds % 3600) // 60)
+    s = seconds % 60
+    return f"{h:02d}h {m:02d}m {s:05.2f}s"
+
+
+# ---------------------------------------------------------------------------
+# Sub-command: stats
+# ---------------------------------------------------------------------------
+
+def cmd_stats(args) -> int:
+    db = load_db(args.db_dir)
+    from perch_hoplite.db import interface as iface
+    from ml_collections import config_dict
+    projects = db.get_all_projects()
+    total = db.count_embeddings()
+    log.info("=" * 60)
+    log.info("DATABASE: %s", args.db_dir)
+    log.info("Total embeddings : %d", total)
+    for proj in projects:
+        ids = db.match_window_ids(
+            deployments_filter=config_dict.create(eq=dict(project=proj))
+        )
+        log.info("  Project %-36s  %d embeddings", proj, len(ids))
+    ann_count = len(db.get_all_annotations())
+    log.info("Total annotations: %d", ann_count)
+    if ann_count > 0:
+        try:
+            pos = db.count_each_label(label_type=_LT.POSITIVE)
+            neg = db.count_each_label(label_type=_LT.NEGATIVE)
+            log.info("Positive labels: %s", dict(pos))
+            log.info("Negative labels: %s", dict(neg))
+        except Exception as exc:
+            log.debug("Label count error: %s", exc)
+    log.info("=" * 60)
+    return 0
+
+
+# ---------------------------------------------------------------------------
+# Sub-command: label (CSV import)
+# ---------------------------------------------------------------------------
+
+LABEL_TYPE_MAP = {
+    "positive": None,  # resolved at runtime from interface module
+    "negative": None,
+    "weak_negative": None,
+}
+
+def cmd_label(args) -> int:
+    db = load_db(args.db_dir)
+    from perch_hoplite.db import interface as iface
+
+    label_type_map = {
+        "positive": _LT.POSITIVE,
+        "negative": _LT.NEGATIVE,
+        "weak_negative": getattr(interface.LabelType, "WEAK_NEGATIVE",
+                         _LT.NEGATIVE),
+    }
+
+    csv_path = Path(args.labels_csv)
+    if not csv_path.exists():
+        log.error("Labels CSV not found: %s", csv_path)
+        return 1
+
+    inserted = 0
+    skipped = 0
+    errors = 0
+
+    # Build filename -> integer recording_id map from DB embedding sources.
+    # insert_annotation requires the integer primary key, not a filename string.
+    # We scan all window IDs and collect (filename, recording_id) pairs.
+    # This is the only reliable way in perch-hoplite 1.0.1 — there is no
+    # get_all_recordings() method on the SQLiteUSearchDB.
+    log.info("Building filename -> recording_id lookup from DB (scanning embeddings)...")
+    filename_to_rec_id: dict[str, int] = {}
+    try:
+        all_ids = db.match_window_ids(limit=None)
+        for wid in all_ids:
+            src = _get_source(db, wid)
+            fname = getattr(src, "source_id", None) or ""
+            rec_id = getattr(src, "recording_id", None)
+            if fname and rec_id is not None:
+                filename_to_rec_id[fname] = int(rec_id)
+                # Also index by stem (without extension) for flexible matching
+                stem = fname.rsplit(".", 1)[0] if "." in fname else fname
+                filename_to_rec_id[stem] = int(rec_id)
+        log.info("  Found %d unique recordings in DB.", len({v for v in filename_to_rec_id.values()}))
+    except Exception as exc:
+        log.warning("Could not build filename lookup: %s — will try direct int cast.", exc)
+
+    log.info("Reading labels from %s", csv_path)
+    with open(csv_path, newline="", encoding="utf-8") as f:
+        reader = csv.DictReader(f)
+        required_cols = {"recording_id", "offset_s", "label", "label_type"}
+        if not required_cols.issubset(set(reader.fieldnames or [])):
+            log.error(
+                "CSV missing required columns. Expected: %s  Got: %s",
+                required_cols, reader.fieldnames,
+            )
+            return 1
+
+        for i, row in enumerate(reader):
+            try:
+                lt_str = row["label_type"].strip().lower()
+                lt = label_type_map.get(lt_str)
+                if lt is None:
+                    log.warning("Row %d: unknown label_type '%s', skipping.", i, lt_str)
+                    skipped += 1
+                    continue
+
+                csv_filename = row["recording_id"].strip()
+                # Resolve to integer recording_id
+                rec_int_id = filename_to_rec_id.get(csv_filename)
+                if rec_int_id is None:
+                    stem = csv_filename.rsplit(".", 1)[0] if "." in csv_filename else csv_filename
+                    rec_int_id = filename_to_rec_id.get(stem)
+                if rec_int_id is None:
+                    # File not in this DB — expected when label CSV covers more
+                    # dates than the current DB (e.g. full-month labels on a
+                    # single-day DB).
+                    skipped += 1
+                    continue
+
+                offset_s = float(row["offset_s"])
+                end_offset_s = float(row.get("end_offset_s") or offset_s + 5.0)
+                offsets = (offset_s, end_offset_s)
+
+                if args.dry_run:
+                    log.debug(
+                        "DRY RUN row %d: %s (rec_id=%d) offset=%.2f label=%s type=%s",
+                        i, csv_filename, rec_int_id, offset_s, row["label"], lt_str,
+                    )
+                    inserted += 1
+                    continue
+
+                db.insert_annotation(
+                    recording_id=rec_int_id,
+                    offsets=offsets,
+                    label=row["label"].strip(),
+                    label_type=lt,
+                    provenance=f"csv_import:{args.annotator_id}",
+                    handle_duplicates="update",
+                )
+                inserted += 1
+
+            except Exception as exc:
+                log.warning("Row %d error: %s  Row data: %s", i, exc, row)
+                errors += 1
+
+    action = "DRY RUN — would insert" if args.dry_run else "Inserted"
+    log.info("%s %d labels (%d skipped, %d errors).", action, inserted, skipped, errors)
+    return 0
+
+
+# ---------------------------------------------------------------------------
+# Sub-command: search
+# ---------------------------------------------------------------------------
+
+def _run_search(db, embedding_model, args_query_audio, args_offset_s,
+                args_window_s, args_sample_rate_hz, args_num_results,
+                args_score_fn, args_exact, args_target_score, np):
+    """Core search logic; returns (results, all_scores, sample_rate_hz, window_size_s)."""
+    from perch_hoplite.db import brutalism, score_functions, search_results
+    from perch_hoplite.agile import embedding_display
+
+    sr = args_sample_rate_hz or embedding_model.sample_rate
+    window_size_s = getattr(embedding_model, "window_size_s", 5.0)
+
+    log.info("Loading query audio: %s", args_query_audio)
+    query_display = embedding_display.QueryDisplay(
+        uri=args_query_audio,
+        offset_s=args_offset_s,
+        window_size_s=args_window_s or window_size_s,
+        sample_rate_hz=sr,
+    )
+
+    log.info("Embedding query audio...")
+    audio_window = query_display.get_audio_window()
+    query_embedding = embedding_model.embed(audio_window).embeddings[0, 0]
+    log.info("Query embedding shape: %s", query_embedding.shape)
+
+    score_fn = score_functions_mod.get_score_fn(args_score_fn, target_score=args_target_score)
+
+    log.info(
+        "Searching DB (exact=%s, num_results=%d, score_fn=%s)...",
+        args_exact, args_num_results, args_score_fn,
+    )
+    t0 = time.monotonic()
+    if args_exact:
+        results_obj, all_scores = brutalism.threaded_brute_search(
+            db, query_embedding, args_num_results, score_fn=score_fn
+        )
+    else:
+        ann_matches = db.ui.search(query_embedding, count=args_num_results)
+        results_obj = search_results.TopKSearchResults(top_k=args_num_results)
+        for k, dist in zip(ann_matches.keys, ann_matches.distances):
+            results_obj.update(search_results.SearchResult(k, dist))
+        all_scores = np.array([r.sort_score for r in results_obj.search_results])
+
+    elapsed = time.monotonic() - t0
+    log.info(
+        "Search complete in %.2fs — %d results, score range [%.4f, %.4f]",
+        elapsed,
+        len(results_obj.search_results),
+        float(all_scores.min()) if len(all_scores) else 0,
+        float(all_scores.max()) if len(all_scores) else 0,
+    )
+    return results_obj, all_scores, sr, window_size_s
+
+
+def _write_search_csv(results_obj, db, output_csv: str) -> None:
+    """Write search results (recording_id, offset_s, score) to CSV."""
+    out_path = Path(output_csv)
+    out_path.parent.mkdir(parents=True, exist_ok=True)
+    count = 0
+    with open(out_path, "w", newline="", encoding="utf-8") as f:
+        writer = csv.writer(f)
+        writer.writerow(["window_id", "recording_id", "offset_s", "end_offset_s", "score"])
+        for r in results_obj.search_results:
+            wid = r.window_id
+            source = _get_source(db, wid)
+            writer.writerow([
+                int(wid),
+                source.source_id if hasattr(source, "source_id") else str(source),
+                getattr(source, "offsets", (None, None))[0],
+                getattr(source, "offsets", (None, None))[1],
+                f"{r.sort_score:.6f}",
+            ])
+            count += 1
+    log.info("Wrote %d search results to %s", count, out_path)
+
+
+def _save_histogram(all_scores, hit_scores, output_path: str, title: str) -> None:
+    """Save a score distribution histogram to a PNG file."""
+    plt, np = _require_matplotlib()
+    fig, ax = plt.subplots(figsize=(10, 4))
+    ax.hist(all_scores, bins=100, color="#1a6fa0", alpha=0.7, label="All scores")
+    ax.scatter(
+        hit_scores, np.zeros_like(hit_scores),
+        marker="|", color="red", alpha=0.7, s=200, label="Top hits",
+    )
+    ax.set_title(title)
+    ax.set_xlabel("Score")
+    ax.set_ylabel("Count")
+    ax.legend()
+    fig.tight_layout()
+    out = Path(output_path)
+    out.parent.mkdir(parents=True, exist_ok=True)
+    fig.savefig(str(out), dpi=150)
+    plt.close(fig)
+    log.info("Score histogram saved to %s", out)
+
+
+def cmd_search(args) -> int:
+    (audio_loader_mod, classifier_mod, classifier_data_mod,
+     embedding_display_mod, source_info_mod,
+     brutalism_mod, interface_mod, score_functions_mod,
+     search_results_mod, sqlite_usearch_impl_mod,
+     model_configs_mod, np) = _require_perch()
+
+    db = load_db(args.db_dir)
+    embedding_model, audio_sources = load_model_from_db(db)
+
+    if getattr(args, "audio_dir", None):
+        from perch_hoplite.agile import source_info as _si
+        patched_globs = []
+        _globs = getattr(audio_sources, 'audio_globs', getattr(audio_sources, 'audio_sources', []))
+        for ag in _globs:
+            patched = _si.AudioSourceConfig(
+                dataset_name=ag.dataset_name,
+                base_path=args.audio_dir,
+                file_glob=ag.file_glob,
+                min_audio_len_s=ag.min_audio_len_s,
+                target_sample_rate_hz=ag.target_sample_rate_hz,
+                shard_len_s=ag.shard_len_s,
+            )
+            patched_globs.append(patched)
+        audio_sources = _si.AudioSources(tuple(patched_globs))
+        log.info("Audio base path overridden to: %s", args.audio_dir)
+
+    audio_filepath_loader, sr, window_size_s = make_audio_loader(
+        db, embedding_model, audio_sources, args.sample_rate_hz
+    )
+
+    results_obj, all_scores, sr, window_size_s = _run_search(
+        db, embedding_model,
+        args.query_audio, args.offset_s, args.window_s,
+        sr, args.num_results, args.score_fn,
+        args.exact, args.target_score, np,
+    )
+
+    if args.output_csv:
+        _write_search_csv(results_obj, db, args.output_csv)
+
+    if args.plot_scores:
+        hit_scores = [r.sort_score for r in results_obj.search_results]
+        _save_histogram(all_scores, hit_scores, args.plot_scores,
+                        f"Search results — {args.query_label}")
+
+    if args.serve:
+        _launch_labeling_gui(
+            db=db,
+            results_obj=results_obj,
+            audio_filepath_loader=audio_filepath_loader,
+            sample_rate_hz=sr,
+            query_label=args.query_label,
+            annotator_id=args.annotator_id,
+            host=args.host,
+            port=args.port,
+            share=args.share,
+            db_dir=args.db_dir,
+            classifier_path=None,
+        )
+    else:
+        log.info(
+            "Search complete. Use --serve to launch the labeling GUI, "
+            "or --output-csv to export results."
+        )
+
+    return 0
+
+
+# ---------------------------------------------------------------------------
+# Sub-command: train
+# ---------------------------------------------------------------------------
+
+def cmd_train(args) -> int:
+    (audio_loader_mod, classifier_mod, classifier_data_mod,
+     *_rest) = _require_perch()
+    import numpy as np
+
+    db = load_db(args.db_dir)
+
+    data_manager = classifier_data_mod.AgileDataManager(
+        target_labels=args.target_labels,
+        db=db,
+        train_ratio=args.train_ratio,
+        min_eval_examples=1,
+        batch_size=args.batch_size,
+        weak_negatives_batch_size=args.weak_neg_batch_size,
+        rng=np.random.default_rng(seed=args.seed),
+    )
+
+    target_labels = data_manager.get_target_labels()
+    log.info("Training classifier for labels: %s", target_labels)
+    log.info(
+        "  steps=%d  lr=%.1e  weak_neg_weight=%.3f  loss=%s  seed=%d",
+        args.num_steps, args.learning_rate, args.weak_neg_weight,
+        args.loss_fn, args.seed,
+    )
+
+    t0 = time.monotonic()
+    linear_classifier, eval_scores = classifier_mod.train_linear_classifier(
+        data_manager=data_manager,
+        learning_rate=args.learning_rate,
+        weak_neg_weight=args.weak_neg_weight,
+        num_train_steps=args.num_steps,
+    )
+    elapsed = time.monotonic() - t0
+
+    log.info("Training complete in %s", _format_duration(elapsed))
+    log.info("  top1_acc : %.4f", eval_scores.get("top1_acc", float("nan")))
+    log.info("  roc_auc  : %.4f", eval_scores.get("roc_auc", float("nan")))
+    log.info("  cmap     : %.4f", eval_scores.get("cmap", float("nan")))
+
+    out_path = Path(args.classifier_out)
+    out_path.parent.mkdir(parents=True, exist_ok=True)
+    linear_classifier.save(str(out_path))
+    log.info("Classifier saved to %s", out_path)
+
+    # Save eval metrics JSON alongside the model
+    metrics_path = out_path.with_suffix(".metrics.json")
+    with open(metrics_path, "w") as f:
+        json.dump(
+            {
+                "labels": target_labels,
+                "eval_scores": {k: float(v.flat[0] if hasattr(v, "flat") else v) for k, v in eval_scores.items()},
+                "train_args": {
+                    "num_steps": args.num_steps,
+                    "learning_rate": args.learning_rate,
+                    "weak_neg_weight": args.weak_neg_weight,
+                    "batch_size": args.batch_size,
+                    "train_ratio": args.train_ratio,
+                    "seed": args.seed,
+                },
+            },
+            f, indent=2,
+        )
+    log.info("Eval metrics written to %s", metrics_path)
+
+    # Save training provenance record
+    import sqlite3 as _sq3t
+    ann_counts = {}
+    try:
+        _con = _sq3t.connect(os.path.join(args.db_dir, "hoplite.sqlite"))
+        rows = _con.execute(
+            "SELECT label, label_type, COUNT(*) FROM annotations GROUP BY label, label_type"
+        ).fetchall()
+        _con.close()
+        ann_counts = {f"{r[0]}_type{r[1]}": r[2] for r in rows}
+    except Exception:
+        pass
+    # Build full annotation list for provenance — every labeled window
+    full_anns = []
+    try:
+        _con2 = _sq3t.connect(os.path.join(args.db_dir, "hoplite.sqlite"))
+        ann_rows = _con2.execute("""
+            SELECT a.id, r.filename, w.id as window_id, w.offsets,
+                   a.label, a.label_type, a.provenance
+            FROM annotations a
+            JOIN recordings r ON r.id = a.recording_id
+            LEFT JOIN windows w ON w.recording_id = a.recording_id
+                AND w.offsets = a.offsets
+        """).fetchall()
+        import struct as _st2
+        for row in ann_rows:
+            ann_id, fname, wid, off_blob, label, ltype, prov = row
+            if isinstance(off_blob, (bytes, bytearray)) and len(off_blob) >= 16:
+                s, e = _st2.unpack_from("<dd", off_blob)
+            else:
+                s, e = 0.0, 5.0
+            full_anns.append({
+                "annotation_id": ann_id,
+                "window_id":     wid,
+                "filename":      fname,
+                "offset_s":      round(s, 3),
+                "end_s":         round(e, 3),
+                "label":         label,
+                "label_type":    ltype,
+                "provenance":    prov,
+            })
+        # Get audio sources from DB metadata
+        src_row = _con2.execute(
+            "SELECT value FROM hoplite_metadata WHERE key='audio_sources'"
+        ).fetchone()
+        audio_srcs = json.loads(src_row[0]).get("audio_globs", []) if src_row else []
+        _con2.close()
+    except Exception as _e:
+        log.warning("Could not build full annotation list for provenance: %s", _e)
+        full_anns = []
+        audio_srcs = []
+
+    _save_training_provenance(
+        db_dir=args.db_dir,
+        classifier_out=str(out_path),
+        target_labels=target_labels,
+        train_args={
+            "num_steps":       args.num_steps,
+            "learning_rate":   args.learning_rate,
+            "weak_neg_weight": args.weak_neg_weight,
+            "batch_size":      args.batch_size,
+            "train_ratio":     args.train_ratio,
+            "seed":            args.seed,
+        },
+        eval_scores={k: float(v.flat[0] if hasattr(v, "flat") else v)
+                     for k, v in eval_scores.items()},
+        annotation_counts=ann_counts,
+        elapsed_s=elapsed,
+        full_annotations=full_anns,
+        audio_sources=audio_srcs,
+    )
+    return 0
+
+
+# ---------------------------------------------------------------------------
+# Sub-command: review
+# ---------------------------------------------------------------------------
+
+def cmd_review(args) -> int:
+    (audio_loader_mod, classifier_mod, classifier_data_mod,
+     embedding_display_mod, source_info_mod,
+     brutalism_mod, interface_mod, score_functions_mod,
+     search_results_mod, sqlite_usearch_impl_mod,
+     model_configs_mod, np) = _require_perch()
+
+    db = load_db(args.db_dir)
+    embedding_model, audio_sources = load_model_from_db(db)
+
+    # If --audio-dir is given, override every base_path in audio_sources.
+    # This is needed when the DB was built on a different machine (e.g. Colab)
+    # and the audio files are now at a different path on this server.
+    if getattr(args, "audio_dir", None):
+        from perch_hoplite.agile import source_info as _si
+        patched_globs = []
+        _globs = getattr(audio_sources, 'audio_globs', getattr(audio_sources, 'audio_sources', []))
+        for ag in _globs:
+            patched = _si.AudioSourceConfig(
+                dataset_name=ag.dataset_name,
+                base_path=args.audio_dir,
+                file_glob=ag.file_glob,
+                min_audio_len_s=ag.min_audio_len_s,
+                target_sample_rate_hz=ag.target_sample_rate_hz,
+                shard_len_s=ag.shard_len_s,
+            )
+            patched_globs.append(patched)
+        audio_sources = _si.AudioSources(tuple(patched_globs))
+        log.info("Audio base path overridden to: %s", args.audio_dir)
+
+    audio_filepath_loader, sr, _ = make_audio_loader(
+        db, embedding_model, audio_sources, args.sample_rate_hz
+    )
+
+    log.info("Loading classifier from %s", args.classifier)
+    linear_classifier = classifier_mod.LinearClassifier.load(args.classifier)
+
+    # Retrieve the weight vector for the target label
+    try:
+        target_labels = linear_classifier.get_labels()
+    except Exception:
+        # Fallback: try reading from companion metrics JSON
+        metrics_path = Path(args.classifier).with_suffix(".metrics.json")
+        if metrics_path.exists():
+            with open(metrics_path) as f:
+                target_labels = json.load(f).get("labels", [])
+        else:
+            log.error(
+                "Cannot determine classifier labels. "
+                "Ensure the .metrics.json companion file exists."
+            )
+            return 1
+
+    if args.target_label not in target_labels:
+        log.error(
+            "Target label '%s' not found in classifier labels: %s",
+            args.target_label, target_labels,
+        )
+        return 1
+
+    idx = target_labels.index(args.target_label)
+
+    class_query = linear_classifier.beta[:, idx]
+    bias_val = float(linear_classifier.beta_bias[idx])
+    log.info(
+        "Using classifier weight vector for label '%s' (index %d)",
+        args.target_label, idx,
+    )
+
+    # Compute classifier scores directly on the main thread using
+    # get_embeddings_batch (our patched version handles the USearch API
+    # version difference). Fetch a random sample, score with dot product,
+    # keep top-k. This is single-threaded so avoids the thread-safety issue
+    # with threaded_brute_search.
+    log.info("Scoring embeddings with classifier weight vector (%d dims)...",
+             len(class_query))
+
+    import numpy as _np_rev
+
+    all_ids = db.match_window_ids(limit=None)
+    total = len(all_ids)
+
+    # Random subsample
+    sample_n = args.sample_size if args.sample_size and args.sample_size > 0 else total
+    sample_n = min(sample_n, total)
+    if sample_n < total:
+        chosen = _np_rev.random.default_rng().choice(total, size=sample_n, replace=False)
+        sample_ids = [all_ids[i] for i in sorted(chosen)]
+    else:
+        sample_ids = all_ids
+    log.info("Scoring %d / %d embeddings...", sample_n, total)
+
+    # Fetch all sampled embeddings in one batch on main thread
+    emb_matrix = db.get_embeddings_batch(sample_ids)   # (N, D) float16
+    emb_f32 = emb_matrix.astype(_np_rev.float32)
+    query_f32 = _np_rev.array(class_query, dtype=_np_rev.float32)
+    all_scores = emb_f32 @ query_f32 + bias_val        # (N,) logit scores
+
+    # Build TopKSearchResults.
+    # If margin_target_score is set, sort by PROXIMITY to that target score
+    # (i.e. |score - target|) so we surface clips near the decision boundary
+    # or near any specified logit value.
+    # Otherwise keep the highest-scoring clips (standard top-k).
+    results_obj = search_results_mod.TopKSearchResults(top_k=args.num_results)
+    margin_target = args.margin_target_score
+    for wid, score in zip(sample_ids, all_scores):
+        if margin_target is not None:
+            # Negate distance so TopK (which keeps highest) keeps closest
+            sort_score = -abs(float(score) - margin_target)
+        else:
+            sort_score = float(score)
+        results_obj.update(search_results_mod.SearchResult(int(wid), sort_score))
+
+    # Restore actual logit scores for display (not the sort key)
+    score_map = {int(wid): float(s) for wid, s in zip(sample_ids, all_scores)}
+    for r in results_obj.search_results:
+        r.sort_score = score_map.get(r.window_id, r.sort_score)
+
+    log.info("Scoring complete: %d candidates, top-%d selected (margin_target=%s).",
+             sample_n, args.num_results, margin_target)
+
+    # Log the window IDs selected for review so they can be reconstructed
+    selected_ids = [r.window_id for r in results_obj.search_results]
+    log.info("Selected window IDs: %s", selected_ids)
+
+
+    hit_scores = [r.sort_score for r in results_obj.search_results]
+    log.info(
+        "Review search: %d results, score range [%.4f, %.4f]",
+        len(results_obj.search_results),
+        min(hit_scores) if hit_scores else 0,
+        max(hit_scores) if hit_scores else 0,
+    )
+
+    if args.output_csv:
+        _write_search_csv(results_obj, db, args.output_csv)
+
+    if args.plot_scores:
+        _save_histogram(all_scores, hit_scores, args.plot_scores,
+                        f"Classifier review — {args.target_label}")
+
+    if args.serve:
+        _launch_labeling_gui(
+            db=db,
+            results_obj=results_obj,
+            audio_filepath_loader=audio_filepath_loader,
+            sample_rate_hz=sr,
+            query_label=args.target_label,
+            annotator_id=args.annotator_id,
+            host=args.host,
+            port=args.port,
+            share=args.share,
+            db_dir=args.db_dir,
+            classifier_path=getattr(args, "classifier", None),
+        )
+
+    return 0
+
+
+# ---------------------------------------------------------------------------
+# Sub-command: infer
+# ---------------------------------------------------------------------------
+
+def cmd_infer(args) -> int:
+    (audio_loader_mod, classifier_mod, *_rest) = _require_perch()
+
+    db = load_db(args.db_dir)
+
+    log.info("Loading classifier from %s", args.classifier)
+    linear_classifier = classifier_mod.LinearClassifier.load(args.classifier)
+
+    out_path = Path(args.output_csv)
+    out_path.parent.mkdir(parents=True, exist_ok=True)
+
+    log.info(
+        "Running inference (logit_threshold=%.3f, labels=%s)...",
+        args.logit_threshold, args.labels or "all",
+    )
+    t0 = time.monotonic()
+
+    classifier_mod.write_inference_csv(
+        linear_classifier, db, str(out_path),
+        args.logit_threshold,
+        labels=args.labels,
+    )
+
+    elapsed = time.monotonic() - t0
+    log.info("Inference complete in %s", _format_duration(elapsed))
+
+    # Quick summary
+    try:
+        import csv as csv_mod
+        with open(out_path, newline="") as f:
+            rows = list(csv_mod.DictReader(f))
+        log.info("Total detections written: %d", len(rows))
+        from collections import Counter
+        by_label = Counter(r.get("label", "?") for r in rows)
+        for lbl, cnt in sorted(by_label.items()):
+            log.info("  %-40s  %d", lbl, cnt)
+    except Exception:
+        pass
+
+    if args.plot_distribution:
+        try:
+            import pandas as pd
+            import seaborn as sns
+            plt_mod, np_mod = _require_matplotlib()
+            df = pd.read_csv(out_path)
+            fig, ax = plt_mod.subplots(figsize=(12, 5))
+            for lbl in df["label"].unique():
+                subset = df[df["label"] == lbl]["logits"]
+                ax.hist(subset, bins=50, alpha=0.6, label=lbl)
+            ax.set_title("Inference logit distribution by class")
+            ax.set_xlabel("Logit")
+            ax.set_ylabel("Count")
+            ax.legend()
+            fig.tight_layout()
+            dist_path = Path(args.plot_distribution)
+            dist_path.parent.mkdir(parents=True, exist_ok=True)
+            fig.savefig(str(dist_path), dpi=150)
+            plt_mod.close(fig)
+            log.info("Distribution plot saved to %s", dist_path)
+        except ImportError as exc:
+            log.warning("Could not generate distribution plot: %s", exc)
+
+    log.info("Results written to %s", out_path)
+    return 0
+
+
+# ---------------------------------------------------------------------------
+# Gradio labeling GUI
+# ---------------------------------------------------------------------------
+
+def _launch_labeling_gui(
+    db,
+    results_obj,
+    audio_filepath_loader,
+    sample_rate_hz: int,
+    query_label: str,
+    annotator_id: str,
+    host: str,
+    port: int,
+    share: bool,
+    db_dir: str = "",
+    classifier_path: str | None = None,
+) -> None:
+    """
+    Launch a Gradio web app for interactive audio labeling.
+
+    The app displays up to N search results; each result shows:
+      - Waveform plot of the audio segment
+      - An HTML5 audio player for playback
+      - Positive / Negative / Unlabeled radio buttons
+
+    On clicking "Save Labels", all annotations are written back to the DB.
+
+    Access via http://<server-ip>:<port> from any browser on the LAN.
+    """
+    gr = _require_gradio()
+    plt_mod, np_mod = _require_matplotlib()
+    import io, base64, soundfile as sf
+
+    from perch_hoplite.db import interface as iface
+
+    log.info("Building Gradio labeling interface...")
+
+    import datetime as _dt_gui
+    session_id      = _dt_gui.datetime.now().strftime("%Y%m%d_%H%M%S") + f"_{annotator_id}"
+    _db_dir_cap     = db_dir       # passed as parameter
+    _classifier_cap = classifier_path  # passed as parameter
+    log.info("Labeling session ID: %s", session_id)
+
+    # Pre-load all result segments into memory.
+    # make_filepath_loader returns loader(filename, offset_s, end_offset_s).
+    segments = []
+    for r in results_obj.search_results:
+        wid = r.window_id
+        try:
+            source = _get_source(db, wid)
+            recording_id = getattr(source, "source_id", str(wid))
+            offsets = getattr(source, "offsets", (0.0, 5.0))
+            offset_s = float(offsets[0]) if offsets else 0.0
+            end_s    = float(offsets[1]) if offsets and len(offsets) > 1 else offset_s + 5.0
+            audio, sr_actual = audio_filepath_loader(recording_id, offset_s)
+        except Exception as exc:
+            import traceback as _tb
+            log.warning("Could not load audio for window %s: %s\n%s",
+                        wid, exc, _tb.format_exc())
+            continue
+        segments.append({
+            "window_id": int(wid),
+            "recording_id": recording_id,
+            "offset_s": offsets[0] if offsets else 0.0,
+            "end_offset_s": offsets[1] if offsets else 5.0,
+            "score": r.sort_score,
+            "audio": audio,
+            "sample_rate": sr_actual or sample_rate_hz,
+        })
+
+    log.info("Loaded %d audio segments for labeling.", len(segments))
+
+    def _make_spectrogram_image(audio_array: "np.ndarray", sr: int) -> str:
+        """Return a base64-encoded PNG log-mel spectrogram.
+
+        Parameters:
+          - 128 mel filter banks covering 20 Hz – 16 kHz
+          - Window length: 20 ms  (640 samples at 32 kHz)
+          - Hop length:    10 ms  (320 samples at 32 kHz)
+          - Log-mel power in dB, 80 dB dynamic range
+
+        Log-mel frequency axis compresses the high-frequency range and
+        expands the low-frequency range, making it easier to see both
+        baleen whale calls (40–200 Hz) and odontocete whistles (2–14 kHz)
+        in the same display.
+        """
+        import numpy as _np2
+
+        # STFT parameters
+        # Window: 20 ms = 640 samples at 32 kHz
+        # Hop:    10 ms = 320 samples at 32 kHz
+        win_len  = int(round(0.020 * sr))   # 640 samples
+        hop_len  = int(round(0.010 * sr))   # 320 samples
+        n_fft    = 1 << (win_len - 1).bit_length()  # next power of 2 >= win_len
+        n_mels   = 128
+        f_min    = 10.0    # Hz — captures blue/fin whale fundamentals (10-20 Hz)
+        f_max    = float(sr // 2)  # Nyquist (16 kHz at 32 kHz sample rate)
+        dyn_range_db = 80.0
+
+        # Build mel filterbank
+        # mel scale: m = 2595 * log10(1 + f/700)
+        def _hz_to_mel(hz):
+            return 2595.0 * _np2.log10(1.0 + hz / 700.0)
+        def _mel_to_hz(mel):
+            return 700.0 * (10.0 ** (mel / 2595.0) - 1.0)
+
+        mel_min = _hz_to_mel(f_min)
+        mel_max = _hz_to_mel(f_max)
+        mel_points = _np2.linspace(mel_min, mel_max, n_mels + 2)
+        hz_points  = _mel_to_hz(mel_points)
+        bin_points = _np2.floor((n_fft + 1) * hz_points / sr).astype(int)
+
+        fbank = _np2.zeros((n_mels, n_fft // 2 + 1))
+        for m in range(1, n_mels + 1):
+            f_left   = bin_points[m - 1]
+            f_center = bin_points[m]
+            f_right  = bin_points[m + 1]
+            for k in range(f_left, f_center):
+                if f_center > f_left:
+                    fbank[m - 1, k] = (k - f_left) / (f_center - f_left)
+            for k in range(f_center, f_right):
+                if f_right > f_center:
+                    fbank[m - 1, k] = (f_right - k) / (f_right - f_center)
+
+        # Compute STFT power spectrum
+        # Pad signal
+        pad = n_fft // 2
+        audio_pad = _np2.pad(audio_array, pad, mode="reflect")
+        n_frames = 1 + (len(audio_pad) - n_fft) // hop_len
+        window = _np2.hanning(win_len).astype(_np2.float32)
+        # Zero-pad window to n_fft if needed
+        win_padded = _np2.zeros(n_fft, dtype=_np2.float32)
+        win_padded[:win_len] = window
+
+        # Build frames
+        frames = _np2.stack([
+            audio_pad[i * hop_len : i * hop_len + n_fft]
+            for i in range(n_frames)
+        ]).astype(_np2.float32)
+        # Apply window and FFT
+        frames *= win_padded
+        spectra = _np2.abs(_np2.fft.rfft(frames, n=n_fft)) ** 2  # (n_frames, n_fft//2+1)
+
+        # Apply mel filterbank
+        mel_spec = spectra @ fbank.T   # (n_frames, n_mels)
+        mel_spec = _np2.maximum(mel_spec, 1e-10)
+
+        # Log mel in dB
+        log_mel = 10.0 * _np2.log10(mel_spec).T  # (n_mels, n_frames)
+        vmax = log_mel.max()
+        vmin = vmax - dyn_range_db
+
+        # Time axis
+        times = _np2.arange(n_frames) * hop_len / sr
+
+        # Mel frequency axis for display (center of each mel bin in Hz)
+        mel_freqs = _mel_to_hz(
+            _np2.linspace(mel_min, mel_max, n_mels)
+        )
+
+        fig, axes = plt_mod.subplots(
+            2, 1, figsize=(7, 3.5),
+            gridspec_kw={"height_ratios": [3, 1], "hspace": 0.05},
+        )
+        fig.patch.set_facecolor("#111827")
+
+        # Log-mel spectrogram (top panel)
+        ax_spec = axes[0]
+        ax_spec.pcolormesh(
+            times, mel_freqs, log_mel,
+            vmin=vmin, vmax=vmax,
+            cmap="inferno", shading="gouraud",
+        )
+        ax_spec.set_ylabel("Hz (mel)", color="#94a3b8", fontsize=8)
+        ax_spec.set_yscale("symlog", linthresh=200)
+        # Y-axis ticks at acoustically meaningful frequencies
+        yticks = [10, 20, 50, 100, 200, 500, 1000, 2000, 5000, 10000, 16000]
+        ytick_labels = ["10", "20", "50", "100", "200", "500", "1k", "2k", "5k", "10k", "16k"]
+        ax_spec.set_yticks(yticks)
+        ax_spec.set_yticklabels(ytick_labels, fontsize=7, color="#94a3b8")
+        ax_spec.set_facecolor("#111827")
+        for spine in ax_spec.spines.values():
+            spine.set_edgecolor("#334155")
+        ax_spec.tick_params(bottom=False, labelbottom=False, colors="#94a3b8")
+        ax_spec.set_xlim([times[0], times[-1]])
+        ax_spec.set_ylim([f_min, f_max])
+
+        # Waveform (bottom panel)
+        ax_wave = axes[1]
+        t_wave = _np2.linspace(0, len(audio_array) / sr, len(audio_array))
+        ax_wave.plot(t_wave, audio_array, color="#38bdf8", linewidth=0.4)
+        ax_wave.set_xlim([0, t_wave[-1]])
+        ax_wave.set_xlabel("Time (s)", color="#94a3b8", fontsize=8)
+        ax_wave.set_facecolor("#111827")
+        ax_wave.tick_params(colors="#94a3b8", labelsize=7)
+        for spine in ax_wave.spines.values():
+            spine.set_edgecolor("#334155")
+        ax_wave.set_yticks([])
+
+        buf = io.BytesIO()
+        fig.savefig(buf, format="png", dpi=110, bbox_inches="tight",
+                    facecolor="#111827")
+        plt_mod.close(fig)
+        buf.seek(0)
+        return "data:image/png;base64," + base64.b64encode(buf.read()).decode()
+
+    def _make_audio_b64(audio_array: "np.ndarray", sr: int) -> str:
+        """Return a base64-encoded WAV for HTML5 audio element."""
+        buf = io.BytesIO()
+        sf.write(buf, audio_array, sr, format="WAV")
+        buf.seek(0)
+        return "data:audio/wav;base64," + base64.b64encode(buf.read()).decode()
+
+    # Build per-segment HTML card
+    def _segment_card(seg: dict, idx: int) -> str:
+        wav_b64  = _make_audio_b64(seg["audio"], seg["sample_rate"])
+        spec_b64 = _make_spectrogram_image(seg["audio"], seg["sample_rate"])
+        fname = seg["recording_id"].split("/")[-1]
+        pid = f"player_{idx}"   # unique ID for JS targeting
+
+        wav_b64  = _make_audio_b64(seg["audio"], seg["sample_rate"])
+        player_html = f"<audio controls style='width:100%;margin-top:6px;height:40px;' src='{wav_b64}'></audio>"
+        return (
+            f"<div style='background:#1e293b;border-radius:8px;padding:12px;"
+            f"margin-bottom:8px;color:#e2e8f0;font-family:monospace;font-size:11px;'>"
+            f"<b>#{idx+1}</b> &nbsp; <span style='color:#7dd3fc'>{fname}</span>"
+            f" &nbsp; <span style='color:#94a3b8'>"
+            f"{seg['offset_s']:.1f}s – {seg['end_offset_s']:.1f}s</span>"
+            f" &nbsp; <span style='color:#fbbf24'>score={seg['score']:.3f}</span><br>"
+            f"<img src='{spec_b64}' style='width:100%;margin-top:6px;"
+            f"border-radius:4px;display:block;'/>"
+            f"{player_html}"
+            f"</div>"
+        )
+
+    # State: labels assigned in the GUI
+    label_state: dict[int, str] = {}  # window_id -> "positive"|"negative"|"unlabeled"
+
+    with gr.Blocks(
+        title="Perch Hoplite — Audio Labeling",
+        css=(
+            "body { background: #0f172a; color: #e2e8f0; font-family: 'Courier New', monospace; }"
+            ".gr-button-primary { background: #0ea5e9 !important; }"
+            ".gr-button { border-radius: 6px !important; }"
+            ".label-radio .wrap { display: flex; flex-direction: column; gap: 6px !important; }"
+            ".label-radio .wrap label { border-radius: 8px; padding: 7px 14px;"
+            "  font-weight: 700; font-size: 13px; cursor: pointer;"
+            "  transition: box-shadow 0.15s; }"
+            ".label-radio .wrap label:nth-child(1) { background:#15803d; color:#dcfce7; }"
+            ".label-radio .wrap label:nth-child(2) { background:#b91c1c; color:#fee2e2; }"
+            ".label-radio .wrap label:nth-child(3) { background:#374151; color:#d1d5db; }"
+            ".label-radio .wrap label:nth-child(1):has(input:checked)"
+            "  { background:#16a34a; box-shadow:0 0 0 3px #86efac; }"
+            ".label-radio .wrap label:nth-child(2):has(input:checked)"
+            "  { background:#dc2626; box-shadow:0 0 0 3px #fca5a5; }"
+            ".label-radio .wrap label:nth-child(3):has(input:checked)"
+            "  { background:#4b5563; box-shadow:0 0 0 3px #9ca3af; }"
+        ),
+    ) as demo:
+        gr.Markdown(
+            f"""
+# 🐋 Perch Hoplite — Audio Labeling Interface
+**Query label:** `{query_label}` &nbsp;&nbsp; **Annotator:** `{annotator_id}`  
+**Results loaded:** {len(segments)}  
+Click **Positive** (🟢) or **Negative** (🔴) for each segment, then **Save Labels to DB**.
+"""
+        )
+
+        save_btn = gr.Button("💾 Save Labels to DB", variant="primary")
+        status_box = gr.Textbox(label="Status", interactive=False, lines=4)
+
+        # ── Shared helpers ────────────────────────────────────────────────────
+        import sqlite3 as _sq3g, os as _osg, struct as _stg
+
+        def _sqlite_path():
+            """Return the hoplite.sqlite file path, thread-safe."""
+            p = None
+            cfg = getattr(db, "db_config", None)
+            if cfg: p = str(getattr(cfg, "db_path", "") or "")
+            if not p:
+                for a in ("db_path", "_db_path", "path"):
+                    v = getattr(db, a, None)
+                    if v: p = str(v); break
+            if p and _osg.path.isdir(p):
+                p = _osg.path.join(p, "hoplite.sqlite")
+            return p
+
+        # Accumulate per-session annotation records for provenance
+        _session_annotations: dict = {}  # wid -> annotation record
+
+        def _write_label(wid, choice):
+            """Write a single label directly to SQLite (thread-safe).
+            Returns True on success, False on skip, raises on error."""
+            if choice == "unlabeled":
+                _session_annotations.pop(int(wid), None)
+                return False
+            lt = _LT.POSITIVE if choice == "positive" else _LT.NEGATIVE
+            dbp = _sqlite_path()
+            con = _sq3g.connect(dbp)
+            row = con.execute(
+                "SELECT recording_id, offsets FROM windows WHERE id=?",
+                (int(wid),)).fetchone()
+            if row is None:
+                con.close()
+                raise KeyError(f"window {wid} not found")
+            rec_id, off_blob = row
+            if isinstance(off_blob, (bytes, bytearray)) and len(off_blob) >= 16:
+                start_s, end_s = _stg.unpack_from("<dd", off_blob)
+            else:
+                start_s, end_s = 0.0, 5.0
+            off_enc = _stg.pack("<dd", start_s, end_s)
+            prov = f"gradio_gui:{annotator_id}"
+            # DELETE existing annotation for this window+label first,
+            # then INSERT fresh. This avoids duplicate rows caused by the
+            # (id, recording_id, offsets) unique constraint not catching
+            # re-saves with different auto-incremented ids.
+            con.execute("""
+                DELETE FROM annotations
+                WHERE recording_id=? AND offsets=? AND label=?
+            """, (rec_id, off_enc, query_label))
+            con.execute("""
+                INSERT INTO annotations
+                    (recording_id, offsets, label, label_type, provenance)
+                VALUES (?, ?, ?, ?, ?)
+            """, (rec_id, off_enc, query_label, int(lt), prov))
+            con.commit()
+            # Get filename for provenance
+            fname_row = con.execute(
+                "SELECT filename FROM recordings WHERE id=?",
+                (rec_id,)).fetchone()
+            con.close()
+            fname = fname_row[0] if fname_row else str(rec_id)
+            # Find score for this window from segments list
+            score = next((s["score"] for s in segments if s["window_id"] == int(wid)), None)
+            _session_annotations[int(wid)] = {
+                "window_id":  int(wid),
+                "filename":   fname,
+                "offset_s":   round(start_s, 3),
+                "end_s":      round(end_s, 3),
+                "label":      choice,
+                "label_type": int(lt),
+                "score":      round(score, 4) if score is not None else None,
+            }
+            return True
+
+        def _label_counts():
+            """Return (pos_dict, neg_dict) by direct SQLite query."""
+            try:
+                dbp = _sqlite_path()
+                con = _sq3g.connect(dbp)
+                pos = dict(con.execute(
+                    "SELECT label, COUNT(*) FROM annotations WHERE label_type=? GROUP BY label",
+                    (_LT.POSITIVE,)).fetchall())
+                neg = dict(con.execute(
+                    "SELECT label, COUNT(*) FROM annotations WHERE label_type=? GROUP BY label",
+                    (_LT.NEGATIVE,)).fetchall())
+                con.close()
+                return pos, neg
+            except Exception as exc:
+                return {}, {"error": str(exc)}
+
+        # ── Build radio buttons + wire auto-save ──────────────────────────────
+        radio_components = []
+
+        with gr.Column():
+            for i, seg in enumerate(segments):
+                with gr.Row():
+                    with gr.Column(scale=4):
+                        gr.HTML(_segment_card(seg, i))
+                    with gr.Column(scale=1):
+                        radio = gr.Radio(
+                            choices=["positive", "negative", "unlabeled"],
+                            value="unlabeled",
+                            label=f"Label #{i+1}  (wid={seg['window_id']})",
+                            elem_classes=["label-radio"],
+                        )
+                        radio_components.append((seg["window_id"], radio))
+
+        # Auto-save: wire each radio to save immediately on change.
+        # This means labels are written to the DB as you click,
+        # so a page reload or crash never loses completed work.
+        def _make_autosave(wid):
+            def _autosave(choice):
+                try:
+                    saved = _write_label(wid, choice)
+                    if saved:
+                        log.info("Auto-saved: window %s -> %s", wid, choice)
+                except Exception as exc:
+                    log.warning("Auto-save failed for window %s: %s", wid, exc)
+                return gr.update()  # no UI change needed
+            return _autosave
+
+        for wid, radio in radio_components:
+            radio.change(
+                fn=_make_autosave(wid),
+                inputs=[radio],
+                outputs=[],
+            )
+
+        def save_labels(*radio_values):
+            # Batch save — writes all non-unlabeled choices to DB.
+            # Even if auto-save already wrote them, ON CONFLICT DO UPDATE
+            # makes this idempotent.
+            saved = 0
+            skipped = 0
+            errors = 0
+            for (wid, _), choice in zip(radio_components, radio_values):
+                try:
+                    if _write_label(wid, choice):
+                        saved += 1
+                    else:
+                        skipped += 1
+                except Exception as exc:
+                    log.warning("Batch save failed for window %s: %s", wid, exc)
+                    errors += 1
+
+            pos, neg = _label_counts()
+            err_str = f"  ({errors} errors)" if errors else ""
+            msg = (
+                f"Saved {saved} labels ({skipped} unlabeled skipped){err_str}.\n"
+                f"DB totals — positive: {pos}  negative: {neg}\n"
+                f"Labels are also auto-saved on each click — reload is safe."
+            )
+            log.info(msg)
+            # Write provenance record for this session
+            _save_label_provenance(
+                session_id=session_id,
+                db_dir=_db_dir_cap,
+                classifier_path=_classifier_cap,
+                annotator_id=annotator_id,
+                query_label=query_label,
+                annotations=list(_session_annotations.values()),
+            )
+            return msg
+
+        save_btn.click(
+            fn=save_labels,
+            inputs=[r for _, r in radio_components],
+            outputs=status_box,
+        )
+
+    log.info("=" * 60)
+    log.info("Launching Gradio labeling GUI")
+    log.info("  Access at: http://%s:%d", host if host != "0.0.0.0" else "<server-ip>", port)
+    log.info("  Press Ctrl+C to stop the server.")
+    log.info("=" * 60)
+
+    demo.launch(
+        server_name=host,
+        server_port=port,
+        share=share,
+        show_error=True,
+        quiet=False,
+    )
+
+
+# ---------------------------------------------------------------------------
+# Entry point
+# ---------------------------------------------------------------------------
+
+COMMANDS = {
+    "search": cmd_search,
+    "label": cmd_label,
+    "train": cmd_train,
+    "review": cmd_review,
+    "infer": cmd_infer,
+    "stats": cmd_stats,
+}
+
+
+def main(argv=None) -> int:
+    parser = build_parser()
+    args = parser.parse_args(argv)
+
+    db_dir = Path(args.db_dir)
+    log_dir = Path(args.log_dir) if args.log_dir else db_dir / "logs"
+    _setup_logging(log_dir, args.verbose)
+
+    log.info("Perch Hoplite Phase 2 — Search / Classify / Infer (Log-Mel spectrogram variant)")
+    log.info("Python %s  Command: %s", sys.version.split()[0], args.command)
+
+    fn = COMMANDS.get(args.command)
+    if fn is None:
+        log.error("Unknown command: %s", args.command)
+        return 1
+
+    return fn(args)
+
+
+if __name__ == "__main__":
+    sys.exit(main())
