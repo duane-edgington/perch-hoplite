@@ -7,6 +7,8 @@
 Built on Google perch-hoplite
 https://github.com/google-research/perch-hoplite
 
+https://github.com/google-research/perch/blob/main/chirp/projects/whale_demo/agile_modeling_noaa_demo.ipynb
+
 Hoplite is a system for storing large volumes of embeddings from machine
 perception models. We focus on combining vector search with active learning
 workflows, aka [agile modeling](https://arxiv.org/abs/2505.03071).
@@ -30,6 +32,12 @@ re-train the classifier.
 A key feature of this workflow is that we pre-compute the embeddings. This
 may take a while if you have a large amount of data, but the subsequent search
 and classifier training is very efficient.
+
+https://research.google/blog/how-ai-trained-on-birds-is-surfacing-underwater-mysteries/ 
+
+https://arxiv.org/abs/2512.03219 https://arxiv.org/abs/2508.04665 
+
+
 ## System Overview
 
 | Machine | Role | IP / Access |
@@ -42,7 +50,7 @@ and classifier training is very efficient.
 ### Why the split?
 
 The spark servers have NVIDIA GB10 (Blackwell, compute capability 12.1) GPUs.
-TensorFlow 2.17 does not support XLA on compute capability 12.x, so the
+TensorFlow 2.17 is the highest version ported to GB10 ARM/Nvidia chip, which does not support XLA on compute capability 12.x, so the
 Perch V2 model cannot run inference on spark for embedding. The Colab A100
 (compute capability 8.0) works fine. Once the embedding database is built on
 Colab and transferred to NFS, all subsequent steps (training, review, inference)
@@ -136,7 +144,7 @@ Known harmless warnings at startup (not errors):
 
 ### Phase 1 — Build the Embedding Database (Colab)
 
-The embedding step requires a GPU compatible with TF 2.17 + XLA. Use Google
+The embedding step requires a GPU compatible with TF 2.20rc or higher + XLA. Use Google
 Colab (A100 runtime) because the spark GB10 GPUs are not compatible.
 
 #### Step 1a — Prepare audio on ICEFISH
