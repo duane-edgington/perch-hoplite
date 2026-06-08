@@ -1459,92 +1459,46 @@ def _launch_labeling_gui(
     log.info("Loaded %d audio segments for labeling.", len(segments))
 
     def _make_spectrogram_image(audio_array: "np.ndarray", sr: int) -> str:
-        """Return a base64-encoded PNG log-mel spectrogram.
+        """Return a base64-encoded PNG log-mel spectrogram using librosa.
 
         Parameters:
-          - 128 mel filter banks covering 20 Hz – 16 kHz
+          - 128 mel filter banks, 10 Hz – 16 kHz
           - Window length: 20 ms  (640 samples at 32 kHz)
           - Hop length:    10 ms  (320 samples at 32 kHz)
           - Log-mel power in dB, 80 dB dynamic range
-
-        Log-mel frequency axis compresses the high-frequency range and
-        expands the low-frequency range, making it easier to see both
-        baleen whale calls (40–200 Hz) and odontocete whistles (2–14 kHz)
-        in the same display.
+          - Symlog Y-axis: linear below 200 Hz, log above
         """
         import numpy as _np2
+        import librosa as _librosa
 
-        # STFT parameters
-        # Window: 20 ms = 640 samples at 32 kHz
-        # Hop:    10 ms = 320 samples at 32 kHz
-        win_len  = int(round(0.020 * sr))   # 640 samples
-        hop_len  = int(round(0.010 * sr))   # 320 samples
-        n_fft    = 1 << (win_len - 1).bit_length()  # next power of 2 >= win_len
-        n_mels   = 128
-        f_min    = 10.0    # Hz — captures blue/fin whale fundamentals (10-20 Hz)
-        f_max    = float(sr // 2)  # Nyquist (16 kHz at 32 kHz sample rate)
-        dyn_range_db = 80.0
+        win_len = int(round(0.020 * sr))   # 640 samples at 32 kHz
+        hop_len = int(round(0.010 * sr))   # 320 samples at 32 kHz
+        n_fft   = 1 << (win_len - 1).bit_length()  # next power of 2
+        n_mels  = 128
+        f_min   = 10.0
+        f_max   = float(sr // 2)
+        dyn_db  = 80.0
 
-        # Build mel filterbank
-        # mel scale: m = 2595 * log10(1 + f/700)
-        def _hz_to_mel(hz):
-            return 2595.0 * _np2.log10(1.0 + hz / 700.0)
-        def _mel_to_hz(mel):
-            return 700.0 * (10.0 ** (mel / 2595.0) - 1.0)
-
-        mel_min = _hz_to_mel(f_min)
-        mel_max = _hz_to_mel(f_max)
-        mel_points = _np2.linspace(mel_min, mel_max, n_mels + 2)
-        hz_points  = _mel_to_hz(mel_points)
-        bin_points = _np2.floor((n_fft + 1) * hz_points / sr).astype(int)
-
-        fbank = _np2.zeros((n_mels, n_fft // 2 + 1))
-        for m in range(1, n_mels + 1):
-            f_left   = bin_points[m - 1]
-            f_center = bin_points[m]
-            f_right  = bin_points[m + 1]
-            for k in range(f_left, f_center):
-                if f_center > f_left:
-                    fbank[m - 1, k] = (k - f_left) / (f_center - f_left)
-            for k in range(f_center, f_right):
-                if f_right > f_center:
-                    fbank[m - 1, k] = (f_right - k) / (f_right - f_center)
-
-        # Compute STFT power spectrum
-        # Pad signal
-        pad = n_fft // 2
-        audio_pad = _np2.pad(audio_array, pad, mode="reflect")
-        n_frames = 1 + (len(audio_pad) - n_fft) // hop_len
-        window = _np2.hanning(win_len).astype(_np2.float32)
-        # Zero-pad window to n_fft if needed
-        win_padded = _np2.zeros(n_fft, dtype=_np2.float32)
-        win_padded[:win_len] = window
-
-        # Build frames
-        frames = _np2.stack([
-            audio_pad[i * hop_len : i * hop_len + n_fft]
-            for i in range(n_frames)
-        ]).astype(_np2.float32)
-        # Apply window and FFT
-        frames *= win_padded
-        spectra = _np2.abs(_np2.fft.rfft(frames, n=n_fft)) ** 2  # (n_frames, n_fft//2+1)
-
-        # Apply mel filterbank
-        mel_spec = spectra @ fbank.T   # (n_frames, n_mels)
-        mel_spec = _np2.maximum(mel_spec, 1e-10)
-
-        # Log mel in dB
-        log_mel = 10.0 * _np2.log10(mel_spec).T  # (n_mels, n_frames)
-        vmax = log_mel.max()
-        vmin = vmax - dyn_range_db
-
-        # Time axis
-        times = _np2.arange(n_frames) * hop_len / sr
-
-        # Mel frequency axis for display (center of each mel bin in Hz)
-        mel_freqs = _mel_to_hz(
-            _np2.linspace(mel_min, mel_max, n_mels)
+        # Compute log-mel spectrogram via librosa
+        mel_spec = _librosa.feature.melspectrogram(
+            y=audio_array.astype(_np2.float32),
+            sr=sr,
+            n_fft=n_fft,
+            hop_length=hop_len,
+            win_length=win_len,
+            window="hann",
+            n_mels=n_mels,
+            fmin=f_min,
+            fmax=f_max,
+            power=2.0,
         )
+        log_mel = _librosa.power_to_db(mel_spec, ref=_np2.max, top_db=dyn_db)
+
+        # Time and frequency axes
+        times     = _librosa.frames_to_time(
+            _np2.arange(mel_spec.shape[1]), sr=sr, hop_length=hop_len)
+        mel_freqs = _librosa.mel_frequencies(
+            n_mels=n_mels, fmin=f_min, fmax=f_max)
 
         fig, axes = plt_mod.subplots(
             2, 1, figsize=(7, 3.5),
@@ -1556,13 +1510,12 @@ def _launch_labeling_gui(
         ax_spec = axes[0]
         ax_spec.pcolormesh(
             times, mel_freqs, log_mel,
-            vmin=vmin, vmax=vmax,
+            vmin=-dyn_db, vmax=0,
             cmap="inferno", shading="gouraud",
         )
         ax_spec.set_ylabel("Hz (mel)", color="#94a3b8", fontsize=8)
         ax_spec.set_yscale("symlog", linthresh=200)
-        # Y-axis ticks at acoustically meaningful frequencies
-        yticks = [10, 20, 50, 100, 200, 500, 1000, 2000, 5000, 10000, 16000]
+        yticks      = [10, 20, 50, 100, 200, 500, 1000, 2000, 5000, 10000, 16000]
         ytick_labels = ["10", "20", "50", "100", "200", "500", "1k", "2k", "5k", "10k", "16k"]
         ax_spec.set_yticks(yticks)
         ax_spec.set_yticklabels(ytick_labels, fontsize=7, color="#94a3b8")
