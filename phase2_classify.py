@@ -1371,6 +1371,17 @@ def cmd_review(args) -> int:
         custom_classes = None
         if getattr(args, "classes", None):
             custom_classes = [c.strip() for c in args.classes.split(",") if c.strip()]
+        # Build detections_info for header display
+        _det_info_dict = None
+        if getattr(args, "detections_csv", None):
+            import csv as _csv2
+            with open(args.detections_csv) as _f2:
+                _total_dets = sum(1 for _ in _csv2.DictReader(_f2))
+            _det_info_dict = {
+                "offset": getattr(args, "detections_offset", 0) or 0,
+                "total":  _total_dets,
+                "csv":    args.detections_csv,
+            }
         _launch_labeling_gui(
             db=db,
             results_obj=results_obj,
@@ -1384,6 +1395,7 @@ def cmd_review(args) -> int:
             db_dir=args.db_dir,
             classifier_path=getattr(args, "classifier", None),
             label_classes=custom_classes,
+            detections_info=_det_info_dict,
         )
 
     return 0
@@ -1476,6 +1488,7 @@ def _launch_labeling_gui(
     db_dir: str = "",
     classifier_path: str | None = None,
     label_classes: list[str] | None = None,
+    detections_info: dict | None = None,
 ) -> None:
     """
     Launch a Gradio web app for interactive audio labeling.
@@ -1666,12 +1679,21 @@ def _launch_labeling_gui(
         ),
     ) as demo:
         _class_str = ", ".join(f"`{c}`" for c in _choices if c != "unlabeled")
+        _det_info = ""
+        if detections_info:
+            _offset = detections_info.get("offset", 0)
+            _total  = detections_info.get("total", len(segments))
+            _batch_end = _offset + len(segments)
+            _det_info = (
+                f"**Detections:** showing {_offset + 1}–{_batch_end} of {_total} "
+                f"&nbsp;&nbsp; **Batch offset:** {_offset}  \n"
+            )
         gr.Markdown(
             f"""
 # 🐋 Perch Hoplite — Audio Labeling Interface
 **Query label:** `{query_label}` &nbsp;&nbsp; **Annotator:** `{annotator_id}`  
 **Results loaded:** {len(segments)}  
-**Label classes:** {_class_str}  
+{_det_info}**Label classes:** {_class_str}  
 Click a label for each segment, then **Save Labels to DB**.
 """
         )
