@@ -1601,9 +1601,9 @@ def _launch_labeling_gui(
             cmap=cmap, shading="gouraud",
         )
         ax_spec.set_ylabel("Hz (mel)", color="#94a3b8", fontsize=8)
-        ax_spec.set_yscale("symlog", linthresh=200)
-        yticks       = [10, 20, 50, 100, 200, 500, 1000, 2000, 5000, 10000, 16000]
-        ytick_labels = ["10", "20", "50", "100", "200", "500", "1k", "2k", "5k", "10k", "16k"]
+        ax_spec.set_yscale("log")
+        yticks       = [10, 50, 100, 500, 1000, 2000, 5000, 10000, 16000]
+        ytick_labels = ["10", "50", "100", "500", "1k", "2k", "5k", "10k", "16k"]
         ax_spec.set_yticks(yticks)
         ax_spec.set_yticklabels(ytick_labels, fontsize=7, color="#94a3b8")
         ax_spec.set_facecolor("#111827")
