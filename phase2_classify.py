@@ -468,6 +468,14 @@ def build_parser() -> argparse.ArgumentParser:
         help="Override audio base path stored in DB (needed when DB was built "
              "on a different machine e.g. Colab). "
              "Example: /mnt/PAM_Analysis/GoogleMultiSpeciesWhaleModel2/resampled_32kHz/2018/04")
+    pr.add_argument("--detections-csv", default=None,
+        help="Path to an inference detections CSV (from 'infer' command). "
+             "If set, skip scoring and load exactly these windows for review. "
+             "Useful for reviewing and re-labeling a set of detections.")
+    pr.add_argument("--classes", default=None,
+        help="Comma-separated list of annotation class labels to show as "
+             "radio buttons. Default: 'positive,negative,unlabeled'. "
+             "Example: --classes orca_call,dolphin_call,other,unlabeled")
     add_serve(pr)
 
     # ---- infer ----
@@ -1231,52 +1239,103 @@ def cmd_review(args) -> int:
     # version difference). Fetch a random sample, score with dot product,
     # keep top-k. This is single-threaded so avoids the thread-safety issue
     # with threaded_brute_search.
-    log.info("Scoring embeddings with classifier weight vector (%d dims)...",
-             len(class_query))
-
     import numpy as _np_rev
 
-    all_ids = db.match_window_ids(limit=None)
-    total = len(all_ids)
+    # ── If --detections-csv provided, load those windows directly ────────
+    detections_csv = getattr(args, "detections_csv", None)
+    if detections_csv:
+        import csv as _csv
+        log.info("Loading detections from CSV: %s", detections_csv)
+        # Build a lookup: filename+offset -> window_id from DB
+        import sqlite3 as _sq3r, struct as _str2
+        _dbpath = None
+        _cfg = getattr(db, "db_config", None)
+        if _cfg: _dbpath = str(getattr(_cfg, "db_path", "") or "")
+        if not _dbpath:
+            for _a in ("db_path", "_db_path", "path"):
+                _v = getattr(db, _a, None)
+                if _v: _dbpath = str(_v); break
+        if _dbpath and os.path.isdir(_dbpath):
+            _dbpath = os.path.join(_dbpath, "hoplite.sqlite")
+        _con_r = _sq3r.connect(_dbpath)
 
-    # Random subsample
-    sample_n = args.sample_size if args.sample_size and args.sample_size > 0 else total
-    sample_n = min(sample_n, total)
-    if sample_n < total:
-        chosen = _np_rev.random.default_rng().choice(total, size=sample_n, replace=False)
-        sample_ids = [all_ids[i] for i in sorted(chosen)]
+        results_obj = search_results_mod.TopKSearchResults(
+            top_k=max(10000, args.num_results))
+        det_rows = []
+        with open(detections_csv, newline="") as _f:
+            for row in _csv.DictReader(_f):
+                det_rows.append(row)
+
+        # Limit to num_results
+        det_rows = det_rows[:args.num_results] if args.num_results else det_rows
+        matched = 0
+        for row in det_rows:
+            fname   = row["filename"]
+            start_s = float(row["window_start"])
+            score   = float(row["logits"])
+            off_enc = _str2.pack("<dd", start_s, start_s + 5.0)
+            # Find window_id by filename + offset
+            _rec = _con_r.execute(
+                "SELECT id FROM recordings WHERE filename=?", (fname,)
+            ).fetchone()
+            if _rec is None:
+                log.warning("File not found in DB: %s", fname)
+                continue
+            _win = _con_r.execute(
+                "SELECT id FROM windows WHERE recording_id=? AND offsets=?",
+                (_rec[0], off_enc)
+            ).fetchone()
+            if _win is None:
+                log.warning("Window not found: %s @ %.1fs", fname, start_s)
+                continue
+            results_obj.update(
+                search_results_mod.SearchResult(int(_win[0]), float(score)))
+            matched += 1
+        _con_r.close()
+        log.info("Matched %d / %d detections to DB windows.", matched, len(det_rows))
+        all_scores = [r.sort_score for r in results_obj.search_results]
+
     else:
-        sample_ids = all_ids
-    log.info("Scoring %d / %d embeddings...", sample_n, total)
+        # ── Standard scoring path ────────────────────────────────────────
+        log.info("Scoring embeddings with classifier weight vector (%d dims)...",
+                 len(class_query))
 
-    # Fetch all sampled embeddings in one batch on main thread
-    emb_matrix = db.get_embeddings_batch(sample_ids)   # (N, D) float16
-    emb_f32 = emb_matrix.astype(_np_rev.float32)
-    query_f32 = _np_rev.array(class_query, dtype=_np_rev.float32)
-    all_scores = emb_f32 @ query_f32 + bias_val        # (N,) logit scores
+        all_ids = db.match_window_ids(limit=None)
+        total = len(all_ids)
 
-    # Build TopKSearchResults.
-    # If margin_target_score is set, sort by PROXIMITY to that target score
-    # (i.e. |score - target|) so we surface clips near the decision boundary
-    # or near any specified logit value.
-    # Otherwise keep the highest-scoring clips (standard top-k).
-    results_obj = search_results_mod.TopKSearchResults(top_k=args.num_results)
-    margin_target = args.margin_target_score
-    for wid, score in zip(sample_ids, all_scores):
-        if margin_target is not None:
-            # Negate distance so TopK (which keeps highest) keeps closest
-            sort_score = -abs(float(score) - margin_target)
+        # Random subsample
+        sample_n = args.sample_size if args.sample_size and args.sample_size > 0 else total
+        sample_n = min(sample_n, total)
+        if sample_n < total:
+            chosen = _np_rev.random.default_rng().choice(total, size=sample_n, replace=False)
+            sample_ids = [all_ids[i] for i in sorted(chosen)]
         else:
-            sort_score = float(score)
-        results_obj.update(search_results_mod.SearchResult(int(wid), sort_score))
+            sample_ids = all_ids
+        log.info("Scoring %d / %d embeddings...", sample_n, total)
 
-    # Restore actual logit scores for display (not the sort key)
-    score_map = {int(wid): float(s) for wid, s in zip(sample_ids, all_scores)}
-    for r in results_obj.search_results:
-        r.sort_score = score_map.get(r.window_id, r.sort_score)
+        # Fetch all sampled embeddings in one batch on main thread
+        emb_matrix = db.get_embeddings_batch(sample_ids)   # (N, D) float16
+        emb_f32 = emb_matrix.astype(_np_rev.float32)
+        query_f32 = _np_rev.array(class_query, dtype=_np_rev.float32)
+        all_scores = emb_f32 @ query_f32 + bias_val        # (N,) logit scores
 
-    log.info("Scoring complete: %d candidates, top-%d selected (margin_target=%s).",
-             sample_n, args.num_results, margin_target)
+        # Build TopKSearchResults.
+        results_obj = search_results_mod.TopKSearchResults(top_k=args.num_results)
+        margin_target = args.margin_target_score
+        for wid, score in zip(sample_ids, all_scores):
+            if margin_target is not None:
+                sort_score = -abs(float(score) - margin_target)
+            else:
+                sort_score = float(score)
+            results_obj.update(search_results_mod.SearchResult(int(wid), sort_score))
+
+        # Restore actual logit scores for display (not the sort key)
+        score_map = {int(wid): float(s) for wid, s in zip(sample_ids, all_scores)}
+        for r in results_obj.search_results:
+            r.sort_score = score_map.get(r.window_id, r.sort_score)
+
+        log.info("Scoring complete: %d candidates, top-%d selected (margin_target=%s).",
+                 sample_n, args.num_results, margin_target)
 
     # Log the window IDs selected for review so they can be reconstructed
     selected_ids = [r.window_id for r in results_obj.search_results]
@@ -1299,6 +1358,10 @@ def cmd_review(args) -> int:
                         f"Classifier review — {args.target_label}")
 
     if args.serve:
+        # Parse --classes if provided
+        custom_classes = None
+        if getattr(args, "classes", None):
+            custom_classes = [c.strip() for c in args.classes.split(",") if c.strip()]
         _launch_labeling_gui(
             db=db,
             results_obj=results_obj,
@@ -1311,6 +1374,7 @@ def cmd_review(args) -> int:
             share=args.share,
             db_dir=args.db_dir,
             classifier_path=getattr(args, "classifier", None),
+            label_classes=custom_classes,
         )
 
     return 0
@@ -1402,6 +1466,7 @@ def _launch_labeling_gui(
     share: bool,
     db_dir: str = "",
     classifier_path: str | None = None,
+    label_classes: list[str] | None = None,
 ) -> None:
     """
     Launch a Gradio web app for interactive audio labeling.
@@ -1568,22 +1633,30 @@ def _launch_labeling_gui(
             "  font-weight: 700; font-size: 13px; cursor: pointer;"
             "  transition: box-shadow 0.15s; }"
             ".label-radio .wrap label:nth-child(1) { background:#15803d; color:#dcfce7; }"
-            ".label-radio .wrap label:nth-child(2) { background:#b91c1c; color:#fee2e2; }"
-            ".label-radio .wrap label:nth-child(3) { background:#374151; color:#d1d5db; }"
+            ".label-radio .wrap label:nth-child(2) { background:#b45309; color:#fef3c7; }"
+            ".label-radio .wrap label:nth-child(3) { background:#1d4ed8; color:#dbeafe; }"
+            ".label-radio .wrap label:nth-child(4) { background:#7e22ce; color:#f3e8ff; }"
+            ".label-radio .wrap label:last-child   { background:#374151; color:#d1d5db; }"
             ".label-radio .wrap label:nth-child(1):has(input:checked)"
             "  { background:#16a34a; box-shadow:0 0 0 3px #86efac; }"
             ".label-radio .wrap label:nth-child(2):has(input:checked)"
-            "  { background:#dc2626; box-shadow:0 0 0 3px #fca5a5; }"
+            "  { background:#d97706; box-shadow:0 0 0 3px #fcd34d; }"
             ".label-radio .wrap label:nth-child(3):has(input:checked)"
+            "  { background:#2563eb; box-shadow:0 0 0 3px #93c5fd; }"
+            ".label-radio .wrap label:nth-child(4):has(input:checked)"
+            "  { background:#9333ea; box-shadow:0 0 0 3px #d8b4fe; }"
+            ".label-radio .wrap label:last-child:has(input:checked)"
             "  { background:#4b5563; box-shadow:0 0 0 3px #9ca3af; }"
         ),
     ) as demo:
+        _class_str = ", ".join(f"`{c}`" for c in _choices if c != "unlabeled")
         gr.Markdown(
             f"""
 # 🐋 Perch Hoplite — Audio Labeling Interface
 **Query label:** `{query_label}` &nbsp;&nbsp; **Annotator:** `{annotator_id}`  
 **Results loaded:** {len(segments)}  
-Click **Positive** (🟢) or **Negative** (🔴) for each segment, then **Save Labels to DB**.
+**Label classes:** {_class_str}  
+Click a label for each segment, then **Save Labels to DB**.
 """
         )
 
@@ -1615,7 +1688,13 @@ Click **Positive** (🟢) or **Negative** (🔴) for each segment, then **Save L
             if choice == "unlabeled":
                 _session_annotations.pop(int(wid), None)
                 return False
-            lt = _LT.POSITIVE if choice == "positive" else _LT.NEGATIVE
+            # Multi-class mode: each named class is a POSITIVE example of itself.
+            # Legacy two-class mode: "positive" -> POSITIVE, anything else -> NEGATIVE.
+            if label_classes:
+                # Multi-class: label = choice string, type = POSITIVE
+                lt = _LT.POSITIVE
+            else:
+                lt = _LT.POSITIVE if choice == "positive" else _LT.NEGATIVE
             dbp = _sqlite_path()
             con = _sq3g.connect(dbp)
             row = con.execute(
@@ -1631,19 +1710,21 @@ Click **Positive** (🟢) or **Negative** (🔴) for each segment, then **Save L
                 start_s, end_s = 0.0, 5.0
             off_enc = _stg.pack("<dd", start_s, end_s)
             prov = f"gradio_gui:{annotator_id}"
-            # DELETE existing annotation for this window+label first,
-            # then INSERT fresh. This avoids duplicate rows caused by the
-            # (id, recording_id, offsets) unique constraint not catching
-            # re-saves with different auto-incremented ids.
+            # In multi-class mode the label stored is the choice itself
+            # (e.g. "orca_call", "dolphin_call", "other").
+            # In legacy mode the label is always query_label.
+            store_label = choice if label_classes else query_label
+            # DELETE existing annotation for this window first (any label),
+            # then INSERT fresh.
             con.execute("""
                 DELETE FROM annotations
-                WHERE recording_id=? AND offsets=? AND label=?
-            """, (rec_id, off_enc, query_label))
+                WHERE recording_id=? AND offsets=?
+            """, (rec_id, off_enc))
             con.execute("""
                 INSERT INTO annotations
                     (recording_id, offsets, label, label_type, provenance)
                 VALUES (?, ?, ?, ?, ?)
-            """, (rec_id, off_enc, query_label, int(lt), prov))
+            """, (rec_id, off_enc, store_label, int(lt), prov))
             con.commit()
             # Get filename for provenance
             fname_row = con.execute(
@@ -1680,6 +1761,16 @@ Click **Positive** (🟢) or **Negative** (🔴) for each segment, then **Save L
             except Exception as exc:
                 return {}, {"error": str(exc)}
 
+        # ── Determine label choices ───────────────────────────────────────────
+        # Default: positive / negative / unlabeled
+        # If --classes provided, use those + unlabeled at end
+        _default_classes = ["positive", "negative", "unlabeled"]
+        if label_classes:
+            # Ensure "unlabeled" is always the last choice
+            _choices = [c for c in label_classes if c != "unlabeled"] + ["unlabeled"]
+        else:
+            _choices = _default_classes
+
         # ── Build radio buttons + wire auto-save ──────────────────────────────
         radio_components = []
 
@@ -1690,7 +1781,7 @@ Click **Positive** (🟢) or **Negative** (🔴) for each segment, then **Save L
                         gr.HTML(_segment_card(seg, i))
                     with gr.Column(scale=1):
                         radio = gr.Radio(
-                            choices=["positive", "negative", "unlabeled"],
+                            choices=_choices,
                             value="unlabeled",
                             label=f"Label #{i+1}  (wid={seg['window_id']})",
                             elem_classes=["label-radio"],
