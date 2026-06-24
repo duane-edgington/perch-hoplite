@@ -472,6 +472,11 @@ def build_parser() -> argparse.ArgumentParser:
         help="Path to an inference detections CSV (from 'infer' command). "
              "If set, skip scoring and load exactly these windows for review. "
              "Useful for reviewing and re-labeling a set of detections.")
+    pr.add_argument("--detections-offset", type=int, default=0,
+        help="Skip this many rows in --detections-csv before taking --num-results. "
+             "Use to page through detections in batches. "
+             "Example: --detections-offset 0 --num-results 25 (batch 1), "
+             "--detections-offset 25 --num-results 25 (batch 2), etc.")
     pr.add_argument("--classes", default=None,
         help="Comma-separated list of annotation class labels to show as "
              "radio buttons. Default: 'positive,negative,unlabeled'. "
@@ -1267,7 +1272,11 @@ def cmd_review(args) -> int:
                 det_rows.append(row)
 
         # Limit to num_results
+        offset = getattr(args, "detections_offset", 0) or 0
+        det_rows = det_rows[offset:]
         det_rows = det_rows[:args.num_results] if args.num_results else det_rows
+        log.info("Loading detections %d–%d (offset=%d, n=%d)",
+                 offset, offset + len(det_rows), offset, len(det_rows))
         matched = 0
         for row in det_rows:
             fname   = row["filename"]
@@ -1584,7 +1593,7 @@ def _launch_labeling_gui(
         ax_wave.set_yticks([])
 
         buf = io.BytesIO()
-        fig.savefig(buf, format="png", dpi=110, bbox_inches="tight",
+        fig.savefig(buf, format="png", dpi=80, bbox_inches="tight",
                     facecolor="#111827")
         plt_mod.close(fig)
         buf.seek(0)
