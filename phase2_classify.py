@@ -1622,6 +1622,13 @@ def _launch_labeling_gui(
     # State: labels assigned in the GUI
     label_state: dict[int, str] = {}  # window_id -> "positive"|"negative"|"unlabeled"
 
+    # ── Determine label choices (before gr.Blocks so available in Markdown) ──
+    _default_classes = ["positive", "negative", "unlabeled"]
+    if label_classes:
+        _choices = [c for c in label_classes if c != "unlabeled"] + ["unlabeled"]
+    else:
+        _choices = _default_classes
+
     with gr.Blocks(
         title="Perch Hoplite — Audio Labeling",
         css=(
@@ -1761,15 +1768,7 @@ Click a label for each segment, then **Save Labels to DB**.
             except Exception as exc:
                 return {}, {"error": str(exc)}
 
-        # ── Determine label choices ───────────────────────────────────────────
-        # Default: positive / negative / unlabeled
-        # If --classes provided, use those + unlabeled at end
-        _default_classes = ["positive", "negative", "unlabeled"]
-        if label_classes:
-            # Ensure "unlabeled" is always the last choice
-            _choices = [c for c in label_classes if c != "unlabeled"] + ["unlabeled"]
-        else:
-            _choices = _default_classes
+
 
         # ── Build radio buttons + wire auto-save ──────────────────────────────
         radio_components = []
