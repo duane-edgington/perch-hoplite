@@ -322,6 +322,24 @@ python3 phase2_classify.py infer \
     --plot-distribution /mnt/PAM_Analysis/duane_scratch/perch_hoplite/results/MARS_20180413_orca_logit_dist.png
 ```
 
+### Step 8 - Review detections produced by perch-hoplite system
+
+```bash
+nohup python3 phase2_classify.py review     --db-dir /mnt/PAM_Analysis/duane_scratch/perch_hoplite/db/MARS_20180413_20180413_32kHz     --classifier /mnt/PAM_Analysis/duane_scratch/perch_hoplite/models/orca_v1_clean.pt     --target-label orca_call     --detections-csv /mnt/PAM_Analysis/duane_scratch/perch_hoplite/results/MARS_20180413_orca_v1_clean_detections.csv     --num-results 25     --detections-offset 1     --classes orca_call,dolphin_call,other,unlabeled     --audio-dir /mnt/PAM_Analysis/GoogleMultiSpeciesWhaleModel2/resampled_32kHz/2018/04     --serve --port 7860     > /mnt/PAM_Analysis/duane_scratch/perch_hoplite/logs/review_7860.log 2>&1 &
+```
+
+--detections-offset is updated manually from 0 to n to select which annotations to review
+
+0 (0 to --num-results here 25)
+
+25 (25 to 49)
+
+...
+
+200 (200 to 249)
+
+...
+
 ---
 
 ## Current Status (as of June 5 2026)
@@ -422,11 +440,12 @@ of the spectrogram, and only their harmonics may be visible.
 - **Monterey Bay seasonality:** peak mid-March through mid-May (Bigg's orca
   hunting gray whale calves). Other ecotypes present year-round.
 
-#### Common/Bottlenose Dolphin — `dolphin_whistle`, `dolphin_click`
+#### Pacific White-Sided Dolphin — `dolphin_call`
 - **Whistles:** 3–14 kHz, upsweeping/downsweeping tonal arcs
 - **Clicks:** broadband, >10 kHz
+- **Calls:** 
 - **Important:** Perch V2 embeddings place dolphin and orca calls near
-  each other — dolphin whistles are the most common **false positive**
+  each other — dolphin calls are the most common **false positive**
   for the orca classifier. Score alone cannot distinguish them; always
   check the spectrogram.
 
