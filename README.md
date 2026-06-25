@@ -136,6 +136,7 @@ Known harmless warnings at startup (not errors):
 | `MBARI_perch_phase1_embed.py` | **Google Colab** | Build Hoplite embedding DB from audio |
 | `prepare_audio_for_colab.sh` | **ICEFISH** (Mac) | Zip resampled audio and stage for Google Drive |
 | `phase2_classify.py` | **spark-ae0e** | Active learning: search, label, train, review, infer |
+| `phase2_classify_logmel.py` | **spark-ae0e** | same as above, with log mel spectrogram display |
 | `convert_scores_to_labels.py` | **spark-ae0e** | Convert Google model score CSVs to Hoplite label CSVs |
 
 ---
@@ -287,6 +288,17 @@ nohup python3 phase2_classify.py train \
 tail -f /mnt/PAM_Analysis/duane_scratch/perch_hoplite/logs/train_orca_v2.log
 ```
 
+```bash
+nohup python3 phase2_classify.py train \
+    --db-dir /mnt/PAM_Analysis/duane_scratch/perch_hoplite/db/MARS_20180413_20180413_32kHz \
+    --classifier-out /mnt/PAM_Analysis/duane_scratch/perch_hoplite/models/orca_v3_clean.pt \
+    --num-steps 256 \
+    --train-ratio 0.8 \
+    > /mnt/PAM_Analysis/duane_scratch/perch_hoplite/logs/train_orca_v3_clean.log 2>&1 &
+sleep 5 && tail -f /mnt/PAM_Analysis/duane_scratch/perch_hoplite/logs/train_orca_v3_clean.log
+```
+
+
 Repeat Steps 4–5 until ROC-AUC is satisfactory. Increment the version number
 (`orca_v2.pt`, `orca_v3.pt`, ...) to preserve each iteration.
 
@@ -328,15 +340,21 @@ python3 phase2_classify.py infer \
 nohup python3 phase2_classify.py review     --db-dir /mnt/PAM_Analysis/duane_scratch/perch_hoplite/db/MARS_20180413_20180413_32kHz     --classifier /mnt/PAM_Analysis/duane_scratch/perch_hoplite/models/orca_v1_clean.pt     --target-label orca_call     --detections-csv /mnt/PAM_Analysis/duane_scratch/perch_hoplite/results/MARS_20180413_orca_v1_clean_detections.csv     --num-results 25     --detections-offset 1     --classes orca_call,dolphin_call,other,unlabeled     --audio-dir /mnt/PAM_Analysis/GoogleMultiSpeciesWhaleModel2/resampled_32kHz/2018/04     --serve --port 7860     > /mnt/PAM_Analysis/duane_scratch/perch_hoplite/logs/review_7860.log 2>&1 &
 ```
 
+### optional Step 8 -- Review detections, logmel spectrogram display, optional --grayscale spectrogram display
+
+```bash
+nohup python3 phase2_classify_logmel.py review     --db-dir /mnt/PAM_Analysis/duane_scratch/perch_hoplite/db/MARS_20180413_20180413_32kHz     --classifier /mnt/PAM_Analysis/duane_scratch/perch_hoplite/models/orca_v1_clean.pt     --target-label orca_call     --detections-csv /mnt/PAM_Analysis/duane_scratch/perch_hoplite/results/MARS_20180413_orca_v1_clean_detections.csv     --num-results 25     --detections-offset 200     --classes orca_call,dolphin_call,other,unlabeled     --audio-dir /mnt/PAM_Analysis/GoogleMultiSpeciesWhaleModel2/resampled_32kHz/2018/04  --grayscale  --serve --port 7860     > /mnt/PAM_Analysis/duane_scratch/perch_hoplite/logs/review_7860.log 2>&1 &
+```
+
 --detections-offset is updated manually from 0 to n to select which annotations to review
 
-0 (0 to --num-results here 25)
+0 (1 to --num-results here 25)
 
-25 (25 to 49)
+25 (26 to 50)
 
 ...
 
-200 (200 to 249)
+200 (201 to 225)
 
 ...
 
