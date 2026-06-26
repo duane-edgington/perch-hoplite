@@ -360,17 +360,21 @@ nohup python3 phase2_classify_logmel.py review     --db-dir /mnt/PAM_Analysis/du
 
 ---
 
-## Current Status (as of June 5 2026)
+## Current Status (as of June 25 2026)
 
 | Item | Status |
 |---|---|
-| DB: MARS April 13 2018 | ✅ 144 files, 17,280 embeddings — **RESET, 0 annotations** |
-| DB: MARS April 1 2018 | ✅ 144 files, 17,280 embeddings (separate, 0 annotations) |
+| DB: MARS April 13 2018 | ✅ 144 files, 17,280 embeddings |
+| DB: MARS April 1 2018 | ✅ 144 files, 17,280 embeddings (separate) |
 | DB: MARS_combined | ✅ 34,560 embeddings (Apr 1 + Apr 13 merged, experimental) |
 | orca_v1_clean.pt | ✅ **ROC-AUC 0.9821** — 44 pos / 56 neg, clean labels, train_ratio=0.8 |
 | orca_v2_clean.pt | ✅ **ROC-AUC 0.9191** — 54 pos / 56 neg, 110 clean labels, train_ratio=0.8 |
-| Multi-class labels | 🔲 planned — dolphin_whistle, dolphin_click, boat_motor |
+| orca_v3_clean.pt | ✅ **ROC-AUC 0.9900** — multi-class: 213 orca + 13 dolphin + 1 other + 55 neg |
+| Inference v1_clean | ✅ 227 detections — 213 orca confirmed, 13 dolphin (false pos), 1 other |
+| Inference v3_clean | ✅ 321 orca + 205 dolphin + 1 other (527 total) — multi-class |
+| Multi-class labels | ✅ orca_call / dolphin_call / other — all 227 v1 detections reviewed |
 | Full April 2018 DB | 🔲 planned via Colab Pro batches |
+| humpback_song class | 🔲 planned |
 
 ### Orca event timing on April 13 2018 (UTC)
 
@@ -391,11 +395,12 @@ consistent with morning gray whale calf migration through the bay.
 
 ### Key Lessons from Development Phase
 
-1. **Dolphin false positives** — Perch V2 embeddings place dolphin whistles
-   near orca calls. High classifier scores do NOT always mean orca. Always
-   listen and check the spectrogram. Dolphin whistles show high-frequency
-   (3–14 kHz) upsweeping/downsweeping tonal arcs vs orca's 1–6 kHz banded
-   harmonic bursts.
+1. **Dolphin false positives** — Perch V2 embeddings place Pacific white-sided
+   dolphin pulsed calls near orca calls (Henderson et al. 2011, JASA). High
+   classifier scores do NOT always mean orca. Always listen and check the
+   spectrogram. Use label `dolphin_call` (not `dolphin_whistle`) since it is
+   the pulsed calls — not tonal whistles — that cause confusion with orca.
+   **Resolved in v3_clean** by adding dolphin_call as a separate class.
 
 2. **Cross-day DB merging degrades performance** — merging embeddings from
    different days hurt ROC-AUC. Stay within one deployment day for training.
@@ -415,9 +420,23 @@ consistent with morning gray whale calf migration through the bay.
 
 - **Positive labels:** target files from UTC 06:49–20:49 (orca active hours)
 - **Negative labels:** target files from UTC 21:00–06:00 (quiet hours)
-- **Goal:** 150 positives + 100 negatives before first clean training run
+- **Multi-class:** use `--classes orca_call,dolphin_call,other,unlabeled` when
+  reviewing inference detections to separate species in one pass
 - **Train ratio:** 0.8 for reliable eval signal
-- **Target ROC-AUC:** > 0.90 before full inference
+- **Target ROC-AUC:** > 0.90 before full inference ✅ achieved (v3_clean: 0.990)
+
+### Inference results summary (April 13 2018)
+
+| Model | ROC-AUC | Orca detections | Dolphin detections | Notes |
+|---|---|---|---|---|
+| orca_v1_clean | 0.982 | 227 | — | Single class |
+| orca_v2_clean | 0.919 | 239 | — | Single class |
+| orca_v3_clean | **0.990** | **321** | **205** | Multi-class — separates species |
+
+All detections cluster within known orca active hours (UTC 06:49–20:49) with
+zero false positives in quiet periods — confirming strong temporal precision.
+v3_clean finds 94 more orca detections than v1_clean because the dolphin class
+absorbs the false positives that previously suppressed borderline orca calls.
 
 ---
 
