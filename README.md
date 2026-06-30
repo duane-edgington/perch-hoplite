@@ -611,6 +611,23 @@ When building a multi-class classifier, these would be labeled
 
 ---
 
+### Dolphin burst pulse call — label DOLPHIN_CALL (multi-class classifier)
+**Score: 0.020 | File: MARS_20180413_172913 | 380–385s**
+
+![Dolphin burst pulse call spectrogram](dolphin_call.png)
+
+Dense vertical striping across 2–14 kHz — the characteristic signature of
+Pacific white-sided dolphin burst pulse calls (Henderson et al. 2011, JASA).
+Unlike the tonal upsweeping whistles in the previous example, burst pulses
+appear as rapid broadband click trains producing continuous vertical streaks
+across a wide frequency range. The score is very low (0.020) — the v3_clean
+multi-class classifier correctly assigns this to `dolphin_call` rather than
+`orca_call`. UTC 17:29 = PDT 10:29 — within the known afternoon dolphin
+activity window. In the multi-class Gradio interface, label these as
+`dolphin_call` (amber button).
+
+---
+
 ## Gradio Labeling GUI — Details
 
 The GUI runs on spark and is accessed from any browser on the MBARI network.
