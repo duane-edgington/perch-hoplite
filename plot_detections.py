@@ -1,13 +1,14 @@
 #!/usr/bin/env python3
 """plot_detections.py
 Plot orca detection timelines from inference CSV files.
-Supports v1_clean, v2_clean, and v3_clean (multi-class) outputs.
+Supports v1_clean through v4_clean outputs.
 
 Usage:
     python3 plot_detections.py \
-        --v1 /mnt/PAM_Analysis/duane_scratch/perch_hoplite/results/MARS_20180413_orca_v1_clean_detections.csv \
-        --v2 /mnt/PAM_Analysis/duane_scratch/perch_hoplite/results/MARS_20180413_orca_v2_clean_detections.csv \
-        --v3 /mnt/PAM_Analysis/duane_scratch/perch_hoplite/results/MARS_20180413_orca_v3_clean_detections.csv \
+        --v1 .../MARS_20180413_orca_v1_clean_detections.csv \
+        --v2 .../MARS_20180413_orca_v2_clean_detections.csv \
+        --v3 .../MARS_20180413_orca_v3_clean_detections.csv \
+        --v4 .../MARS_20180413_orca_v4_clean_detections.csv \
         --output-dir /mnt/PAM_Analysis/duane_scratch/perch_hoplite/results
 """
 
@@ -32,7 +33,6 @@ def parse_utc_hour(filename, offset_s):
 
 
 def load_detections(csv_path, label_filter=None):
-    """Load CSV, optionally filtering to a specific label."""
     df = pd.read_csv(csv_path)
     if label_filter and "label" in df.columns:
         df = df[df["label"] == label_filter].copy()
@@ -46,114 +46,148 @@ def _add_orca_shading(ax):
         ax.axvspan(start, end, alpha=0.08, color="#22c55e", zorder=0)
 
 
-def _xticks(ax):
+def _style(ax):
+    ax.set_facecolor("#1e293b")
+    ax.tick_params(colors="#94a3b8", labelsize=8)
+    for spine in ax.spines.values():
+        spine.set_edgecolor("#334155")
     ax.set_xticks(range(0, 25, 2))
     ax.set_xticklabels(
         [f"{h:02d}:00\n(PDT {(h-7)%24:02d}:00)" for h in range(0, 25, 2)],
         fontsize=7, color="#94a3b8")
+    ax.set_xlim(0, 24)
 
 
-def plot_all(v1_path, v2_path, v3_path, output_dir):
-    # Load all three
-    df1 = load_detections(v1_path)  # v1: orca only (no label column)
-    df2 = load_detections(v2_path)  # v2: orca only
-    df3_orca = load_detections(v3_path, label_filter="orca_call")
-    df3_dolp = load_detections(v3_path, label_filter="dolphin_call")
+def plot_all(v1_path, v2_path, v3_path, v4_path, output_dir):
 
     colors = {
-        "v1": "#00e5ff",
-        "v2": "#f59e0b",
-        "v3_orca": "#a3e635",
-        "v3_dolp": "#f472b6",
+        "v1":        "#00e5ff",
+        "v2":        "#f59e0b",
+        "v3_orca":   "#a3e635",
+        "v4_orca":   "#fb7185",
+        "dolphin":   "#f472b6",
+        "other":     "#94a3b8",
     }
-
-    # ── Figure 1: Hourly detection counts, all models ────────────────────
-    fig, axes = plt.subplots(2, 1, figsize=(14, 8),
-                             gridspec_kw={"hspace": 0.4})
-    fig.patch.set_facecolor("#0f172a")
-    fig.suptitle("MARS Hydrophone — April 13 2018 — Orca Detection Comparison",
-                 color="#e2e8f0", fontsize=12, y=0.98)
 
     bins = np.arange(0, 25, 1)
 
-    # Top panel: v1 vs v2 vs v3 orca
-    ax = axes[0]
-    ax.set_facecolor("#1e293b")
-    ax.hist(df1["utc_hour"], bins=bins, alpha=0.7,
-            color=colors["v1"], label=f"v1_clean orca (n={len(df1)}, ROC-AUC 0.982)")
-    ax.hist(df2["utc_hour"], bins=bins, alpha=0.5,
-            color=colors["v2"], label=f"v2_clean orca (n={len(df2)}, ROC-AUC 0.919)")
-    ax.hist(df3_orca["utc_hour"], bins=bins, alpha=0.5,
-            color=colors["v3_orca"], label=f"v3_clean orca (n={len(df3_orca)}, ROC-AUC 0.990)")
-    ax.set_xlim(0, 24)
-    ax.set_ylabel("Detections/hr", color="#94a3b8", fontsize=9)
-    ax.set_title("Orca detections — all three models", color="#e2e8f0", fontsize=10)
-    ax.tick_params(colors="#94a3b8", labelsize=8)
-    ax.legend(fontsize=8, facecolor="#1e293b", labelcolor="#e2e8f0")
-    for spine in ax.spines.values(): spine.set_edgecolor("#334155")
-    _add_orca_shading(ax)
-    _xticks(ax)
+    # Load all models
+    df1       = load_detections(v1_path)
+    df2       = load_detections(v2_path)
+    df3_orca  = load_detections(v3_path, label_filter="orca_call")
+    df3_dolp  = load_detections(v3_path, label_filter="dolphin_call")
+    df4_orca  = load_detections(v4_path, label_filter="orca_call")
+    df4_dolp  = load_detections(v4_path, label_filter="dolphin_call")
+    df4_other = load_detections(v4_path, label_filter="other")
+    df4_all   = pd.read_csv(v4_path)
+    df4_all["utc_hour"] = df4_all.apply(
+        lambda r: parse_utc_hour(r["filename"], r["window_start"]), axis=1)
 
-    # Bottom panel: v3 orca vs v3 dolphin
+    # ── Figure 1: Orca detections — all four models ───────────────────────
+    fig, axes = plt.subplots(2, 1, figsize=(14, 9),
+                             gridspec_kw={"hspace": 0.45})
+    fig.patch.set_facecolor("#0f172a")
+    fig.suptitle("MARS Hydrophone — April 13 2018\nOrca & Dolphin Detections by Model Version",
+                 color="#e2e8f0", fontsize=12, y=0.99)
+
+    ax = axes[0]
+    _style(ax)
+    ax.hist(df1["utc_hour"], bins=bins, alpha=0.8,
+            color=colors["v1"],
+            label=f"v1_clean orca (n={len(df1)}, ROC-AUC 0.982, single-class)")
+    ax.hist(df2["utc_hour"], bins=bins, alpha=0.6,
+            color=colors["v2"],
+            label=f"v2_clean orca (n={len(df2)}, ROC-AUC 0.919, single-class)")
+    ax.hist(df3_orca["utc_hour"], bins=bins, alpha=0.6,
+            color=colors["v3_orca"],
+            label=f"v3_clean orca (n={len(df3_orca)}, ROC-AUC 0.990, multi-class)")
+    ax.hist(df4_orca["utc_hour"], bins=bins, alpha=0.6,
+            color=colors["v4_orca"],
+            label=f"v4_clean orca (n={len(df4_orca)}, ROC-AUC 0.974, multi-class)")
+    ax.set_ylabel("Detections/hr", color="#94a3b8", fontsize=9)
+    ax.set_title("Orca detections — all four model versions", color="#e2e8f0", fontsize=10)
+    ax.legend(fontsize=7.5, facecolor="#1e293b", labelcolor="#e2e8f0")
+    _add_orca_shading(ax)
+
+    # Bottom panel: v4 all classes
     ax2 = axes[1]
-    ax2.set_facecolor("#1e293b")
-    ax2.hist(df3_orca["utc_hour"], bins=bins, alpha=0.7,
-             color=colors["v3_orca"], label=f"v3_clean orca_call (n={len(df3_orca)})")
-    ax2.hist(df3_dolp["utc_hour"], bins=bins, alpha=0.7,
-             color=colors["v3_dolp"], label=f"v3_clean dolphin_call (n={len(df3_dolp)})")
-    ax2.set_xlim(0, 24)
+    _style(ax2)
+    ax2.hist(df4_orca["utc_hour"], bins=bins, alpha=0.8,
+             color=colors["v4_orca"],
+             label=f"orca_call (n={len(df4_orca)})")
+    ax2.hist(df4_dolp["utc_hour"], bins=bins, alpha=0.7,
+             color=colors["dolphin"],
+             label=f"dolphin_call (n={len(df4_dolp)})")
+    ax2.hist(df4_other["utc_hour"], bins=bins, alpha=0.7,
+             color=colors["other"],
+             label=f"other/vessel (n={len(df4_other)})")
     ax2.set_ylabel("Detections/hr", color="#94a3b8", fontsize=9)
-    ax2.set_title("v3_clean: orca vs dolphin detections", color="#e2e8f0", fontsize=10)
-    ax2.tick_params(colors="#94a3b8", labelsize=8)
+    ax2.set_title("v4_clean — all species/classes (orca + dolphin + other)",
+                  color="#e2e8f0", fontsize=10)
     ax2.legend(fontsize=8, facecolor="#1e293b", labelcolor="#e2e8f0")
-    for spine in ax2.spines.values(): spine.set_edgecolor("#334155")
     _add_orca_shading(ax2)
-    _xticks(ax2)
 
     out1 = os.path.join(output_dir, "MARS_20180413_orca_detection_comparison.png")
     fig.savefig(out1, dpi=150, bbox_inches="tight", facecolor="#0f172a")
     plt.close(fig)
     print(f"Saved: {out1}")
 
-    # ── Figure 2: Logit score scatter, v3_clean orca + dolphin ───────────
-    df3_all = pd.read_csv(v3_path)
-    df3_all["utc_hour"] = df3_all.apply(
-        lambda r: parse_utc_hour(r["filename"], r["window_start"]), axis=1)
-
+    # ── Figure 2: v4_clean scatter — all classes ──────────────────────────
     fig2, ax3 = plt.subplots(figsize=(14, 5))
     fig2.patch.set_facecolor("#0f172a")
-    ax3.set_facecolor("#1e293b")
+    _style(ax3)
 
-    for lbl, col in [("orca_call", colors["v3_orca"]),
-                     ("dolphin_call", colors["v3_dolp"]),
-                     ("other", "#94a3b8")]:
-        sub = df3_all[df3_all["label"] == lbl]
+    class_colors = {
+        "orca_call":    colors["v4_orca"],
+        "dolphin_call": colors["dolphin"],
+        "other":        colors["other"],
+    }
+    for lbl, col in class_colors.items():
+        sub = df4_all[df4_all["label"] == lbl]
         if len(sub):
             ax3.scatter(sub["utc_hour"], sub["logits"],
-                        c=col, alpha=0.6, s=14, label=f"{lbl} (n={len(sub)})")
+                        c=col, alpha=0.5, s=12,
+                        label=f"{lbl} (n={len(sub)})")
 
     ax3.axhline(0, color="#ef4444", linewidth=0.8, linestyle="--", label="threshold=0")
-    ax3.set_xlim(0, 24)
     ax3.set_xlabel("UTC Hour", color="#94a3b8", fontsize=9)
     ax3.set_ylabel("Logit score", color="#94a3b8", fontsize=9)
-    ax3.set_title("v3_clean — all detections by class and score",
+    ax3.set_title("v4_clean — all detections by class and logit score",
                   color="#e2e8f0", fontsize=11)
-    ax3.tick_params(colors="#94a3b8", labelsize=8)
     ax3.legend(fontsize=9, facecolor="#1e293b", labelcolor="#e2e8f0")
-    for spine in ax3.spines.values(): spine.set_edgecolor("#334155")
     _add_orca_shading(ax3)
-    _xticks(ax3)
 
-    out2 = os.path.join(output_dir, "MARS_20180413_v3_clean_scatter.png")
+    out2 = os.path.join(output_dir, "MARS_20180413_v4_clean_scatter.png")
     fig2.savefig(out2, dpi=150, bbox_inches="tight", facecolor="#0f172a")
     plt.close(fig2)
     print(f"Saved: {out2}")
 
-    # Summary
+    # ── Figure 3: dolphin v3 vs v4 comparison ─────────────────────────────
+    fig3, ax4 = plt.subplots(figsize=(14, 4))
+    fig3.patch.set_facecolor("#0f172a")
+    _style(ax4)
+    ax4.hist(df3_dolp["utc_hour"], bins=bins, alpha=0.7,
+             color=colors["v3_orca"],
+             label=f"v3_clean dolphin_call (n={len(df3_dolp)})")
+    ax4.hist(df4_dolp["utc_hour"], bins=bins, alpha=0.6,
+             color=colors["dolphin"],
+             label=f"v4_clean dolphin_call (n={len(df4_dolp)})")
+    ax4.set_ylabel("Detections/hr", color="#94a3b8", fontsize=9)
+    ax4.set_title("Dolphin detections — v3_clean vs v4_clean",
+                  color="#e2e8f0", fontsize=10)
+    ax4.legend(fontsize=8, facecolor="#1e293b", labelcolor="#e2e8f0")
+    _add_orca_shading(ax4)
+
+    out3 = os.path.join(output_dir, "MARS_20180413_dolphin_v3_v4_comparison.png")
+    fig3.savefig(out3, dpi=150, bbox_inches="tight", facecolor="#0f172a")
+    plt.close(fig3)
+    print(f"Saved: {out3}")
+
     print(f"\nSummary:")
-    print(f"  v1_clean: {len(df1)} orca detections")
-    print(f"  v2_clean: {len(df2)} orca detections")
-    print(f"  v3_clean: {len(df3_orca)} orca + {len(df3_dolp)} dolphin detections")
+    print(f"  v1_clean: {len(df1):4d} orca")
+    print(f"  v2_clean: {len(df2):4d} orca")
+    print(f"  v3_clean: {len(df3_orca):4d} orca  {len(df3_dolp):4d} dolphin")
+    print(f"  v4_clean: {len(df4_orca):4d} orca  {len(df4_dolp):4d} dolphin  {len(df4_other):4d} other")
 
 
 def main():
@@ -162,10 +196,11 @@ def main():
     ap.add_argument("--v1", required=True)
     ap.add_argument("--v2", required=True)
     ap.add_argument("--v3", required=True)
+    ap.add_argument("--v4", required=True)
     ap.add_argument("--output-dir", default=".")
     args = ap.parse_args()
     os.makedirs(args.output_dir, exist_ok=True)
-    plot_all(args.v1, args.v2, args.v3, args.output_dir)
+    plot_all(args.v1, args.v2, args.v3, args.v4, args.output_dir)
 
 
 if __name__ == "__main__":
