@@ -425,6 +425,27 @@ consistent with morning gray whale calf migration through the bay.
 - **Train ratio:** 0.8 for reliable eval signal
 - **Target ROC-AUC:** > 0.90 before full inference ✅ achieved (v3_clean: 0.990)
 
+**Guidelines**
+Use **unlabeled** (skip it) when:
+
+- You genuinely cannot tell what it is after listening and looking at the spectrogram
+- The signal is so faint you can't make out any structure
+- You're uncertain between two classes and don't want to bias the classifier
+
+Use **other** when:
+
+- You can clearly hear something but it's definitely not orca or dolphin — e.g. a boat, a loud transient, flow noise artifact, or an unknown biological sound
+- The spectrogram shows clear structure but it doesn't match either target class
+
+Give your best guess (**orca_call** or **dolphin_call**) when:
+
+You can see or hear partial call structure that looks like one class more than the other, even if faint
+The UTC timestamp is in the known orca active window (14:19–18:29 UTC) — a faint signal in that window is more likely orca than not
+You're 60%+ confident — a soft label is still better than no label for a classifier
+
+The key principle: unlabeled is the right choice when you're truly 50/50. But if you're leaning even slightly toward one class, label it — the classifier can handle a few soft labels. What hurts the classifier most is confidently wrong labels (labeling a dolphin as orca), not uncertain-but-correct labels.
+For faint signals specifically: if you see the characteristic banded harmonic structure of orca in the spectrogram even if quiet, trust the spectrogram over the audio and label it orca_call. The spectrogram is often more informative than your ears for faint calls.
+
 ### Inference results summary (April 13 2018)
 
 | Model | ROC-AUC | Orca detections | Dolphin detections | Notes |
@@ -449,7 +470,7 @@ automatically multi-class.
 Suggested label names:
 ```
 orca_call           # Bigg's / resident orca vocalizations
-dolphin_whistle     # common/bottlenose dolphin tonal whistles
+dolphin_call        # Pacific white-sided dolphin vocalizations
 dolphin_click       # odontocete echolocation clicks
 humpback_song       # humpback whale song units
 blue_whale_call     # blue whale 20 Hz calls
@@ -537,7 +558,7 @@ Blue whale and fin whale fundamentals (10–40 Hz) are well within this
 range and fully captured. However, the Gradio spectrogram uses a linear
 frequency axis — the bottom ~2% of the display covers 0–320 Hz where
 all baleen whale energy concentrates. Consider using a log-frequency
-spectrogram for baleen whale work (future enhancement).
+spectrogram for baleen whale work. Use logmel spectrogram display, optional --grayscale spectrogram display.
 
 ---
 
@@ -548,7 +569,7 @@ Gradio labeling interface. The spectrogram shows frequency (Hz) on the
 Y axis and time (0–5 seconds) on the X axis. Color intensity indicates
 sound energy (bright = loud).
 
-### Orca call — label POSITIVE
+### Orca call — label orca_call
 **Score: 3.629 | File: MARS_20180413_083913 | 495–500s**
 
 ![Orca call spectrogram](orca.png)
@@ -574,19 +595,19 @@ mid-afternoon, well outside the orca event window. Label confidently negative.
 
 ---
 
-### Dolphin — label NEGATIVE (for orca classifier)
+### Dolphin call — label NEGATIVE (for orca classifier)
 **Score: 3.709 | File: MARS_20180413_163913 | 310–315s**
 
 ![Dolphin spectrogram](dolphin.png)
 
 High-frequency tonal whistles with distinctive upsweeping and downsweeping
 frequency modulation, extending from ~3 kHz up to 14+ kHz. These are
-common/bottlenose dolphin whistles — entirely different structure from
+Pacific white-sided dolphin calls — entirely different structure from
 orca calls. Score is high (3.709) because the Perch V2 embedding places
 dolphin and orca calls near each other in embedding space. This is a
 classic **false positive** case — mark NEGATIVE for the orca classifier.
 When building a multi-class classifier, these would be labeled
-`dolphin_whistle` as a separate positive class.
+`dolphin_call` as a separate positive class.
 
 ---
 
