@@ -246,18 +246,38 @@ The GUI shows the top-50 highest-scoring candidates with:
 - Spectrogram (0–16 kHz, log-power, inferno colormap)
 - Waveform
 - Custom audio player with high-contrast progress bar
-- Positive / Negative / Unlabeled radio buttons
+- Multi-class colored radio buttons (up to 6 named classes + unlabeled)
 
 Audio is automatically normalized to −3 dBFS for comfortable listening
 (the resampled MARS files have very low amplitude at native levels).
 
-**Labeling strategy:**
-- `positive` = orca call clearly present
-- `negative` = background noise, dolphin, ship, silence — anything that is NOT orca
-- `unlabeled` = genuinely ambiguous — skip, do not save
-- Focus on adding negatives early: the bootstrap has ~464 positives and only ~3 negatives
+**Labeling strategy (multi-class):**
 
-Click **💾 Save Labels to DB** when done. The status box confirms save counts.
+Each clip is assigned to exactly one class. There is no generic "negative" —
+instead every sound type gets its own label, making the classifier richer:
+
+- `orca_call` 🟢 — orca call clearly present: banded harmonics 1–6 kHz
+- `humpback_song` 🟡 — humpback song units: complex harmonics 100 Hz–4 kHz
+- `fin_whale_call` 🔵 — fin whale 20 Hz pulse: energy near bottom of display
+- `dolphin_call` 🟣 — Pacific white-sided dolphin burst pulses: dense vertical striping 2–14 kHz
+- `ship_noise` 🩵 — vessel engine: regular low-frequency pulsing
+- `other` 🟠 — any clearly structured sound that doesn't fit the above (ROV, unknown bio)
+- `unlabeled` ⬛ — genuinely ambiguous or too faint to identify — skip, do not save
+
+**Decision guidelines:**
+- If you can see or hear clear call structure leaning toward one class (≥60% confident) → label it
+- If the UTC timestamp is in a known active window for a species → use that as a prior
+- If truly 50/50 between two classes → use `unlabeled`
+- Trust the spectrogram over your ears for faint calls
+- `other` is for sounds with clear structure that don't match any named class
+- Never use `other` for background/silence — those should be `unlabeled` or simply not reviewed
+
+Pass the class list at launch time with `--classes`:
+```bash
+--classes orca_call,humpback_song,fin_whale_call,dolphin_call,ship_noise,other,unlabeled
+```
+
+Click **💾 Save Labels to DB** when done. The status box confirms save counts per class.
 
 To monitor the server:
 ```bash
