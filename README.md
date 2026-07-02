@@ -374,7 +374,9 @@ nohup python3 phase2_classify_logmel.py review     --db-dir /mnt/PAM_Analysis/du
 | Inference v3_clean | ✅ 321 orca + 205 dolphin + 1 other (527 total) — multi-class |
 | Multi-class labels | ✅ orca_call / dolphin_call / other — all 227 v1 detections reviewed |
 | Full April 2018 DB | 🔲 planned via Colab Pro batches |
-| humpback_song class | 🔲 planned |
+| humpback_song class | 🔲 planned — May 2 2018 embedding next |
+| fin_whale_call class | 🔲 planned — May 2 2018 (Google model scores available) |
+| ship_noise class | 🔲 planned — replaces generic `other` for vessel noise |
 
 ### Orca event timing on April 13 2018 (UTC)
 
@@ -470,15 +472,31 @@ automatically multi-class.
 Suggested label names:
 ```
 orca_call           # Bigg's / resident orca vocalizations
-dolphin_call        # Pacific white-sided dolphin vocalizations
-dolphin_click       # odontocete echolocation clicks
 humpback_song       # humpback whale song units
-blue_whale_call     # blue whale 20 Hz calls
-fin_whale_call      # fin whale 20 Hz doublets
-sperm_whale_click   # sperm whale codas / clicks
-boat_motor          # vessel engine noise
-rov_thruster        # ROV/AUV thruster noise
-background          # featureless background / flow noise
+fin_whale_call      # fin whale 20 Hz pulse
+dolphin_call        # Pacific white-sided dolphin burst pulse calls
+ship_noise          # vessel engine noise (regular low-freq pulsing)
+other               # catch-all: ROV thruster, unknown bio, unclassified
+unlabeled           # skip — always last, always gray
+```
+
+For multi-class Gradio review sessions, pass `--classes` with comma-separated
+labels in the order you want them displayed. Up to 6 named classes supported
+(plus unlabeled = 7 buttons total). Button colors by position:
+
+| Position | Color | Suggested use |
+|---|---|---|
+| 1 | Green | orca_call |
+| 2 | Amber | humpback_song |
+| 3 | Blue | fin_whale_call |
+| 4 | Purple | dolphin_call |
+| 5 | Teal | ship_noise |
+| 6 | Orange | other |
+| last | Gray | unlabeled |
+
+Example for May 2 2018 review session:
+```bash
+--classes orca_call,humpback_song,fin_whale_call,dolphin_call,ship_noise,other,unlabeled
 ```
 
 ### Species acoustic signatures for MARS hydrophone
