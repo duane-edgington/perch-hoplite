@@ -360,23 +360,26 @@ nohup python3 phase2_classify_logmel.py review     --db-dir /mnt/PAM_Analysis/du
 
 ---
 
-## Current Status (as of June 25 2026)
+## Current Status (as of July 2 2026)
 
 | Item | Status |
 |---|---|
 | DB: MARS April 13 2018 | ✅ 144 files, 17,280 embeddings |
 | DB: MARS April 1 2018 | ✅ 144 files, 17,280 embeddings (separate) |
+| DB: MARS April 30 2018 | ✅ 144 files, 17,280 embeddings (new) |
 | DB: MARS_combined | ✅ 34,560 embeddings (Apr 1 + Apr 13 merged, experimental) |
-| orca_v1_clean.pt | ✅ **ROC-AUC 0.9821** — 44 pos / 56 neg, clean labels, train_ratio=0.8 |
-| orca_v2_clean.pt | ✅ **ROC-AUC 0.9191** — 54 pos / 56 neg, 110 clean labels, train_ratio=0.8 |
-| orca_v3_clean.pt | ✅ **ROC-AUC 0.9900** — multi-class: 213 orca + 13 dolphin + 1 other + 55 neg |
-| Inference v1_clean | ✅ 227 detections — 213 orca confirmed, 13 dolphin (false pos), 1 other |
-| Inference v3_clean | ✅ 321 orca + 205 dolphin + 1 other (527 total) — multi-class |
-| Multi-class labels | ✅ orca_call / dolphin_call / other — all 227 v1 detections reviewed |
-| Full April 2018 DB | 🔲 planned via Colab Pro batches |
-| humpback_song class | 🔲 planned — May 2 2018 embedding next |
-| fin_whale_call class | 🔲 planned — May 2 2018 (Google model scores available) |
-| ship_noise class | 🔲 planned — replaces generic `other` for vessel noise |
+| orca_v1_clean.pt | ✅ **ROC-AUC 0.9821** — 44 pos / 56 neg, single-class |
+| orca_v2_clean.pt | ✅ **ROC-AUC 0.9191** — 54 pos / 56 neg, single-class |
+| orca_v3_clean.pt | ✅ **ROC-AUC 0.9900** — multi-class: 213 orca + 13 dolphin + 55 neg |
+| orca_v4_clean.pt | ✅ **ROC-AUC 0.9740** — multi-class: 214 orca + 168 dolphin + 42 other + 54 neg |
+| Inference Apr 13 v4_clean | ✅ 295 orca + 2253 dolphin + 159 other |
+| Inference Apr 1 v4_clean | ✅ 0 orca (4 FP = dolphin) — precision validated |
+| Inference Apr 30 v4_clean | ✅ 26 "orca" detections — all false positives (11 humpback, 8 ship, 6 dolphin, 1 other) |
+| Multi-class labels | ✅ orca_call / dolphin_call / ship_noise / humpback_song / other |
+| May 2018 32kHz resampling | 🔄 in progress |
+| humpback_song class | 🔄 11 candidate labels in Apr 30 DB — expert review pending |
+| fin_whale_call class | 🔲 planned — May 2018 |
+| v5_clean training | 🔲 planned — after humpback/ship_noise labels confirmed |
 
 ### Orca event timing on April 13 2018 (UTC)
 
@@ -417,6 +420,36 @@ consistent with morning gray whale calf migration through the bay.
 
 5. **Label deliberately** — target positives from known active UTC hours,
    negatives from known quiet UTC hours. Random sampling wastes labeling effort.
+
+6. **Humpback false positives** — on April 30 2018, 26 orca detections were
+   reviewed and found to be 11 humpback_song, 8 ship_noise, 6 dolphin_call,
+   1 other — zero real orca. The v4_clean classifier has no humpback or
+   ship_noise training examples so it assigns these to orca by default.
+   Next step: add humpback_song and ship_noise labels and retrain v5_clean.
+
+7. **New DB model_config patch required** — every DB created by the Colab
+   notebook must have `logit_slope` and `logit_intercept` removed from the
+   stored model config before use on spark (see Post-Download Patch below).
+
+### Post-Download Patch — Required for every new Colab DB
+
+Every DB created by the Colab embedding notebook contains `logit_slope` and
+`logit_intercept` fields in the stored model config. These were added in a
+newer version of perch-hoplite than is installed on spark-ae0e, and cause a
+`TypeError: TaxonomyModelTF.__init__() got an unexpected keyword argument
+'logit_intercept'` error when loading the DB. Fix by running:
+
+```bash
+sqlite3 /mnt/PAM_Analysis/duane_scratch/perch_hoplite/db/<DATASET_NAME>/hoplite.sqlite \
+    "UPDATE hoplite_metadata SET value='{\"model_key\": \"taxonomy_model_tf\", \"embedding_dim\": 1536, \"model_config\": {\"window_size_s\": 5.0, \"hop_size_s\": 5.0, \"sample_rate\": 32000, \"tfhub_path\": \"google/bird-vocalization-classifier/tensorFlow2/perch_v2\", \"tfhub_version\": 2, \"model_path\": \"\"}, \"logits_key\": null, \"logits_idxes\": null}' WHERE key='model_config';"
+```
+
+Verify with:
+```bash
+sqlite3 /path/to/db/hoplite.sqlite "SELECT value FROM hoplite_metadata WHERE key='model_config';"
+```
+
+The output should show no `logit_slope` or `logit_intercept` fields.
 
 ### Clean labeling strategy (current)
 
@@ -643,6 +676,22 @@ multi-class classifier correctly assigns this to `dolphin_call` rather than
 `orca_call`. UTC 17:29 = PDT 10:29 — within the known afternoon dolphin
 activity window. In the multi-class Gradio interface, label these as
 `dolphin_call` (amber button).
+
+---
+
+### Humpback song — label HUMPBACK_SONG
+**Score: 1.082 | File: MARS_20180430_123912 | 135–140s**
+
+![Humpback song spectrogram](humpback_song.png)
+
+Faint low-frequency energy near the bottom of the spectrogram — consistent
+with humpback whale song units whose dominant energy is in the 100 Hz–4 kHz
+range. The score is moderate (1.082) — the v4_clean orca classifier has no
+humpback training examples, so these score above threshold as false positives.
+UTC 12:39 PDT 05:39 — early morning, April 30 2018. Expert confirmation
+pending. In the multi-class Gradio interface, label these as `humpback_song`
+(amber button). Note: Safari renders the audio controls better than Chrome
+for listening to these low-frequency calls.
 
 ---
 
