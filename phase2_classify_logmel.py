@@ -1550,11 +1550,23 @@ def _launch_labeling_gui(
     log.info("Loaded %d audio segments for labeling.", len(segments))
 
     def _make_spectrogram_image(audio_array: "np.ndarray", sr: int) -> str:
-        """Log-mel spectrogram using librosa.
-        10 Hz – 16 kHz, 128 mel bands, 20 ms window, 10 ms hop, 80 dB range.
-        Colormap: grayscale if --grayscale flag set, else inferno.
-        Frequency axis: symlog (linear below 200 Hz, log above).
-        Y-ticks: 10, 20, 50, 100, 200, 500 Hz, 1k, 2k, 5k, 10k, 16k Hz.
+        """PCEN log-mel spectrogram using librosa.
+
+        PCEN (Per-Channel Energy Normalization) is the frontend used by the
+        Perch V2 model, so this display approximates what the model actually
+        "sees" when embedding a clip. PCEN adaptively normalizes each mel
+        channel over time using an IIR smoother, which:
+          - suppresses stationary background (flow noise, distant shipping)
+          - enhances transient calls (orca, dolphin) relative to background
+
+        Parameters:
+          - 128 mel bands, 10 Hz – 16 kHz
+          - 20 ms window, 10 ms hop
+          - PCEN with librosa defaults tuned for the 10 ms hop:
+              gain=0.60, bias=2, power=0.5, time_constant=0.400,
+          hot-start fix: smoother initialized from first 10 frames
+        Colormap: grayscale if --grayscale flag set, else magma.
+        Frequency axis: pure log. Y-ticks: 10, 50, 100, 500 Hz, 1k–16k.
         """
         import numpy as _np2
         import librosa as _librosa
@@ -1565,8 +1577,9 @@ def _launch_labeling_gui(
         n_mels  = 128
         f_min   = 10.0
         f_max   = float(sr // 2)
-        dyn_db  = 80.0
 
+        # Mel power spectrogram (power=1 => magnitude, required for PCEN which
+        # expects a magnitude/energy spectrogram, not power in dB).
         mel_spec = _librosa.feature.melspectrogram(
             y=audio_array.astype(_np2.float32),
             sr=sr,
@@ -1577,16 +1590,41 @@ def _launch_labeling_gui(
             n_mels=n_mels,
             fmin=f_min,
             fmax=f_max,
-            power=2.0,
+            power=1.0,
         )
-        log_mel = _librosa.power_to_db(mel_spec, ref=_np2.max, top_db=dyn_db)
+
+        # PCEN normalization.
+        # gain=0.6: moderate normalization — calls remain visible vs background.
+        #   (0.98 = very aggressive, flattens calls; 0.0 = no normalization)
+        # time_constant=0.400s: smoother adapts over ~400 ms of background.
+        # Fix for "hot start" artifact: initialize the IIR smoother (zi) with
+        # the mean energy of the first 10 frames instead of zero, so the
+        # normalization is stable from frame 1.
+        S_scaled = mel_spec * (2**31)
+        # Compute initial smoother state from first 10 frames
+        _n_init = min(10, S_scaled.shape[1])
+        _zi = _np2.mean(S_scaled[:, :_n_init], axis=1, keepdims=True)
+        pcen = _librosa.pcen(
+            S_scaled,
+            sr=sr,
+            hop_length=hop_len,
+            gain=0.6,
+            bias=2.0,
+            power=0.5,
+            time_constant=0.400,
+            zi=_zi,
+        )
 
         times     = _librosa.frames_to_time(
-            _np2.arange(mel_spec.shape[1]), sr=sr, hop_length=hop_len)
+            _np2.arange(pcen.shape[1]), sr=sr, hop_length=hop_len)
         mel_freqs = _librosa.mel_frequencies(
             n_mels=n_mels, fmin=f_min, fmax=f_max)
 
-        cmap = "gray_r" if grayscale else "inferno"
+        # PCEN output is roughly in [0, ~5+]; clip for consistent display.
+        vmax = float(_np2.percentile(pcen, 99.5))
+        vmin = 0.0
+
+        cmap = "gray_r" if grayscale else "magma"
 
         fig, axes = plt_mod.subplots(
             2, 1, figsize=(7, 3.5),
@@ -1596,11 +1634,11 @@ def _launch_labeling_gui(
 
         ax_spec = axes[0]
         ax_spec.pcolormesh(
-            times, mel_freqs, log_mel,
-            vmin=-dyn_db, vmax=0,
+            times, mel_freqs, pcen,
+            vmin=vmin, vmax=vmax,
             cmap=cmap, shading="gouraud",
         )
-        ax_spec.set_ylabel("Hz (mel)", color="#94a3b8", fontsize=8)
+        ax_spec.set_ylabel("Hz (mel, PCEN)", color="#94a3b8", fontsize=8)
         ax_spec.set_yscale("log")
         yticks       = [10, 50, 100, 500, 1000, 2000, 5000, 10000, 16000]
         ytick_labels = ["10", "50", "100", "500", "1k", "2k", "5k", "10k", "16k"]
@@ -1937,7 +1975,7 @@ def main(argv=None) -> int:
     log_dir = Path(args.log_dir) if args.log_dir else db_dir / "logs"
     _setup_logging(log_dir, args.verbose)
 
-    log.info("Perch Hoplite Phase 2 — Search / Classify / Infer [Log-Mel variant]")
+    log.info("Perch Hoplite Phase 2 — Search / Classify / Infer [PCEN Log-Mel variant]")
     log.info("Python %s  Command: %s", sys.version.split()[0], args.command)
 
     fn = COMMANDS.get(args.command)
