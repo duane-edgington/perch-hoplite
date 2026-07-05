@@ -170,11 +170,9 @@ def embed_with_adapter(
 
     # If date-filtered, we need to pass files individually.
     # Use adapter's file-list mode if available, otherwise embed folder.
-    # Build file glob — if date-filtered, match only that date's files
-    if audio_files and audio_files[0].name[:12] != audio_dir.name[:12]:
-        # Date filter active — use date prefix glob
-        date_str = audio_files[0].name.split('_')[1]  # e.g. 20180413
-        file_glob = f"MARS_{date_str}_*.wav"
+    # Build file glob — if --date specified, match only that date's files
+    if args.date:
+        file_glob = f"MARS_{args.date}_*.wav"
     else:
         file_glob = "*.wav"
 
