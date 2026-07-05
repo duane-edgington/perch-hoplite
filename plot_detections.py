@@ -40,14 +40,15 @@ def load_detections(csv_path, label_filter=None):
     if label_filter and "label" in df.columns:
         df = df[df["label"] == label_filter].copy()
     elif label_filter and "label" not in df.columns:
-        # Single-class CSV — no label column, return empty if filter requested
-        # but not orca_call (single class files are all orca)
         if label_filter != "orca_call":
-            return df.iloc[0:0].copy()  # empty DataFrame
-    df = df.copy()
-    df["utc_hour"] = df.apply(
-        lambda r: parse_utc_hour(r["filename"], r["window_start"]), axis=1
-    ).astype(float)
+            return df.iloc[0:0].copy()
+    else:
+        df = df.copy()
+    # Use list comprehension — more robust than df.apply for mixed None/float
+    df["utc_hour"] = [
+        parse_utc_hour(str(fname), float(start))
+        for fname, start in zip(df["filename"], df["window_start"])
+    ]
     return df
 
 
