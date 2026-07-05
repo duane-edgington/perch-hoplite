@@ -1,7 +1,7 @@
 # Porting Perch 2.0 and perch-hoplite to Pure PyTorch
 ## Technical Summary for PyTorch Conference 2026
 
-**Author:** Duane Edgington — MBARI (Monterey Bay Aquarium Research Institute)
+**Author:** Duane R. Edgington — MBARI (Monterey Bay Aquarium Research Institute)
 
 ---
 
