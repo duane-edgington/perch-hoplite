@@ -411,10 +411,15 @@ def _torch_train_linear_classifier(
     }
 
     # Build LinearClassifier object matching the saved format
+    # embedding_model_config is stored in the .pt file for reproducibility
+    # but not used at inference time — pass a minimal placeholder
+    from ml_collections import config_dict as _cd
+    _emb_cfg = _cd.ConfigDict()
     lin_cls = _clf_mod.LinearClassifier(
         beta=beta,
         beta_bias=beta_bias,
         classes=target_labels,
+        embedding_model_config=_emb_cfg,
     )
     return lin_cls, eval_scores
 
