@@ -56,7 +56,12 @@ def load_csv(input_csv):
     df = df.dropna(subset=["datetime_utc"])
     df["date"]     = df["datetime_utc"].dt.date
     df["utc_hour"] = df["datetime_utc"].dt.hour + df["datetime_utc"].dt.minute / 60.0
-    df["day_of_month"] = df["datetime_utc"].dt.day
+    # Extract day from filename directly — avoids UTC midnight bleed into next month
+    def _day_from_fname(fname):
+        import re as _r
+        m = _r.search(r'MARS_(\d{6})(\d{2})_', str(fname))
+        return int(m.group(2)) if m else 0
+    df["day_of_month"] = df["filename"].apply(_day_from_fname)
     return df
 
 
@@ -103,7 +108,14 @@ def plot_monthly(df, output_dir, title):
     axes[-1].set_xlabel("Day of month (April 2018 UTC)",
                         color="#94a3b8", fontsize=9)
 
-    out1 = os.path.join(output_dir, "MARS_April2018_monthly_counts.png")
+    # Derive prefix from input CSV filename
+    import re as _re
+    m = _re.search(r'MARS_(\d{8})_(\d{8})', title + " " + output_dir)
+    csv_stem = Path(output_dir).name  # fallback
+    # Build prefix from title
+    prefix = title.replace(" ", "_").replace("—", "").replace("__", "_").strip("_")
+    prefix = _re.sub(r'[^A-Za-z0-9_]', '', prefix)[:40]
+    out1 = os.path.join(output_dir, f"{prefix}_monthly_counts.png")
     fig.savefig(out1, dpi=150, bbox_inches="tight", facecolor="#0f172a")
     plt.close(fig)
     print(f"Saved: {out1}")
@@ -159,7 +171,7 @@ def plot_monthly(df, output_dir, title):
     axes2[-1].set_xlabel("UTC Hour (PDT = UTC−7)",
                          color="#94a3b8", fontsize=9)
 
-    out2 = os.path.join(output_dir, "MARS_April2018_heatmap.png")
+    out2 = os.path.join(output_dir, f"{prefix}_heatmap.png")
     fig2.savefig(out2, dpi=150, bbox_inches="tight", facecolor="#0f172a")
     plt.close(fig2)
     print(f"Saved: {out2}")
