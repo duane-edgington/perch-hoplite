@@ -299,6 +299,180 @@ def _get_label_type_enum():
 # Lazy imports
 # ---------------------------------------------------------------------------
 
+
+# ---------------------------------------------------------------------------
+# Pure PyTorch/numpy linear classifier — replaces perch_hoplite's TF version
+# ---------------------------------------------------------------------------
+
+def _torch_train_linear_classifier(
+    data_manager,
+    learning_rate: float,
+    weak_neg_weight: float,
+    num_train_steps: int,
+    loss: str = "bce",
+):
+    """Train a linear classifier using PyTorch — no TensorFlow required.
+
+    Drop-in replacement for classifier_mod.train_linear_classifier().
+    Uses the same DataManager interface so all DB/label logic is unchanged.
+    Returns (LinearClassifier, eval_scores) matching the original API.
+    """
+    import torch
+    import torch.nn as nn
+    import numpy as np
+    from tqdm import tqdm
+
+    embedding_dim = data_manager.db.get_embedding_dim()
+    target_labels = data_manager.get_target_labels()
+    num_classes = len(target_labels)
+
+    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+
+    # Linear model: embedding → logits (no bias in perch convention)
+    linear = nn.Linear(embedding_dim, num_classes, bias=True).to(device)
+    nn.init.zeros_(linear.weight)
+    nn.init.zeros_(linear.bias)
+
+    optimizer = torch.optim.Adam(linear.parameters(), lr=learning_rate)
+
+    def bce_loss_fn(logits, y_true, is_labeled):
+        y = torch.tensor(y_true, dtype=torch.float32, device=device)
+        m = torch.tensor(is_labeled, dtype=torch.float32, device=device)
+        log_p     = torch.nn.functional.logsigmoid(logits)
+        log_not_p = torch.nn.functional.logsigmoid(-logits)
+        raw_bce   = -y * log_p - (1.0 - y) * log_not_p
+        weights   = (1.0 - m) * weak_neg_weight + m
+        return (raw_bce * weights).mean()
+
+    def hinge_loss_fn(logits, y_true, is_labeled):
+        y = torch.tensor(2 * y_true - 1, dtype=torch.float32, device=device)
+        m = torch.tensor(is_labeled, dtype=torch.float32, device=device)
+        weights = (1.0 - m) * weak_neg_weight + m
+        raw = torch.clamp(1.0 - y * logits, min=0.0)
+        return (raw * weights).mean()
+
+    loss_fn = hinge_loss_fn if loss == "hinge" else bce_loss_fn
+
+    # Training loop
+    linear.train()
+    train_iter = data_manager.batched_example_iterator(
+        data_manager.train_ids, add_weak_negatives=True, repeat=True)
+
+    with tqdm(total=num_train_steps, desc="Training") as pbar:
+        for step, batch in enumerate(train_iter):
+            if step >= num_train_steps:
+                break
+            emb = torch.tensor(batch.embedding, dtype=torch.float32, device=device)
+            logits = linear(emb)
+            loss_val = loss_fn(logits, batch.multihot, batch.is_labeled)
+            optimizer.zero_grad()
+            loss_val.backward()
+            optimizer.step()
+            if step % 32 == 0:
+                pbar.set_postfix({"Loss": f"{loss_val.item():.8f}"})
+            pbar.update(1)
+
+    # Extract weights as numpy — match LinearClassifier format
+    linear.eval()
+    with torch.no_grad():
+        beta      = linear.weight.T.cpu().numpy()   # (embedding_dim, num_classes)
+        beta_bias = linear.bias.cpu().numpy()        # (num_classes,)
+
+    # Evaluate
+    from perch_hoplite.agile import classifier as _clf_mod
+    params = {"beta": beta, "beta_bias": beta_bias}
+
+    eval_iter = data_manager.batched_example_iterator(
+        data_manager.eval_ids, add_weak_negatives=False, repeat=False)
+    pred_logits, true_labels, got_ids = [], [], []
+    for batch in eval_iter:
+        pred_logits.append(np.dot(batch.embedding, beta) + beta_bias)
+        true_labels.append(batch.multihot)
+        got_ids.append(batch.idx)
+
+    pred_logits = np.concatenate(pred_logits, axis=0)
+    true_labels = np.concatenate(true_labels, axis=0)
+    got_ids     = np.concatenate(got_ids, axis=0)
+
+    from perch_hoplite.agile import metrics as _metrics
+    labeled = np.where(true_labels.sum(axis=1) > 0)
+    top_preds = np.argmax(pred_logits, axis=1)
+    top1 = true_labels[np.arange(top_preds.shape[0]), top_preds][labeled].mean()
+    rocs  = _metrics.roc_auc(logits=pred_logits, labels=true_labels, sample_threshold=1)
+    cmaps = _metrics.cmap(logits=pred_logits, labels=true_labels, sample_threshold=1)
+
+    eval_scores = {
+        "top1_acc": float(top1),
+        "roc_auc":  float(rocs["macro"]),
+        "cmap":     float(cmaps["macro"]),
+    }
+
+    # Build LinearClassifier object matching the saved format
+    lin_cls = _clf_mod.LinearClassifier(
+        beta=beta,
+        beta_bias=beta_bias,
+        classes=target_labels,
+    )
+    return lin_cls, eval_scores
+
+
+def _torch_write_inference_csv(
+    db,
+    linear_classifier,
+    output_csv: str,
+    logit_threshold: float = 0.0,
+    pad_end_s: float = 0.0,
+):
+    """Write inference results to CSV — pure numpy, no TF."""
+    import numpy as np
+    import csv
+    import struct
+
+    beta      = linear_classifier.beta       # (embedding_dim, num_classes)
+    beta_bias = linear_classifier.beta_bias  # (num_classes,)
+    labels    = linear_classifier.classes
+
+    con = __import__("sqlite3").connect(
+        __import__("os").path.join(str(db.db_path), "hoplite.sqlite"))
+
+    rows = con.execute("""
+        SELECT w.id, r.filename, w.offsets
+        FROM windows w JOIN recordings r ON r.id = w.recording_id
+        ORDER BY r.filename, w.offsets
+    """).fetchall()
+
+    # Batch score all embeddings
+    all_ids = [r[0] for r in rows]
+    emb_matrix = db.get_embeddings_batch(all_ids).astype(np.float32)
+    all_scores = emb_matrix @ beta.astype(np.float32) + beta_bias.astype(np.float32)
+
+    written = 0
+    label_counts = {}
+    with open(output_csv, "w", newline="") as f:
+        writer = csv.writer(f)
+        writer.writerow(["idx", "project", "filename", "window_start",
+                         "window_end", "label", "logits"])
+        for i, (wid, fname, off_blob) in enumerate(rows):
+            scores = all_scores[i]
+            best_idx   = int(np.argmax(scores))
+            best_score = float(scores[best_idx])
+            if best_score < logit_threshold:
+                continue
+            if isinstance(off_blob, (bytes, bytearray)) and len(off_blob) >= 16:
+                start_s, end_s = struct.unpack_from("<dd", off_blob)
+            else:
+                start_s, end_s = 0.0, 5.0
+            best_label = labels[best_idx]
+            writer.writerow([wid, "", fname,
+                             round(start_s, 3), round(end_s + pad_end_s, 3),
+                             best_label, round(best_score, 7)])
+            written += 1
+            label_counts[best_label] = label_counts.get(best_label, 0) + 1
+
+    con.close()
+    return written, label_counts
+
+
 def _require_perch():
     try:
         from perch_hoplite.agile import (
@@ -1127,7 +1301,7 @@ def cmd_train(args) -> int:
     )
 
     t0 = time.monotonic()
-    linear_classifier, eval_scores = classifier_mod.train_linear_classifier(
+    linear_classifier, eval_scores = _torch_train_linear_classifier(
         data_manager=data_manager,
         learning_rate=args.learning_rate,
         weak_neg_weight=args.weak_neg_weight,
