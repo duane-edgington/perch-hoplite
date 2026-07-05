@@ -353,10 +353,13 @@ def _torch_train_linear_classifier(
 
     loss_fn = hinge_loss_fn if loss == "hinge" else bce_loss_fn
 
+    # Get train/eval split
+    train_ids, eval_ids = data_manager.get_train_test_split()
+
     # Training loop
     linear.train()
     train_iter = data_manager.batched_example_iterator(
-        data_manager.train_ids, add_weak_negatives=True, repeat=True)
+        train_ids, add_weak_negatives=True, repeat=True)
 
     with tqdm(total=num_train_steps, desc="Training") as pbar:
         for step, batch in enumerate(train_iter):
@@ -364,7 +367,7 @@ def _torch_train_linear_classifier(
                 break
             emb = torch.tensor(batch.embedding, dtype=torch.float32, device=device)
             logits = linear(emb)
-            loss_val = loss_fn(logits, batch.multihot, batch.is_labeled)
+            loss_val = loss_fn(logits, batch.multihot, batch.is_labeled_mask)
             optimizer.zero_grad()
             loss_val.backward()
             optimizer.step()
@@ -383,7 +386,7 @@ def _torch_train_linear_classifier(
     params = {"beta": beta, "beta_bias": beta_bias}
 
     eval_iter = data_manager.batched_example_iterator(
-        data_manager.eval_ids, add_weak_negatives=False, repeat=False)
+        eval_ids, add_weak_negatives=False, repeat=False)
     pred_logits, true_labels, got_ids = [], [], []
     for batch in eval_iter:
         pred_logits.append(np.dot(batch.embedding, beta) + beta_bias)
