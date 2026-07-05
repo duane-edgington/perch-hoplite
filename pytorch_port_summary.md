@@ -246,6 +246,31 @@ confirming numerical equivalence of the PyTorch training implementation.
 
 ---
 
+## t-SNE Visualization of Perch V2 Embeddings
+
+t-SNE dimensionality reduction of the 1536-dimensional Perch V2 embeddings,
+colored by human annotation label, confirms that the embedding space naturally
+separates the acoustic classes even before any classifier training.
+
+![t-SNE of Perch V2 embeddings — April 13 2018](figures/tsne_MARS_20180413.png)
+
+**April 13 2018 — 478 labeled embeddings — 4 classes**
+
+Key observations:
+- **Orca calls (green)** and **dolphin calls (purple)** form largely separate
+  clusters, despite Perch V2 having been trained on no marine mammal audio —
+  demonstrating strong transfer learning from the bird vocalization training set
+- **Negative/background (gray)** forms a diffuse cloud separate from the
+  biological call clusters
+- **Other/vessel (orange)** clusters distinctly from biological sounds
+- Some overlap between orca and dolphin is visible, consistent with the
+  known false-positive problem (Pacific white-sided dolphin burst pulses
+  are acoustically similar to orca calls in the embedding space)
+- The separation visible here explains why a simple linear classifier achieves
+  ROC-AUC 0.974 — the embedding space does most of the work
+
+---
+
 ## Software Released
 
 | Repo | Contents |
