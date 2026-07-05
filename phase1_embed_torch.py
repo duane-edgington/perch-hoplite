@@ -165,59 +165,35 @@ def embed_with_adapter(
     adapter_mod = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(adapter_mod)
 
-    import torch
-    import numpy as np
-    from perch_embedder_torch import PerchModel
-
-    # Load model
-    print(f"\nLoading PerchModel from {WEIGHTS_DIR} ...")
-    exact_mel = str(EXACT_MEL_NPY) if EXACT_MEL_NPY.exists() else None
-    model = PerchModel(
-        str(WEIGHTS_DIR),
-        exact_mel_npy=exact_mel,
-    ).eval().to(device)
-
-    if use_compile:
-        print("Compiling model with torch.compile (first batch will be slow)...")
-        model = torch.compile(model)
-
-    print(f"Model ready on {device}")
-
-    # Build audio glob pattern — adapter expects a directory + glob
-    # We write a temp file list and use the adapter's folder-scan mode
     db_dir.mkdir(parents=True, exist_ok=True)
-
-    # Call the adapter's main embedding function directly
-    # The adapter's embed_audio_folder signature:
-    #   embed_audio_folder(model, audio_dir, glob_pattern, db_dir,
-    #                      dataset_name, hop_size_s, handle_duplicates)
     audio_dir = audio_files[0].parent if audio_files else Path(".")
 
     # If date-filtered, we need to pass files individually.
     # Use adapter's file-list mode if available, otherwise embed folder.
-    if hasattr(adapter_mod, 'embed_audio_files'):
-        adapter_mod.embed_audio_files(
-            model=model,
-            audio_files=[str(f) for f in audio_files],
-            db_dir=str(db_dir),
-            dataset_name=dataset_name,
-            hop_size_s=hop_size_s,
-            handle_duplicates='skip',
-            device=device,
-            batch_size=batch_size,
-        )
+    # Build file glob — if date-filtered, match only that date's files
+    if audio_files and audio_files[0].name[:12] != audio_dir.name[:12]:
+        # Date filter active — use date prefix glob
+        date_str = audio_files[0].name.split('_')[1]  # e.g. 20180413
+        file_glob = f"MARS_{date_str}_*.wav"
     else:
-        # Fall back to folder mode with glob matching date prefix
-        glob_pattern = f"*{audio_files[0].name[:12]}*.wav" if audio_files else "*.wav"
-        adapter_mod.embed_audio_folder(
-            model=model,
-            audio_dir=str(audio_dir),
-            glob_pattern=glob_pattern,
-            db_dir=str(db_dir),
-            dataset_name=dataset_name,
-            hop_size_s=hop_size_s,
-            handle_duplicates='skip',
-        )
+        file_glob = "*.wav"
+
+    log.info("Calling build_db: audio_dir=%s glob=%s db_dir=%s",
+             audio_dir, file_glob, db_dir)
+
+    adapter_mod.build_db(
+        audio_dir=str(audio_dir),
+        file_glob=file_glob,
+        db_dir=str(db_dir),
+        weights_dir=str(WEIGHTS_DIR),
+        exact_mel=str(EXACT_MEL_NPY) if EXACT_MEL_NPY.exists() else None,
+        device=device,
+        dataset_name=dataset_name,
+        batch_size=batch_size,
+        hop_size_s=hop_size_s,
+        handle_duplicates='skip',
+        use_compile=use_compile,
+    )
 
 
 def patch_model_config(db_dir: Path, dataset_name: str, sample_rate: int = 32000):
