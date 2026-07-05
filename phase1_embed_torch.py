@@ -154,6 +154,7 @@ def embed_with_adapter(
     use_compile: bool,
     hop_size_s: float,
     batch_size: int,
+    date: str | None = None,
 ):
     """Call perch_hoplite_torch_adapter to embed audio files into a hoplite DB."""
 
@@ -170,9 +171,9 @@ def embed_with_adapter(
 
     # If date-filtered, we need to pass files individually.
     # Use adapter's file-list mode if available, otherwise embed folder.
-    # Build file glob — if --date specified, match only that date's files
-    if args.date:
-        file_glob = f"MARS_{args.date}_*.wav"
+    # Build file glob — if date specified, match only that date's files
+    if date:
+        file_glob = f"MARS_{date}_*.wav"
     else:
         file_glob = "*.wav"
 
@@ -336,6 +337,7 @@ def main():
         use_compile=use_compile,
         hop_size_s=args.hop_size_s,
         batch_size=args.batch_size,
+        date=args.date,
     )
 
     # Patch model_config defensively
