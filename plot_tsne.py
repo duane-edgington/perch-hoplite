@@ -126,7 +126,7 @@ def run_tsne(embeddings: np.ndarray, perplexity: int, n_iter: int,
     tsne = TSNE(
         n_components=2,
         perplexity=perplexity,
-        n_iter=n_iter,
+        max_iter=n_iter,
         random_state=random_state,
         verbose=1,
         metric="cosine",
