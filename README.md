@@ -45,16 +45,13 @@ https://arxiv.org/abs/2512.03219 https://arxiv.org/abs/2508.04665
 | **ICEFISH** (Mac) | Developer workstation | Local — scp gateway to spark |
 | **spark-ae0e** | Active learning, inference, Gradio server | 134.89.11.107 |
 | **spark-0626** | Spare / parallel runs | 134.89.11.174 |
-| **Google Colab** (A100) | Phase 1 embedding only | colab.research.google.com |
+| **spark-ae0e GB10** | Phase 1 embedding (PyTorch) | `phase1_embed_torch.py` — no Colab needed |
+| ~~Google Colab (A100)~~ | ~~Phase 1 embedding (legacy)~~ | ~~Replaced by native PyTorch pipeline~~ |
 
 ### Why the split?
 
 The spark servers have NVIDIA GB10 (Blackwell, compute capability 12.1) GPUs.
-TensorFlow 2.17 is the highest version ported to GB10 ARM/Nvidia chip, which does not support XLA on compute capability 12.x, so the
-Perch V2 model cannot run inference on spark for embedding. The Colab A100
-(compute capability 8.0) works fine. Once the embedding database is built on
-Colab and transferred to NFS, all subsequent steps (training, review, inference)
-run on spark without needing the GPU for the Perch model.
+**July 2026 update: Colab dependency eliminated.** A native PyTorch reimplementation of Perch V2 (`phase1_embed_torch.py`) now runs entirely on spark-ae0e at 231 windows/sec — faster than Colab. No Google Drive, no internet required for embedding. See `clean_install.sh` for setup.
 
 | | spark-ae0e | spark-0626 |
 |---|---|---|
@@ -62,7 +59,7 @@ run on spark without needing the GPU for the Perch model.
 | PAM_Analysis | /mnt/PAM_Analysis (NFS4, rw) | /mnt/PAM_Analysis (NFS4, rw) |
 | PAM_Archive | /mnt/PAM_Archive (NFS4, rw) | /mnt/PAM_Archive (NFS4, rw) |
 | NFS server | thalassa.shore.mbari.org | thalassa.shore.mbari.org |
-| Python venv | ~/gmwd/new3-12_whale_detection/gmwd/venv | same |
+| Python venv | ~/perch-hoplite/venv | unified TF-free environment |
 | perch-hoplite | 1.0.1 | 1.0.1 |
 
 Both spark machines share the same NFS volumes. Databases, models, results,
@@ -143,10 +140,31 @@ Known harmless warnings at startup (not errors):
 
 ## Complete Workflow
 
-### Phase 1 — Build the Embedding Database (Colab)
+### Phase 1 — Build the Embedding Database
 
-The embedding step requires a GPU compatible with TF 2.20rc or higher + XLA. Use Google
-Colab (A100 runtime) because the spark GB10 GPUs are not compatible.
+**New (July 2026): Native PyTorch pipeline runs entirely on spark-ae0e.**
+No Colab, no Google Drive, no internet required.
+
+```bash
+source ~/perch-hoplite/venv/bin/activate
+
+# Embed a single day
+python3 phase1_embed_torch.py \\
+    --audio-dir /mnt/PAM_Analysis/GoogleMultiSpeciesWhaleModel2/resampled_32kHz/2018/04 \\
+    --date 20180413 \\
+    --db-dir /mnt/PAM_Analysis/duane_scratch/perch_hoplite/db/MARS_20180413_torch_32kHz \\
+    --device cuda --compile
+
+# Embed a full month (~37 min for 30 days)
+python3 phase1_embed_torch.py \\
+    --audio-dir /mnt/PAM_Analysis/GoogleMultiSpeciesWhaleModel2/resampled_32kHz/2018/04 \\
+    --db-dir /mnt/PAM_Analysis/duane_scratch/perch_hoplite/db/MARS_20180401_20180430_32kHz \\
+    --device cuda --compile
+```
+
+#### Legacy: Colab embedding (no longer required)
+
+The original Colab workflow is preserved below for reference.
 
 #### Step 1a — Prepare audio on ICEFISH
 
@@ -380,26 +398,31 @@ nohup python3 phase2_classify_logmel.py review     --db-dir /mnt/PAM_Analysis/du
 
 ---
 
-## Current Status (as of July 2 2026)
+## Current Status (as of July 5 2026)
 
 | Item | Status |
 |---|---|
-| DB: MARS April 13 2018 | ✅ 144 files, 17,280 embeddings |
-| DB: MARS April 1 2018 | ✅ 144 files, 17,280 embeddings (separate) |
-| DB: MARS April 30 2018 | ✅ 144 files, 17,280 embeddings (new) |
-| DB: MARS_combined | ✅ 34,560 embeddings (Apr 1 + Apr 13 merged, experimental) |
-| orca_v1_clean.pt | ✅ **ROC-AUC 0.9821** — 44 pos / 56 neg, single-class |
-| orca_v2_clean.pt | ✅ **ROC-AUC 0.9191** — 54 pos / 56 neg, single-class |
-| orca_v3_clean.pt | ✅ **ROC-AUC 0.9900** — multi-class: 213 orca + 13 dolphin + 55 neg |
-| orca_v4_clean.pt | ✅ **ROC-AUC 0.9740** — multi-class: 214 orca + 168 dolphin + 42 other + 54 neg |
-| Inference Apr 13 v4_clean | ✅ 295 orca + 2253 dolphin + 159 other |
-| Inference Apr 1 v4_clean | ✅ 0 orca (4 FP = dolphin) — precision validated |
-| Inference Apr 30 v4_clean | ✅ 26 "orca" detections — all false positives (11 humpback, 8 ship, 6 dolphin, 1 other) |
-| Multi-class labels | ✅ orca_call / dolphin_call / ship_noise / humpback_song / other |
-| May 2018 32kHz resampling | 🔄 in progress |
-| humpback_song class | 🔄 11 candidate labels in Apr 30 DB — expert review pending |
-| fin_whale_call class | 🔲 planned — May 2018 |
-| v5_clean training | 🔲 planned — after humpback/ship_noise labels confirmed |
+| DB: MARS April 13 2018 | ✅ 17,280 embeddings — primary training DB |
+| DB: MARS April 1 2018 | ✅ 17,280 embeddings |
+| DB: MARS April 20 2018 | ✅ 17,280 embeddings |
+| DB: MARS April 30 2018 | ✅ 17,280 embeddings |
+| DB: MARS May 2 2018 | ✅ 17,280 embeddings |
+| DB: MARS April 2018 (full month) | ✅ **518,400 embeddings** — all 30 days, 37 min on GB10 |
+| PyTorch embedding pipeline | ✅ `phase1_embed_torch.py` — no Colab, 231 windows/sec |
+| orca_v1_clean.pt | ✅ ROC-AUC 0.982 — 100 labels, single-class |
+| orca_v2_clean.pt | ✅ ROC-AUC 0.919 — 110 labels, single-class |
+| orca_v3_clean.pt | ✅ ROC-AUC 0.990 — multi-class: orca + dolphin |
+| orca_v4_clean.pt | ✅ ROC-AUC 0.974 — multi-class: orca + dolphin + other |
+| orca_v5_clean.pt | ✅ **ROC-AUC 0.973** — **pure PyTorch training**, 5 classes, **16 sec** |
+| Inference Apr 13 v5_clean | ✅ 295 orca + 2,177 dolphin + 161 other |
+| Inference Apr 1 v4_clean | ✅ 0 orca FP — precision validated on quiet day |
+| Inference Apr 30 v4_clean | ✅ 0 orca — 11 humpback + 8 ship_noise confirmed |
+| Inference May 2 v4_clean | ✅ 0 orca — 2 humpback + 27 ship_noise confirmed |
+| Inference April 2018 full month | ✅ 2,083 orca + 13,359 dolphin + 7,549 other |
+| TF-free pipeline | ✅ zero TF imports — single venv `~/perch-hoplite/venv` |
+| humpback_song class | ✅ 13 labels (Apr 30 + May 2) — expert review pending |
+| fin_whale_call class | 🔲 planned |
+| October 2020 embedding | 🔲 planned |
 
 ### Orca event timing on April 13 2018 (UTC)
 
@@ -450,6 +473,12 @@ consistent with morning gray whale calf migration through the bay.
 7. **New DB model_config patch required** — every DB created by the Colab
    notebook must have `logit_slope` and `logit_intercept` removed from the
    stored model config before use on spark (see Post-Download Patch below).
+   DBs created by `phase1_embed_torch.py` do NOT need this patch.
+
+8. **PyTorch pipeline eliminates Colab** — `phase1_embed_torch.py` runs on
+   spark-ae0e at 231 windows/sec (37 min for a full month). Training is 16
+   seconds (pre-loads embeddings to GPU). Zero TF dependencies. Single venv
+   at `~/perch-hoplite/venv`. See `clean_install.sh` to set up.
 
 ### Post-Download Patch — Required for every new Colab DB
 
