@@ -672,7 +672,7 @@ sound energy (bright = loud).
 ### Orca call — label orca_call
 **Score: 3.629 | File: MARS_20180413_083913 | 495–500s**
 
-![Orca call spectrogram](orca.png)
+![Orca call spectrogram](figures/orca.png)
 
 Characteristic orca call signature: discrete bright energy bursts with
 harmonic stacking visible between 1–6 kHz, appearing as horizontal
@@ -685,7 +685,7 @@ to the calls. UTC 08:39 = PDT 01:39 — overnight orca feeding activity.
 ### Ocean background — label NEGATIVE
 **Score: −2.815 | File: MARS_20180413_235913 | 130–135s**
 
-![Background noise spectrogram](background.png)
+![Background noise spectrogram](figures/background.png)
 
 Featureless broadband noise across all frequencies. Energy is uniformly
 distributed with no structured features. This is typical deep-water
@@ -698,7 +698,7 @@ mid-afternoon, well outside the orca event window. Label confidently negative.
 ### Dolphin call — label NEGATIVE (for orca classifier)
 **Score: 3.709 | File: MARS_20180413_163913 | 310–315s**
 
-![Dolphin spectrogram](dolphin.png)
+![Dolphin spectrogram](figures/dolphin.png)
 
 High-frequency tonal whistles with distinctive upsweeping and downsweeping
 frequency modulation, extending from ~3 kHz up to 14+ kHz. These are
@@ -714,7 +714,7 @@ When building a multi-class classifier, these would be labeled
 ### Dolphin burst pulse call — label DOLPHIN_CALL (multi-class classifier)
 **Score: 0.020 | File: MARS_20180413_172913 | 380–385s**
 
-![Dolphin burst pulse call spectrogram](dolphin_call.png)
+![Dolphin burst pulse call spectrogram](figures/dolphin_call.png)
 
 Dense vertical striping across 2–14 kHz — the characteristic signature of
 Pacific white-sided dolphin burst pulse calls (Henderson et al. 2011, JASA).
@@ -731,7 +731,7 @@ activity window. In the multi-class Gradio interface, label these as
 ### Humpback song — label HUMPBACK_SONG
 **Score: 1.082 | File: MARS_20180430_123912 | 135–140s**
 
-![Humpback song spectrogram](humpback_song.png)
+![Humpback song spectrogram](figures/humpback_song.png)
 
 Faint low-frequency energy near the bottom of the spectrogram — consistent
 with humpback whale song units whose dominant energy is in the 100 Hz–4 kHz
