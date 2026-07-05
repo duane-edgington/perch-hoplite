@@ -302,7 +302,7 @@ def _get_label_type_enum():
 def _require_perch():
     try:
         from perch_hoplite.agile import (
-            audio_loader, classifier, classifier_data,
+            audio_loader,
             embedding_display, source_info,
         )
         from perch_hoplite.db import (
@@ -316,8 +316,37 @@ def _require_perch():
             "Error: %s", exc,
         )
         sys.exit(1)
+    # perch_hoplite.agile.classifier imports TF unconditionally at module level.
+    # Inject a minimal mock so the import succeeds without TF installed.
+    # LinearClassifier and train_linear_classifier only use numpy/sklearn at runtime.
+    import types as _types
+    if 'tensorflow' not in sys.modules:
+        import importlib.machinery as _imach
+        _tf_mock = _types.ModuleType('tensorflow')
+        # __spec__ must be non-None or importlib.util.find_spec raises ValueError
+        _tf_mock.__spec__ = _imach.ModuleSpec('tensorflow', loader=None)
+        _tf_mock.__version__ = '0.0.0-mock'
+        _tf_mock.Tensor = object
+        _tf_mock.keras = _types.ModuleType('tensorflow.keras')
+        _tf_mock.keras.__spec__ = _imach.ModuleSpec('tensorflow.keras', loader=None)
+        _tf_mock.keras.Model = object
+        _tf_mock.keras.layers = _types.ModuleType('tensorflow.keras.layers')
+        _tf_mock.keras.optimizers = _types.ModuleType('tensorflow.keras.optimizers')
+        _tf_mock.keras.losses = _types.ModuleType('tensorflow.keras.losses')
+        sys.modules['tensorflow'] = _tf_mock
+        sys.modules['tensorflow.keras'] = _tf_mock.keras
+        sys.modules['tensorflow.keras.layers'] = _tf_mock.keras.layers
+        sys.modules['tensorflow.keras.optimizers'] = _tf_mock.keras.optimizers
+        sys.modules['tensorflow.keras.losses'] = _tf_mock.keras.losses
+        _injected_tf_mock = True
+    else:
+        _injected_tf_mock = False
+    try:
+        from perch_hoplite.agile import classifier, classifier_data
+    except Exception as _e:
+        log.warning("Could not import perch_hoplite.agile.classifier: %s", _e)
+        classifier = classifier_data = None
     # model_configs intentionally NOT imported here — it triggers TensorFlow.
-    # load_model_from_db() handles model loading via PyTorch (or TF if PERCH_USE_TF=1).
     model_configs = None
     return (audio_loader, classifier, classifier_data,
             embedding_display, source_info,
