@@ -336,8 +336,8 @@ def _torch_train_linear_classifier(
     optimizer = torch.optim.Adam(linear.parameters(), lr=learning_rate)
 
     def bce_loss_fn(logits, y_true, is_labeled):
-        y = torch.tensor(y_true, dtype=torch.float32, device=device)
-        m = torch.tensor(is_labeled, dtype=torch.float32, device=device)
+        y = y_true if isinstance(y_true, torch.Tensor) else torch.tensor(y_true, dtype=torch.float32, device=device)
+        m = is_labeled if isinstance(is_labeled, torch.Tensor) else torch.tensor(is_labeled, dtype=torch.float32, device=device)
         log_p     = torch.nn.functional.logsigmoid(logits)
         log_not_p = torch.nn.functional.logsigmoid(-logits)
         raw_bce   = -y * log_p - (1.0 - y) * log_not_p
@@ -345,8 +345,9 @@ def _torch_train_linear_classifier(
         return (raw_bce * weights).mean()
 
     def hinge_loss_fn(logits, y_true, is_labeled):
-        y = torch.tensor(2 * y_true - 1, dtype=torch.float32, device=device)
-        m = torch.tensor(is_labeled, dtype=torch.float32, device=device)
+        y_t = y_true if isinstance(y_true, torch.Tensor) else torch.tensor(y_true, dtype=torch.float32, device=device)
+        y = 2 * y_t - 1
+        m = is_labeled if isinstance(is_labeled, torch.Tensor) else torch.tensor(is_labeled, dtype=torch.float32, device=device)
         weights = (1.0 - m) * weak_neg_weight + m
         raw = torch.clamp(1.0 - y * logits, min=0.0)
         return (raw * weights).mean()
@@ -356,18 +357,62 @@ def _torch_train_linear_classifier(
     # Get train/eval split
     train_ids, eval_ids = data_manager.get_train_test_split()
 
-    # Training loop
+    # ── Pre-load ALL embeddings + labels into GPU memory ─────────────────
+    # Much faster than per-batch DB reads (17280 × 1536 float32 ≈ 100 MB).
+    # Memory scales with LABEL COUNT only, not DB size — so this is safe
+    # even for multi-month DBs with millions of embeddings.
+    # Safeguard: warn if label count would require >4 GB GPU memory.
+    _LABEL_WARN_THRESHOLD = 50_000
+    _n_labels = len(train_ids) + len(eval_ids)
+    _est_gb = _n_labels * embedding_dim * 4 / 1e9
+    if _n_labels > _LABEL_WARN_THRESHOLD:
+        log.warning(
+            "Large label set: %d examples × %d dims = %.1f GB GPU memory. "
+            "Consider reducing --train-ratio or using --batch-size to limit memory.",
+            _n_labels, embedding_dim, _est_gb
+        )
+    else:
+        log.info("Pre-loading %d labeled examples (%.1f MB) into %s...",
+                 _n_labels, _est_gb * 1000, device)
+
+    def _load_ids_to_tensors(ids, add_weak_negatives):
+        """Load a set of window IDs into (embeddings, multihot, is_labeled) tensors."""
+        batches = list(data_manager.batched_example_iterator(
+            ids, add_weak_negatives=add_weak_negatives, repeat=False))
+        if not batches:
+            return None, None, None
+        emb  = np.concatenate([b.embedding     for b in batches], axis=0)
+        mh   = np.concatenate([b.multihot       for b in batches], axis=0)
+        ilm  = np.concatenate([b.is_labeled_mask for b in batches], axis=0)
+        idxs = np.concatenate([b.idx            for b in batches], axis=0)
+        return (torch.tensor(emb,  dtype=torch.float32, device=device),
+                torch.tensor(mh,   dtype=torch.float32, device=device),
+                torch.tensor(ilm,  dtype=torch.float32, device=device),
+                idxs)
+
+    train_emb, train_mh, train_ilm, _     = _load_ids_to_tensors(train_ids, add_weak_negatives=True)
+    eval_emb,  eval_mh,  eval_ilm,  eval_idxs = _load_ids_to_tensors(eval_ids,  add_weak_negatives=False)
+    n_train = train_emb.shape[0] if train_emb is not None else 0
+    log.info("Loaded %d train + %d eval examples onto %s", n_train,
+             eval_emb.shape[0] if eval_emb is not None else 0, device)
+
+    # ── Training loop — pure in-memory mini-batches ───────────────────────
     linear.train()
-    train_iter = data_manager.batched_example_iterator(
-        train_ids, add_weak_negatives=True, repeat=True)
+    rng = np.random.default_rng(seed=42)
+    batch_size = min(512, n_train)
 
     with tqdm(total=num_train_steps, desc="Training") as pbar:
-        for step, batch in enumerate(train_iter):
-            if step >= num_train_steps:
-                break
-            emb = torch.tensor(batch.embedding, dtype=torch.float32, device=device)
-            logits = linear(emb)
-            loss_val = loss_fn(logits, batch.multihot, batch.is_labeled_mask)
+        for step in range(num_train_steps):
+            # Random mini-batch
+            idx = torch.tensor(
+                rng.choice(n_train, size=batch_size, replace=False),
+                device=device)
+            emb_b = train_emb[idx]
+            mh_b  = train_mh[idx]
+            ilm_b = train_ilm[idx]
+
+            logits = linear(emb_b)
+            loss_val = loss_fn(logits, mh_b, ilm_b)
             optimizer.zero_grad()
             loss_val.backward()
             optimizer.step()
@@ -381,17 +426,11 @@ def _torch_train_linear_classifier(
         beta      = linear.weight.T.cpu().numpy()   # (embedding_dim, num_classes)
         beta_bias = linear.bias.cpu().numpy()        # (num_classes,)
 
-    # Evaluate
+    # Evaluate on pre-loaded eval set
     from perch_hoplite.agile import classifier as _clf_mod
-    params = {"beta": beta, "beta_bias": beta_bias}
-
-    eval_iter = data_manager.batched_example_iterator(
-        eval_ids, add_weak_negatives=False, repeat=False)
-    pred_logits, true_labels, got_ids = [], [], []
-    for batch in eval_iter:
-        pred_logits.append(np.dot(batch.embedding, beta) + beta_bias)
-        true_labels.append(batch.multihot)
-        got_ids.append(batch.idx)
+    pred_logits = [np.dot(eval_emb.cpu().numpy(), beta) + beta_bias]
+    true_labels = [eval_mh.cpu().numpy()]
+    got_ids     = [eval_idxs]
 
     pred_logits = np.concatenate(pred_logits, axis=0)
     true_labels = np.concatenate(true_labels, axis=0)
