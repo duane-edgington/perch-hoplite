@@ -262,9 +262,18 @@ pip install torch perch-hoplite gradio librosa soundfile timm ml_collections
 
 ## Acknowledgments
 
-- Google Research — Perch 2.0 model (Apache-2.0)
-- `justinchuby/Perch-onnx` — ONNX export used for weight extraction
-- MBARI MARS hydrophone — continuous acoustic monitoring since 2015
+- Google Research — Perch 2.0 model (Apache-2.0).
+  Denton T. et al. (2025). "Perch 2.0 transfers 'whale' to underwater tasks."
+  AI for Non-Human Animal Communication Workshop, NeurIPS 2025.
+  arXiv:2512.03219. https://arxiv.org/abs/2512.03219
+- perch-hoplite agile modeling framework (Apache-2.0).
+  https://github.com/google-research/perch-hoplite
+- Perch 2.0 model weights — Kaggle Model Hub.
+  https://www.kaggle.com/models/google/bird-vocalization-classifier
+- `justinchuby/Perch-onnx` — ONNX export used for weight extraction and validation.
+  https://huggingface.co/justinchuby/Perch-onnx
+- MBARI MARS hydrophone — continuous acoustic monitoring since 2015.
+  https://www.mbari.org/technology/monterey-accelerated-research-system/
 - NVIDIA — GB10 DGX Spark hardware
 - Our work is made possible by the generous support of The David and Lucile Packard Foundation
 
