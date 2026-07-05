@@ -275,8 +275,8 @@ def main():
     ap.add_argument("--device", default="cuda",
         choices=["cuda", "cpu"],
         help="PyTorch device (default: cuda)")
-    ap.add_argument("--no-compile", action="store_true",
-        help="Disable torch.compile (use for debugging; slower)")
+    ap.add_argument("--compile", action="store_true", default=False,
+        help="Enable torch.compile (~2.5x faster on GB10; slow first batch)")
     ap.add_argument("--hop-size-s", type=float, default=5.0,
         help="Window hop size in seconds (default 5.0 = non-overlapping)")
     ap.add_argument("--batch-size", type=int, default=8,
@@ -300,7 +300,7 @@ def main():
 
     audio_dir  = Path(args.audio_dir)
     db_dir     = Path(args.db_dir)
-    use_compile = not args.no_compile
+    use_compile = args.compile
 
     if not audio_dir.exists():
         print(f"ERROR: audio directory not found: {audio_dir}")
