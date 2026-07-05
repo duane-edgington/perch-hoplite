@@ -129,7 +129,7 @@ Memory scales with label count only, not DB size — safe for multi-month DBs.
 ### 3. Embedding Pipeline — Colab Eliminated
 
 The original workflow required:
-1. Zip audio on ICEFISH → upload to Google Drive
+1. Zip audio on workstation → upload to Google Drive
 2. Run Colab Pro notebook (A100) → download DB ZIP
 3. Extract and patch DB on spark-ae0e
 
@@ -266,6 +266,7 @@ pip install torch perch-hoplite gradio librosa soundfile timm ml_collections
 - `justinchuby/Perch-onnx` — ONNX export used for weight extraction
 - MBARI MARS hydrophone — continuous acoustic monitoring since 2015
 - NVIDIA — GB10 DGX Spark hardware
+- Our work is made possible by the generous support of The David and Lucile Packard Foundation
 
 ---
 
