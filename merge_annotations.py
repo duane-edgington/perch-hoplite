@@ -82,36 +82,33 @@ def merge_annotations(source_db: str, target_db: str, dry_run: bool = False):
     for offs_blob, label, label_type, provenance, filename, deployment in rows:
         start_s, end_s = decode_offsets(offs_blob)
 
-        # Find or insert deployment in target
-        dep_row = tgt.execute(
-            "SELECT id FROM deployments WHERE name=? AND project=?",
-            (deployment, deployment)
-        ).fetchone()
-        if dep_row is None:
-            tgt.execute(
-                "INSERT OR IGNORE INTO deployments (name, project) VALUES (?,?)",
-                (deployment, deployment)
-            )
-            dep_id = tgt.execute(
-                "SELECT id FROM deployments WHERE name=? AND project=?",
-                (deployment, deployment)
-            ).fetchone()[0]
-        else:
-            dep_id = dep_row[0]
-
-        # Find or insert recording in target
+        # Find recording in target by filename only — deployment names may differ
+        # between source and target DBs (e.g. MARS_20180413 vs MARS_20180401_20180430)
         rec_row = tgt.execute(
-            "SELECT id FROM recordings WHERE filename=? AND deployment_id=?",
-            (filename, dep_id)
+            "SELECT MIN(id) FROM recordings WHERE filename=?",
+            (filename,)
         ).fetchone()
         if rec_row is None:
+            # Recording not in target — insert under source deployment name
+            dep_row = tgt.execute(
+                "SELECT id FROM deployments WHERE name=?", (deployment,)
+            ).fetchone()
+            if dep_row is None:
+                tgt.execute(
+                    "INSERT OR IGNORE INTO deployments (name, project) VALUES (?,?)",
+                    (deployment, deployment)
+                )
+                dep_id = tgt.execute(
+                    "SELECT id FROM deployments WHERE name=?", (deployment,)
+                ).fetchone()[0]
+            else:
+                dep_id = dep_row[0]
             tgt.execute(
                 "INSERT OR IGNORE INTO recordings (filename, deployment_id) VALUES (?,?)",
                 (filename, dep_id)
             )
             rec_id = tgt.execute(
-                "SELECT id FROM recordings WHERE filename=? AND deployment_id=?",
-                (filename, dep_id)
+                "SELECT MIN(id) FROM recordings WHERE filename=?", (filename,)
             ).fetchone()[0]
         else:
             rec_id = rec_row[0]
