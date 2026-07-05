@@ -309,15 +309,16 @@ def _require_perch():
             brutalism, interface, score_functions,
             search_results, sqlite_usearch_impl,
         )
-        from perch_hoplite.zoo import model_configs
         import numpy as np
     except ImportError as exc:
         log.error(
-            "perch-hoplite not installed. "
-            "Run: pip install git+https://github.com/google-research/perch-hoplite.git\n"
+            "perch-hoplite not installed. Run: pip install perch-hoplite\n"
             "Error: %s", exc,
         )
         sys.exit(1)
+    # model_configs intentionally NOT imported here — it triggers TensorFlow.
+    # load_model_from_db() handles model loading via PyTorch (or TF if PERCH_USE_TF=1).
+    model_configs = None
     return (audio_loader, classifier, classifier_data,
             embedding_display, source_info,
             brutalism, interface, score_functions,
@@ -657,15 +658,58 @@ def _get_source(db, window_id):
 
 
 def load_model_from_db(db):
-    from perch_hoplite.zoo import model_configs
+    """Load the embedding model for this DB.
+
+    For DBs created by the native PyTorch pipeline (model_key='perch_torch')
+    or the Colab TF pipeline (model_key='taxonomy_model_tf'), load the
+    PerchTorchModel from ~/perch-pytorch. This removes the TensorFlow
+    dependency entirely.
+
+    Falls back to the original TF model_configs path only if explicitly
+    requested via PERCH_USE_TF=1 environment variable.
+    """
+    import os
     from perch_hoplite.agile import source_info
     db_model_config = db.get_metadata("model_config")
-    embed_config = db.get_metadata("audio_sources")
-    model_class = model_configs.get_model_class(db_model_config.model_key)
-    embedding_model = model_class.from_config(db_model_config.model_config)
-    audio_sources = source_info.AudioSources.from_config_dict(embed_config)
-    log.info("Loaded embedding model: %s", db_model_config.model_key)
+    embed_config    = db.get_metadata("audio_sources")
+    audio_sources   = source_info.AudioSources.from_config_dict(embed_config)
+    model_key       = db_model_config.model_key
+
+    use_tf = os.environ.get("PERCH_USE_TF", "0") == "1"
+
+    if not use_tf and model_key in ("taxonomy_model_tf", "perch_torch"):
+        # Use native PyTorch Perch V2 — no TensorFlow needed
+        import sys
+        _pytorch_dir = os.path.expanduser("~/perch-pytorch")
+        if _pytorch_dir not in sys.path:
+            sys.path.insert(0, _pytorch_dir)
+        try:
+            from perch_hoplite_torch_adapter import PerchTorchModel
+            embedding_model = PerchTorchModel(
+                weights_dir=os.path.join(_pytorch_dir, "perch_weights"),
+                exact_mel=os.path.join(_pytorch_dir, "const__pad1_output_0.npy"),
+                device="cuda" if _cuda_available() else "cpu",
+            )
+            log.info("Loaded embedding model: PerchTorchModel (PyTorch, no TF)")
+        except ImportError as e:
+            log.warning("PerchTorchModel not available (%s); falling back to TF", e)
+            use_tf = True
+
+    if use_tf:
+        from perch_hoplite.zoo import model_configs
+        model_class = model_configs.get_model_class(model_key)
+        embedding_model = model_class.from_config(db_model_config.model_config)
+        log.info("Loaded embedding model: %s (TensorFlow)", model_key)
+
     return embedding_model, audio_sources
+
+
+def _cuda_available() -> bool:
+    try:
+        import torch
+        return torch.cuda.is_available()
+    except ImportError:
+        return False
 
 
 def make_audio_loader(db, embedding_model, audio_sources, sample_rate_hz=None):
@@ -1924,7 +1968,7 @@ def main(argv=None) -> int:
     log_dir = Path(args.log_dir) if args.log_dir else db_dir / "logs"
     _setup_logging(log_dir, args.verbose)
 
-    log.info("Perch Hoplite Phase 2 — Search / Classify / Infer")
+    log.info("Perch Hoplite Phase 2 — Search / Classify / Infer (PyTorch + optional TF)")
     log.info("Python %s  Command: %s", sys.version.split()[0], args.command)
 
     fn = COMMANDS.get(args.command)
