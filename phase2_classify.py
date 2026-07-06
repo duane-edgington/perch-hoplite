@@ -2187,13 +2187,19 @@ Click a label for each segment, then **Save Labels to DB**.
     log.info("  Press Ctrl+C to stop the server.")
     log.info("=" * 60)
 
-    demo.launch(
+    # allowed_paths is Gradio 6.x only — pass conditionally
+    import gradio as _gr
+    _launch_kwargs = dict(
         server_name=host,
         server_port=port,
         share=share,
         show_error=True,
         quiet=False,
-        allowed_paths=["/mnt/PAM_Analysis", "/mnt/PAM_Archive", "/home/duane"],
+    )
+    _gr_major = int(_gr.__version__.split(".")[0])
+    if _gr_major >= 5:
+        _launch_kwargs["allowed_paths"] = ["/mnt/PAM_Analysis", "/mnt/PAM_Archive", "/home/duane"]
+    demo.launch(**_launch_kwargs
     )
 
 
