@@ -1996,11 +1996,25 @@ def _launch_labeling_gui(
         return "data:image/png;base64," + base64.b64encode(buf.read()).decode()
 
     def _make_audio_b64(audio_array: "np.ndarray", sr: int) -> str:
-        """Return a base64-encoded WAV for HTML5 audio element."""
-        buf = io.BytesIO()
-        sf.write(buf, audio_array, sr, format="WAV")
-        buf.seek(0)
-        return "data:audio/wav;base64," + base64.b64encode(buf.read()).decode()
+        """Write audio to a temp file and return a /file= URL for Gradio.
+
+        Using /file= URLs avoids Safari's data: URI size/sandbox restrictions
+        that prevent audio playback when audio is embedded as base64.
+        """
+        import tempfile, os
+        tmp = tempfile.NamedTemporaryFile(
+            suffix=".wav", delete=False, dir="/tmp", prefix="perch_audio_")
+        sf.write(tmp.name, audio_array, sr, format="WAV")
+        tmp.close()
+        # Gradio 6.x uses /gradio_api/file= for file serving
+        # Gradio 4.x/5.x uses /file=
+        import gradio as _gr_check
+        _gr_major = int(_gr_check.__version__.split(".")[0])
+        _gr_minor = int(_gr_check.__version__.split(".")[1])
+        if _gr_major >= 6:
+            return f"/gradio_api/file={tmp.name}"
+        else:
+            return f"/file={tmp.name}"
 
     # Build per-segment HTML card
     def _segment_card(seg: dict, idx: int) -> str:
@@ -2197,7 +2211,9 @@ Click a label for each segment, then **Save Labels to DB**.
             for i, seg in enumerate(segments):
                 with gr.Row():
                     with gr.Column(scale=4):
-                        gr.HTML(_segment_card(seg, i))
+                        # sanitize_html=False required in Gradio 5+/6.x
+                        # to allow <audio> tags with data: URIs
+                        gr.HTML(_segment_card(seg, i), sanitize_html=False)
                     with gr.Column(scale=1):
                         radio = gr.Radio(
                             choices=_choices,
@@ -2287,7 +2303,7 @@ Click a label for each segment, then **Save Labels to DB**.
     )
     _gr_major = int(_gr.__version__.split(".")[0])
     if _gr_major >= 5:
-        _launch_kwargs["allowed_paths"] = ["/mnt/PAM_Analysis", "/mnt/PAM_Archive", "/home/duane"]
+        _launch_kwargs["allowed_paths"] = ["/mnt/PAM_Analysis", "/mnt/PAM_Archive", "/home/duane", "/tmp"]
     demo.launch(**_launch_kwargs
     )
 
