@@ -2193,6 +2193,7 @@ Click a label for each segment, then **Save Labels to DB**.
         share=share,
         show_error=True,
         quiet=False,
+        allowed_paths=["/mnt/PAM_Analysis", "/mnt/PAM_Archive", "/home/duane"],
     )
 
 
