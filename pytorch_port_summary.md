@@ -246,6 +246,32 @@ confirming numerical equivalence of the PyTorch training implementation.
 
 ---
 
+## Scientific Context — October 2020 Validation Dataset
+
+October 2020 provides a strong independent validation dataset for the
+classifier. Unlike April 2018 (one confirmed orca event), October 2020
+had multiple documented Bigg's (transient) killer whale visits with known
+pod identities, providing ground truth for cross-referencing detections.
+
+**Known orca activity, October 2020, Monterey Bay:**
+
+- **October 3** — CA140Bs observed: matriarch CA140B ("Louise") and
+  offspring, breaching, socializing, and interacting with humpback whales
+- **Early October** — CA51As and CA50B documented hunting sea lions and
+  exhibiting surface activity
+- Autumn (September–November) is a recognized secondary peak season for
+  Bigg's orca in Monterey Bay, driven by marine mammal prey abundance
+
+The MARS hydrophone (16°C, 891m depth, Monterey Canyon) continuously
+records all acoustic activity. If the classifier correctly detects orca
+events on October 3 and surrounding days — without prior knowledge of the
+sighting dates — that constitutes strong independent validation.
+
+*Source: California Killer Whale Project,
+https://www.californiakillerwhaleproject.org/orcas*
+
+---
+
 ## t-SNE Visualization of Perch V2 Embeddings
 
 t-SNE dimensionality reduction of the 1536-dimensional Perch V2 embeddings,
