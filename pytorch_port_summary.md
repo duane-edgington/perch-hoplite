@@ -119,7 +119,7 @@ package itself was not modified or forked.
 **Net result:** zero TF imports at startup, zero TF calls at runtime.
 Single venv, single `source ~/perch-hoplite/venv/bin/activate`.
 
-**Bonus — training is 90× faster than TF:** The initial PyTorch training loop
+**Bonus — training is ~37× faster than TF (~90× faster than the naive version):** The initial PyTorch training loop
 called `batched_example_iterator` on every batch, causing 256 individual DB
 reads per training run (~24 minutes). Fixed by pre-loading all labeled
 embeddings into GPU memory once at startup (~5 MB for 800 labels), then doing
@@ -288,9 +288,14 @@ pip install torch perch-hoplite gradio librosa soundfile timm ml_collections
 ## Acknowledgments
 
 - Google Research — Perch 2.0 model (Apache-2.0).
-  Denton T. et al. (2025). "Perch 2.0 transfers 'whale' to underwater tasks."
-  AI for Non-Human Animal Communication Workshop, NeurIPS 2025.
-  arXiv:2512.03219. https://arxiv.org/abs/2512.03219
+  van Merriënboer, B., Dumoulin, V., Hamer, J., Harrell, L., Burns, A., Denton, T. (2025).
+  "Perch 2.0: The bittern lesson for bioacoustics." arXiv:2508.04665.
+  https://arxiv.org/abs/2508.04665
+- Perch 2.0 marine transfer-learning evaluation.
+  Burns, A., Harrell, L., van Merriënboer, B., Dumoulin, V., Hamer, J., Denton, T. (2025).
+  "Perch 2.0 transfers 'whale' to underwater tasks." NeurIPS 2025 Workshop:
+  AI for Non-Human Animal Communication. arXiv:2512.03219.
+  https://arxiv.org/abs/2512.03219
 - perch-hoplite agile modeling framework (Apache-2.0).
   https://github.com/google-research/perch-hoplite
 - Perch 2.0 model weights — Kaggle Model Hub.
