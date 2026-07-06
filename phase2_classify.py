@@ -623,6 +623,15 @@ def build_parser() -> argparse.ArgumentParser:
                        help="Path to Hoplite database directory.")
 
     def add_serve(p):
+        p.add_argument("--spectrogram-type", default="linear",
+            choices=["linear", "mel", "perch", "pcen"],
+            help=(
+                "Spectrogram display mode: "
+                "'linear' = linear-frequency STFT, best for orca/dolphin (default); "
+                "'mel' = mel-scale log power, 10 Hz floor, best for humpback; "
+                "'perch' = exact Perch 2.0 frontend (what the model sees); "
+                "'pcen' = PCEN mel, makes quiet calls pop."
+            ))
         p.add_argument("--serve", action="store_true", default=False,
                        help="Launch the Gradio labeling GUI.")
         p.add_argument("--port", type=int, default=7860,
@@ -1839,55 +1848,132 @@ def _launch_labeling_gui(
 
     log.info("Loaded %d audio segments for labeling.", len(segments))
 
-    def _make_spectrogram_image(audio_array: "np.ndarray", sr: int) -> str:
-        """Return a base64-encoded PNG spectrogram (linear-frequency STFT).
+    def _make_spectrogram_image(audio_array: "np.ndarray", sr: int,
+                                spec_type: str = "linear") -> str:
+        """Return a base64-encoded PNG spectrogram.
 
-        Frequency axis covers 0 – 16 kHz (useful range for cetaceans at 32 kHz
-        sample rate).  Color scale is log-power (dB), clipped to a 60 dB dynamic
-        range so low-energy calls remain visible against broadband background.
+        spec_type options:
+          "linear" — Linear-frequency STFT, 0–16 kHz (default).
+                     Best for orca and dolphin (high-frequency clicks/whistles).
+          "mel"    — Mel-scale spectrogram, 10 Hz–16 kHz floor, log power.
+                     Best for humpback song (low-frequency, sustained).
+          "perch"  — Exact Perch 2.0 frontend: 128-band mel, 60 Hz–16 kHz,
+                     0.1·log(max(mel, 1e-5)), HTK scale, DC bin zeroed.
+                     Shows exactly what the embedding model sees.
+          "pcen"   — Per-Channel Energy Normalization on mel, 10 Hz floor.
+                     Makes quiet signals pop against background noise.
         """
         import numpy as _np2
-        from scipy.signal import spectrogram as _spec
 
-        # Compute spectrogram: 512-sample window, 75% overlap
-        nperseg = min(512, len(audio_array) // 4)
-        f, t, Sxx = _spec(
-            audio_array, fs=sr,
-            nperseg=nperseg, noverlap=nperseg * 3 // 4,
-            scaling="density",
-        )
-        # Convert to log power (dB), clip to 60 dB dynamic range
-        Sxx_db = 10 * _np2.log10(Sxx + 1e-10)
-        vmax = Sxx_db.max()
-        vmin = vmax - 60.0
+        # ── Compute time-frequency representation ─────────────────────────
+        if spec_type == "linear":
+            from scipy.signal import spectrogram as _spec
+            nperseg = min(512, len(audio_array) // 4)
+            f, t, Sxx = _spec(
+                audio_array, fs=sr,
+                nperseg=nperseg, noverlap=nperseg * 3 // 4,
+                scaling="density",
+            )
+            S_plot = 10 * _np2.log10(Sxx + 1e-10)
+            f_max = min(16000, sr // 2)
+            f_mask = f <= f_max
+            f_plot = f[f_mask]
+            S_plot = S_plot[f_mask, :]
+            ylabel = "Hz"
+            title_suffix = "Linear STFT"
+            cmap = "inferno"
 
-        # Only show up to 16 kHz
-        f_max = min(16000, sr // 2)
-        f_mask = f <= f_max
-        f_plot = f[f_mask]
-        S_plot = Sxx_db[f_mask, :]
+        elif spec_type in ("mel", "pcen"):
+            import librosa as _librosa
+            n_fft = 512
+            hop = n_fft // 4
+            f_min = 10.0
+            f_max = 16000.0
+            n_mels = 128
+            S = _librosa.feature.melspectrogram(
+                y=audio_array.astype(_np2.float32), sr=sr,
+                n_fft=n_fft, hop_length=hop,
+                n_mels=n_mels, fmin=f_min, fmax=f_max,
+                power=2.0,
+            )
+            if spec_type == "pcen":
+                S_plot = _librosa.pcen(
+                    S * (2**31), sr=sr, hop_length=hop,
+                    gain=0.98, bias=2, power=0.5, time_constant=0.4,
+                    eps=1e-6,
+                )
+                title_suffix = "PCEN mel (10 Hz floor)"
+                cmap = "magma"
+            else:
+                S_plot = _librosa.power_to_db(S, ref=_np2.max)
+                title_suffix = "Mel spectrogram (10 Hz floor)"
+                cmap = "inferno"
+            # Mel band centers for y-axis
+            f_plot = _librosa.mel_frequencies(
+                n_mels=n_mels, fmin=f_min, fmax=f_max)
+            t = _librosa.frames_to_time(
+                _np2.arange(S_plot.shape[1]), sr=sr, hop_length=hop)
+            ylabel = "Hz (mel)"
 
+        elif spec_type == "perch":
+            # Exact Perch 2.0 frontend:
+            # 128-band mel, 60 Hz–16 kHz, HTK scale, DC bin zeroed
+            # 0.1 · log(max(mel_energy, 1e-5))
+            import librosa as _librosa
+            n_fft  = 2048
+            hop    = 320       # Perch uses 10ms hop at 32kHz
+            n_mels = 128
+            f_min  = 60.0
+            f_max  = 16000.0
+            S = _librosa.feature.melspectrogram(
+                y=audio_array.astype(_np2.float32), sr=sr,
+                n_fft=n_fft, hop_length=hop,
+                n_mels=n_mels, fmin=f_min, fmax=f_max,
+                htk=True, power=1.0,    # power=1 → amplitude mel
+            )
+            S[0, :] = 0.0               # zero DC bin (Perch convention)
+            S_plot  = 0.1 * _np2.log(_np2.maximum(S, 1e-5))
+            f_plot  = _librosa.mel_frequencies(
+                n_mels=n_mels, fmin=f_min, fmax=f_max, htk=True)
+            t = _librosa.frames_to_time(
+                _np2.arange(S_plot.shape[1]), sr=sr, hop_length=hop)
+            ylabel = "Hz (Perch mel)"
+            title_suffix = "Perch 2.0 frontend (what the model sees)"
+            cmap = "viridis"
+
+        else:
+            raise ValueError(f"Unknown spec_type: {spec_type!r}. "
+                             "Use 'linear', 'mel', 'perch', or 'pcen'.")
+
+        # Clip to 60 dB dynamic range for linear/mel/perch
+        if spec_type != "pcen":
+            vmax = S_plot.max()
+            vmin = vmax - 60.0
+        else:
+            vmax = S_plot.max()
+            vmin = S_plot.min()
+
+        # ── Plot ──────────────────────────────────────────────────────────
         fig, axes = plt_mod.subplots(
             2, 1, figsize=(7, 3),
             gridspec_kw={"height_ratios": [2.5, 1], "hspace": 0.05},
         )
         fig.patch.set_facecolor("#111827")
 
-        # Spectrogram (top panel)
         ax_spec = axes[0]
         ax_spec.pcolormesh(
             t, f_plot, S_plot,
             vmin=vmin, vmax=vmax,
-            cmap="inferno", shading="gouraud",
+            cmap=cmap, shading="gouraud",
         )
-        ax_spec.set_ylabel("Hz", color="#94a3b8", fontsize=8)
+        ax_spec.set_ylabel(ylabel, color="#94a3b8", fontsize=8)
+        ax_spec.set_title(title_suffix, color="#64748b", fontsize=7, pad=2)
         ax_spec.tick_params(colors="#94a3b8", labelsize=7)
         ax_spec.set_facecolor("#111827")
         for spine in ax_spec.spines.values():
             spine.set_edgecolor("#334155")
         ax_spec.tick_params(bottom=False, labelbottom=False)
 
-        # Waveform (bottom panel)
         ax_wave = axes[1]
         t_wave = _np2.linspace(0, len(audio_array) / sr, len(audio_array))
         ax_wave.plot(t_wave, audio_array, color="#38bdf8", linewidth=0.4)
@@ -1916,7 +2002,7 @@ def _launch_labeling_gui(
     # Build per-segment HTML card
     def _segment_card(seg: dict, idx: int) -> str:
         wav_b64  = _make_audio_b64(seg["audio"], seg["sample_rate"])
-        spec_b64 = _make_spectrogram_image(seg["audio"], seg["sample_rate"])
+        spec_b64 = _make_spectrogram_image(seg["audio"], seg["sample_rate"], spec_type=args.spectrogram_type)
         fname = seg["recording_id"].split("/")[-1]
         pid = f"player_{idx}"   # unique ID for JS targeting
 
