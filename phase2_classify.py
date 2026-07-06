@@ -1317,6 +1317,7 @@ def cmd_search(args) -> int:
             share=args.share,
             db_dir=args.db_dir,
             classifier_path=None,
+            spectrogram_type=getattr(args, "spectrogram_type", "linear"),
         )
     else:
         log.info(
@@ -1699,6 +1700,7 @@ def cmd_review(args) -> int:
             classifier_path=getattr(args, "classifier", None),
             label_classes=custom_classes,
             detections_info=_det_info_dict,
+            spectrogram_type=getattr(args, "spectrogram_type", "linear"),
         )
 
     return 0
@@ -1792,6 +1794,7 @@ def _launch_labeling_gui(
     classifier_path: str | None = None,
     label_classes: list[str] | None = None,
     detections_info: dict | None = None,
+    spectrogram_type: str = "linear",
 ) -> None:
     """
     Launch a Gradio web app for interactive audio labeling.
@@ -2002,7 +2005,7 @@ def _launch_labeling_gui(
     # Build per-segment HTML card
     def _segment_card(seg: dict, idx: int) -> str:
         wav_b64  = _make_audio_b64(seg["audio"], seg["sample_rate"])
-        spec_b64 = _make_spectrogram_image(seg["audio"], seg["sample_rate"], spec_type=args.spectrogram_type)
+        spec_b64 = _make_spectrogram_image(seg["audio"], seg["sample_rate"], spec_type=spectrogram_type)
         fname = seg["recording_id"].split("/")[-1]
         pid = f"player_{idx}"   # unique ID for JS targeting
 
