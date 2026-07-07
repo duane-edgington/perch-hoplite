@@ -297,6 +297,79 @@ Key observations:
 
 ---
 
+## Annotation Tool — 30-Second Context Feature
+
+The Gradio annotation interface was extended with an on-demand **30-second
+context button** for each 5-second clip under review. Clicking the button
+loads a mel spectrogram and audio player for the 30-second window centered
+on the 5-second clip, with yellow fiducial markers indicating the clip
+location within the context window.
+
+*"30-second context reveals the repeating phrase structure diagnostic of
+humpback song — invisible in the 5-second clip alone."*
+
+This feature proved immediately valuable during expert review of October 2020
+detections: humpback song phrases repeat on ~30–60 second timescales, and the
+periodicity is the key diagnostic feature. A single 5-second window captures
+only a fragment of the phrase and can resemble almost any biological sound
+(J. Ryan, pers. comm.). The context view makes the classification unambiguous.
+
+The feature handles file boundary edge effects (clips at start/end of 10-minute
+source files), uses a mel spectrogram (10 Hz floor) for the context view to
+emphasize low-frequency cetacean structure, and serves audio via a native
+Gradio `gr.Audio` component at full 32 kHz quality.
+
+![Gradio annotation tool — orca clip with 30s context showing broadband background](figures/gradio_30s_context_feature.png)
+
+*October 2020 orca candidate (score=3.021): 5-second linear STFT clip (top) and
+30-second mel context with yellow fiducial markers (bottom). The context window
+reveals the broadband acoustic environment surrounding the candidate call.*
+
+![Gradio annotation tool — humpback clip with 30s context showing repeating phrase](figures/gradio_30s_context_humpback.png)
+
+*October 2020 humpback candidate (score=3.099): the 30-second mel context reveals
+the repeating phrase structure diagnostic of humpback song — invisible in the
+5-second clip alone. Yellow markers locate the 5-second window within the
+broader context.*
+
+---
+
+## Limitations and Future Work
+
+### 5-Second Window Constraint
+
+Perch V2 processes audio in fixed 5-second windows, producing one 1536-dim
+embedding per window. This works well for discrete calls (orca, dolphin) but
+misses temporal structure in sustained vocalizations:
+
+- **Humpback song** has repeating phrase structure on 30–60 second timescales
+- **Fin whale 20 Hz pulses** are below the 60 Hz mel filterbank floor entirely
+- Calls that span window boundaries may be detected in neither window
+
+### LSTM Extension (Proposed)
+
+A natural next step is to add an LSTM layer operating over sequences of
+consecutive Perch V2 embeddings. Each window already produces a high-quality
+1536-dim acoustic representation; what is missing is temporal context across
+windows. A sequence of 12 consecutive embeddings covers ~60 seconds of audio —
+enough to capture one full humpback phrase cycle.
+
+Proposed architecture:
+- **Input:** sequence of N × 1536 Perch V2 embeddings (frozen)
+- **LSTM:** 1–2 layers, hidden size 256–512
+- **Output:** per-sequence class logits (same classes as current linear classifier)
+- **Training:** same agile active-learning loop, labeling sequences rather than windows
+
+Expected benefits:
+- Resolve humpback/orca confusion by detecting phrase periodicity
+- Detect calls that span window boundaries
+- Potentially improve dolphin school detection (sustained burst-pulse sequences)
+
+This extension remains within the perch-hoplite active-learning framework
+and does not require retraining Perch V2 itself.
+
+---
+
 ## Software Released
 
 | Repo | Contents |
