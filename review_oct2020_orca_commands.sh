@@ -28,7 +28,7 @@ nohup python3 phase2_classify.py review \
     --target-label orca_call \
     --detections-csv /mnt/PAM_Analysis/duane_scratch/perch_hoplite/results/MARS_20201001_20201031_v7_orca_logit3_detections.csv \
     --num-results 25 \
-    --detections-offset 0 \
+    --detections-offset 25 \
     --classes orca_call,humpback_song,dolphin_call,ship_noise,other,unlabeled \
     --audio-dir /mnt/PAM_Analysis/GoogleMultiSpeciesWhaleModel2/resampled_32kHz/2020/10 \
     --serve --port 7861 \

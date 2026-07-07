@@ -1318,6 +1318,7 @@ def cmd_search(args) -> int:
             db_dir=args.db_dir,
             classifier_path=None,
             spectrogram_type=getattr(args, "spectrogram_type", "linear"),
+            audio_base_dir=getattr(args, "audio_dir", ""),
         )
     else:
         log.info(
@@ -1701,6 +1702,7 @@ def cmd_review(args) -> int:
             label_classes=custom_classes,
             detections_info=_det_info_dict,
             spectrogram_type=getattr(args, "spectrogram_type", "linear"),
+            audio_base_dir=getattr(args, "audio_dir", ""),
         )
 
     return 0
@@ -1795,6 +1797,7 @@ def _launch_labeling_gui(
     label_classes: list[str] | None = None,
     detections_info: dict | None = None,
     spectrogram_type: str = "linear",
+    audio_base_dir: str = "",
 ) -> None:
     """
     Launch a Gradio web app for interactive audio labeling.
@@ -1852,7 +1855,9 @@ def _launch_labeling_gui(
     log.info("Loaded %d audio segments for labeling.", len(segments))
 
     def _make_spectrogram_image(audio_array: "np.ndarray", sr: int,
-                                spec_type: str = "linear") -> str:
+                                spec_type: str = "linear",
+                                highlight_start: float | None = None,
+                                highlight_end: float | None = None) -> str:
         """Return a base64-encoded PNG spectrogram.
 
         spec_type options:
@@ -1948,13 +1953,15 @@ def _launch_labeling_gui(
             raise ValueError(f"Unknown spec_type: {spec_type!r}. "
                              "Use 'linear', 'mel', 'perch', or 'pcen'.")
 
-        # Clip to 60 dB dynamic range for linear/mel/perch
-        if spec_type != "pcen":
-            vmax = S_plot.max()
-            vmin = vmax - 60.0
+        # Use percentile-based normalization — robust against saturating noise
+        # (fixed 60dB range clips broadband vessel noise to solid color)
+        import numpy as _np_pct
+        if spec_type == "pcen":
+            vmax = float(_np_pct.percentile(S_plot, 99))
+            vmin = float(_np_pct.percentile(S_plot,  1))
         else:
-            vmax = S_plot.max()
-            vmin = S_plot.min()
+            vmax = float(_np_pct.percentile(S_plot, 99.5))
+            vmin = vmax - 80.0   # 80dB range: shows quiet calls in noisy background
 
         # ── Plot ──────────────────────────────────────────────────────────
         fig, axes = plt_mod.subplots(
@@ -1969,6 +1976,26 @@ def _launch_labeling_gui(
             vmin=vmin, vmax=vmax,
             cmap=cmap, shading="gouraud",
         )
+        # Draw fiducial markers for the 5-second clip within a context window
+        if highlight_start is not None and highlight_end is not None:
+            # Semi-transparent yellow highlight band — draw OVER the spectrogram
+            ax_spec.axvspan(highlight_start, highlight_end,
+                            alpha=0.25, color="#facc15", zorder=10)
+            # Bright yellow vertical lines at boundaries
+            ax_spec.axvline(x=highlight_start, color="#facc15",
+                            linewidth=2.5, linestyle="-", alpha=1.0, zorder=11)
+            ax_spec.axvline(x=highlight_end,   color="#facc15",
+                            linewidth=2.5, linestyle="-", alpha=1.0, zorder=11)
+            # Label at bottom of spectrogram
+            y_bot, y_top = ax_spec.get_ylim()
+            mid_x = (highlight_start + highlight_end) / 2
+            ax_spec.text(mid_x, y_bot + (y_top - y_bot) * 0.03,
+                         "◄ 5s ►", color="#facc15", fontsize=8,
+                         ha="center", va="bottom", fontweight="bold",
+                         zorder=12,
+                         bbox=dict(boxstyle="round,pad=0.2",
+                                   facecolor="#0f172a", alpha=0.7,
+                                   edgecolor="none"))
         ax_spec.set_ylabel(ylabel, color="#94a3b8", fontsize=8)
         ax_spec.set_title(title_suffix, color="#64748b", fontsize=7, pad=2)
         ax_spec.tick_params(colors="#94a3b8", labelsize=7)
@@ -1996,60 +2023,85 @@ def _launch_labeling_gui(
         return "data:image/png;base64," + base64.b64encode(buf.read()).decode()
 
     def _make_audio_b64(audio_array: "np.ndarray", sr: int) -> str:
-        """Return a base64-encoded 16-bit PCM WAV for the HTML5 <audio> element.
-
-        CRITICAL: browsers cannot reliably decode IEEE-float WAV. When no
-        subtype is given, soundfile.write() picks FLOAT (32-bit) for float32
-        arrays and DOUBLE (64-bit) for float64 arrays. Safari refuses to play
-        either (permanent loading spinner, no error, no server request because
-        it is a data: URI); Chrome is inconsistent and fails outright on
-        64-bit double. perch-hoplite loaders return float32, which is exactly
-        what silently broke playback after the audio path was refactored.
-
-        We therefore convert to int16 ourselves and write subtype="PCM_16",
-        which every browser (Safari, Chrome, Firefox) decodes correctly.
-        """
-        import numpy as _np
-        a = _np.asarray(audio_array)
-
-        # Collapse any stray channel dimension to mono (clips are mono).
-        if a.ndim > 1:
-            a = a.reshape(a.shape[0], -1).mean(axis=1)
-
-        if _np.issubdtype(a.dtype, _np.floating):
-            # Guard against NaN/Inf, then map float amplitude -> int16.
-            a = _np.nan_to_num(a, nan=0.0, posinf=1.0, neginf=-1.0)
-            peak = float(_np.max(_np.abs(a))) if a.size else 0.0
-            if peak > 1.0:                       # not normalised: rescale by peak
-                a = a / peak
-            a = _np.clip(a, -1.0, 1.0)
-            a = (a * 32767.0).round().astype(_np.int16)
-        elif a.dtype != _np.int16:
-            # int32 / int8 / uint8 etc. -- let soundfile down-convert to PCM_16
-            # via the explicit subtype below; just ensure it's contiguous.
-            a = _np.ascontiguousarray(a)
-
+        """Return a base64-encoded WAV for HTML5 audio element."""
         buf = io.BytesIO()
-        sf.write(buf, a, int(sr), format="WAV", subtype="PCM_16")
+        sf.write(buf, audio_array, sr, format="WAV")
         buf.seek(0)
         return "data:audio/wav;base64," + base64.b64encode(buf.read()).decode()
 
+    def _load_30s_context(seg: dict):
+        """Load a 30-second context window centered on the 5-second clip.
+
+        Returns (spec_html: str, audio_tuple: (sr, np.ndarray) | None)
+        Audio is returned as a tuple for gr.Audio — avoids gr.HTML sanitization
+        stripping <audio> tags from dynamically-updated components.
+        """
+        import os as _os
+        import soundfile as _sf_ctx
+        import numpy as _np_ctx
+        fname = seg["recording_id"].split("/")[-1]
+        wav_path = _os.path.join(audio_base_dir, fname) if audio_base_dir else None
+        if not wav_path or not _os.path.exists(wav_path):
+            err = (f"<div style='color:#ef4444;font-size:11px;padding:8px;'>"
+                   f"⚠ Audio file not found: {fname}</div>")
+            return err, None
+        try:
+            sr_ctx = seg["sample_rate"]
+            offset_s = seg["offset_s"]
+            center_s = offset_s + 2.5
+            file_info = _sf_ctx.info(wav_path)
+            file_dur  = file_info.duration
+            ctx_start = max(0.0, center_s - 15.0)
+            ctx_end   = min(file_dur, ctx_start + 30.0)
+            ctx_start = max(0.0, ctx_end - 30.0)
+            start_smp = int(ctx_start * sr_ctx)
+            end_smp   = int(ctx_end   * sr_ctx)
+            audio_ctx, _ = _sf_ctx.read(wav_path, start=start_smp, stop=end_smp,
+                                         dtype="float32", always_2d=False)
+            ctx_spec_type   = "mel" if spectrogram_type == "linear" else spectrogram_type
+            hl_start        = offset_s - ctx_start        # position in 30s window
+            hl_end          = hl_start + 5.0
+            spec_b64_ctx    = _make_spectrogram_image(audio_ctx, sr_ctx,
+                                                      spec_type=ctx_spec_type,
+                                                      highlight_start=hl_start,
+                                                      highlight_end=hl_end)
+            actual_dur = ctx_end - ctx_start
+            clip_note  = "" if actual_dur >= 29.9 else f" (clipped to {actual_dur:.0f}s)"
+            spec_html = (
+                f"<div style='background:#0f172a;border:1px solid #334155;"
+                f"border-radius:8px;padding:10px;margin-top:4px;'>"
+                f"<span style='color:#fbbf24;font-size:10px;font-family:monospace;'>"
+                f"▶ 30s context &nbsp; {ctx_start:.1f}s – {ctx_end:.1f}s{clip_note}</span>"
+                f"<br><span style='color:#64748b;font-size:9px;'>"
+                f"5s clip at {offset_s:.1f}s – {offset_s+5:.1f}s within this window</span>"
+                f"<img src='{spec_b64_ctx}' style='width:100%;margin-top:6px;"
+                f"border-radius:4px;display:block;'/>"
+                f"</div>"
+            )
+            # Peak-normalize to match audio_filepath_loader's normalization
+            # (raw hydrophone recordings are at very low levels; without this
+            # the 30s context is much quieter than the 5-second clips)
+            peak = _np_ctx.abs(audio_ctx).max()
+            if peak > 1e-8:
+                audio_ctx_norm = audio_ctx / peak * 0.5  # 50% of full scale
+            else:
+                audio_ctx_norm = audio_ctx
+            audio_int16 = _np_ctx.clip(
+                audio_ctx_norm * 32767, -32768, 32767).astype(_np_ctx.int16)
+            return spec_html, (sr_ctx, audio_int16)
+        except Exception as exc:
+            return (f"<div style='color:#ef4444;font-size:11px;padding:8px;'>"
+                    f"⚠ Could not load context: {exc}</div>"), None
+
     # Build per-segment HTML card
     def _segment_card(seg: dict, idx: int) -> str:
-        spec_b64 = _make_spectrogram_image(seg["audio"], seg["sample_rate"], spec_type=spectrogram_type)
         wav_b64  = _make_audio_b64(seg["audio"], seg["sample_rate"])
+        spec_b64 = _make_spectrogram_image(seg["audio"], seg["sample_rate"], spec_type=spectrogram_type)
         fname = seg["recording_id"].split("/")[-1]
-        # Plain HTML5 audio bar (the compact player). Encoding is forced to
-        # 16-bit PCM in _make_audio_b64, and we declare an explicit
-        # type='audio/wav' on a <source> element -- Safari is the pickiest
-        # browser about MIME sniffing on data: URIs and plays far more
-        # reliably when the type is stated rather than inferred.
-        player_html = (
-            f"<audio controls preload='auto' "
-            f"style='width:100%;margin-top:6px;height:40px;'>"
-            f"<source src='{wav_b64}' type='audio/wav'>"
-            f"</audio>"
-        )
+        pid = f"player_{idx}"   # unique ID for JS targeting
+
+        wav_b64  = _make_audio_b64(seg["audio"], seg["sample_rate"])
+        player_html = f"<audio controls style='width:100%;margin-top:6px;height:40px;' src='{wav_b64}'></audio>"
         return (
             f"<div style='background:#1e293b;border-radius:8px;padding:12px;"
             f"margin-bottom:8px;color:#e2e8f0;font-family:monospace;font-size:11px;'>"
@@ -2073,48 +2125,39 @@ def _launch_labeling_gui(
     else:
         _choices = _default_classes
 
-    # ── Custom styling ────────────────────────────────────────────────────
-    # NOTE: Gradio 6.0 moved the `css` argument OFF the gr.Blocks constructor
-    # and ONTO launch(). Passing css= to Blocks on 6.x is silently ignored
-    # (you get a UserWarning and an unstyled page). We therefore keep the CSS
-    # in a variable and attach it wherever the running version honours it:
-    # Blocks on 4.x/5.x, launch() on 6.x+.
-    _LABELING_CSS = (
-        "body { background: #0f172a; color: #e2e8f0; font-family: 'Courier New', monospace; }"
-        ".gr-button-primary { background: #0ea5e9 !important; }"
-        ".gr-button { border-radius: 6px !important; }"
-        ".label-radio .wrap { display: flex; flex-direction: column; gap: 6px !important; }"
-        ".label-radio .wrap label { border-radius: 8px; padding: 7px 14px;"
-        "  font-weight: 700; font-size: 13px; cursor: pointer;"
-        "  transition: box-shadow 0.15s; }"
-        ".label-radio .wrap label:nth-child(1) { background:#15803d; color:#dcfce7; }"
-        ".label-radio .wrap label:nth-child(2) { background:#b45309; color:#fef3c7; }"
-        ".label-radio .wrap label:nth-child(3) { background:#1d4ed8; color:#dbeafe; }"
-        ".label-radio .wrap label:nth-child(4) { background:#7e22ce; color:#f3e8ff; }"
-        ".label-radio .wrap label:nth-child(5) { background:#0e7490; color:#cffafe; }"
-        ".label-radio .wrap label:nth-child(6) { background:#c2410c; color:#ffedd5; }"
-        ".label-radio .wrap label:last-child   { background:#374151; color:#d1d5db; }"
-        ".label-radio .wrap label:nth-child(1):has(input:checked)"
-        "  { background:#16a34a; box-shadow:0 0 0 3px #86efac; }"
-        ".label-radio .wrap label:nth-child(2):has(input:checked)"
-        "  { background:#d97706; box-shadow:0 0 0 3px #fcd34d; }"
-        ".label-radio .wrap label:nth-child(3):has(input:checked)"
-        "  { background:#2563eb; box-shadow:0 0 0 3px #93c5fd; }"
-        ".label-radio .wrap label:nth-child(4):has(input:checked)"
-        "  { background:#9333ea; box-shadow:0 0 0 3px #d8b4fe; }"
-        ".label-radio .wrap label:nth-child(5):has(input:checked)"
-        "  { background:#0891b2; box-shadow:0 0 0 3px #67e8f9; }"
-        ".label-radio .wrap label:nth-child(6):has(input:checked)"
-        "  { background:#ea580c; box-shadow:0 0 0 3px #fdba74; }"
-        ".label-radio .wrap label:last-child:has(input:checked)"
-        "  { background:#4b5563; box-shadow:0 0 0 3px #9ca3af; }"
-    )
-    _gr_major_ui = int(gr.__version__.split(".")[0])
-    _blocks_kwargs = {"title": "Perch Hoplite — Audio Labeling"}
-    if _gr_major_ui < 6:            # 4.x / 5.x honour css on the constructor
-        _blocks_kwargs["css"] = _LABELING_CSS
-
-    with gr.Blocks(**_blocks_kwargs) as demo:
+    with gr.Blocks(
+        title="Perch Hoplite — Audio Labeling",
+        css=(
+            "body { background: #0f172a; color: #e2e8f0; font-family: 'Courier New', monospace; }"
+            ".gr-button-primary { background: #0ea5e9 !important; }"
+            ".gr-button { border-radius: 6px !important; }"
+            ".label-radio .wrap { display: flex; flex-direction: column; gap: 6px !important; }"
+            ".label-radio .wrap label { border-radius: 8px; padding: 7px 14px;"
+            "  font-weight: 700; font-size: 13px; cursor: pointer;"
+            "  transition: box-shadow 0.15s; }"
+            ".label-radio .wrap label:nth-child(1) { background:#15803d; color:#dcfce7; }"
+            ".label-radio .wrap label:nth-child(2) { background:#b45309; color:#fef3c7; }"
+            ".label-radio .wrap label:nth-child(3) { background:#1d4ed8; color:#dbeafe; }"
+            ".label-radio .wrap label:nth-child(4) { background:#7e22ce; color:#f3e8ff; }"
+            ".label-radio .wrap label:nth-child(5) { background:#0e7490; color:#cffafe; }"
+            ".label-radio .wrap label:nth-child(6) { background:#c2410c; color:#ffedd5; }"
+            ".label-radio .wrap label:last-child   { background:#374151; color:#d1d5db; }"
+            ".label-radio .wrap label:nth-child(1):has(input:checked)"
+            "  { background:#16a34a; box-shadow:0 0 0 3px #86efac; }"
+            ".label-radio .wrap label:nth-child(2):has(input:checked)"
+            "  { background:#d97706; box-shadow:0 0 0 3px #fcd34d; }"
+            ".label-radio .wrap label:nth-child(3):has(input:checked)"
+            "  { background:#2563eb; box-shadow:0 0 0 3px #93c5fd; }"
+            ".label-radio .wrap label:nth-child(4):has(input:checked)"
+            "  { background:#9333ea; box-shadow:0 0 0 3px #d8b4fe; }"
+            ".label-radio .wrap label:nth-child(5):has(input:checked)"
+            "  { background:#0891b2; box-shadow:0 0 0 3px #67e8f9; }"
+            ".label-radio .wrap label:nth-child(6):has(input:checked)"
+            "  { background:#ea580c; box-shadow:0 0 0 3px #fdba74; }"
+            ".label-radio .wrap label:last-child:has(input:checked)"
+            "  { background:#4b5563; box-shadow:0 0 0 3px #9ca3af; }"
+        ),
+    ) as demo:
         _class_str = ", ".join(f"`{c}`" for c in _choices if c != "unlabeled")
         _det_info = ""
         if detections_info:
@@ -2241,11 +2284,25 @@ Click a label for each segment, then **Save Labels to DB**.
         # ── Build radio buttons + wire auto-save ──────────────────────────────
         radio_components = []
 
+        ctx_outputs = []   # (button, html_output) pairs for wiring below
+
         with gr.Column():
             for i, seg in enumerate(segments):
                 with gr.Row():
                     with gr.Column(scale=4):
                         gr.HTML(_segment_card(seg, i))
+                        # 30-second context — shown on demand
+                        ctx_btn = gr.Button(
+                            "🔍 Show 30s context",
+                            size="sm",
+                            variant="secondary",
+                            elem_classes=["ctx-btn"],
+                        )
+                        ctx_spec = gr.HTML("", visible=True)
+                        ctx_audio = gr.Audio(
+                            label="30s context", visible=False,
+                            show_label=False, interactive=False)
+                        ctx_outputs.append((ctx_btn, ctx_spec, ctx_audio, seg))
                     with gr.Column(scale=1):
                         radio = gr.Radio(
                             choices=_choices,
@@ -2274,6 +2331,23 @@ Click a label for each segment, then **Save Labels to DB**.
                 fn=_make_autosave(wid),
                 inputs=[radio],
                 outputs=[],
+            )
+
+        # Wire 30s context buttons
+        def _make_ctx_handler(s):
+            def _handler():
+                spec_html, audio_data = _load_30s_context(s)
+                audio_update = (gr.Audio(value=audio_data, visible=True)
+                                if audio_data is not None
+                                else gr.Audio(visible=False))
+                return gr.HTML(spec_html), audio_update
+            return _handler
+
+        for ctx_btn, ctx_spec, ctx_audio, seg in ctx_outputs:
+            ctx_btn.click(
+                fn=_make_ctx_handler(seg),
+                inputs=[],
+                outputs=[ctx_spec, ctx_audio],
             )
 
         def save_labels(*radio_values):
@@ -2336,10 +2410,8 @@ Click a label for each segment, then **Save Labels to DB**.
     _gr_major = int(_gr.__version__.split(".")[0])
     if _gr_major >= 5:
         _launch_kwargs["allowed_paths"] = ["/mnt/PAM_Analysis", "/mnt/PAM_Archive", "/home/duane", "/tmp"]
-    if _gr_major >= 6:
-        # Gradio 6.0 moved `css` from gr.Blocks() to launch().
-        _launch_kwargs["css"] = _LABELING_CSS
-    demo.launch(**_launch_kwargs)
+    demo.launch(**_launch_kwargs
+    )
 
 
 # ---------------------------------------------------------------------------
