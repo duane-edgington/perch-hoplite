@@ -1996,21 +1996,60 @@ def _launch_labeling_gui(
         return "data:image/png;base64," + base64.b64encode(buf.read()).decode()
 
     def _make_audio_b64(audio_array: "np.ndarray", sr: int) -> str:
-        """Return a base64-encoded WAV for HTML5 audio element."""
+        """Return a base64-encoded 16-bit PCM WAV for the HTML5 <audio> element.
+
+        CRITICAL: browsers cannot reliably decode IEEE-float WAV. When no
+        subtype is given, soundfile.write() picks FLOAT (32-bit) for float32
+        arrays and DOUBLE (64-bit) for float64 arrays. Safari refuses to play
+        either (permanent loading spinner, no error, no server request because
+        it is a data: URI); Chrome is inconsistent and fails outright on
+        64-bit double. perch-hoplite loaders return float32, which is exactly
+        what silently broke playback after the audio path was refactored.
+
+        We therefore convert to int16 ourselves and write subtype="PCM_16",
+        which every browser (Safari, Chrome, Firefox) decodes correctly.
+        """
+        import numpy as _np
+        a = _np.asarray(audio_array)
+
+        # Collapse any stray channel dimension to mono (clips are mono).
+        if a.ndim > 1:
+            a = a.reshape(a.shape[0], -1).mean(axis=1)
+
+        if _np.issubdtype(a.dtype, _np.floating):
+            # Guard against NaN/Inf, then map float amplitude -> int16.
+            a = _np.nan_to_num(a, nan=0.0, posinf=1.0, neginf=-1.0)
+            peak = float(_np.max(_np.abs(a))) if a.size else 0.0
+            if peak > 1.0:                       # not normalised: rescale by peak
+                a = a / peak
+            a = _np.clip(a, -1.0, 1.0)
+            a = (a * 32767.0).round().astype(_np.int16)
+        elif a.dtype != _np.int16:
+            # int32 / int8 / uint8 etc. -- let soundfile down-convert to PCM_16
+            # via the explicit subtype below; just ensure it's contiguous.
+            a = _np.ascontiguousarray(a)
+
         buf = io.BytesIO()
-        sf.write(buf, audio_array, sr, format="WAV")
+        sf.write(buf, a, int(sr), format="WAV", subtype="PCM_16")
         buf.seek(0)
         return "data:audio/wav;base64," + base64.b64encode(buf.read()).decode()
 
     # Build per-segment HTML card
     def _segment_card(seg: dict, idx: int) -> str:
-        wav_b64  = _make_audio_b64(seg["audio"], seg["sample_rate"])
         spec_b64 = _make_spectrogram_image(seg["audio"], seg["sample_rate"], spec_type=spectrogram_type)
-        fname = seg["recording_id"].split("/")[-1]
-        pid = f"player_{idx}"   # unique ID for JS targeting
-
         wav_b64  = _make_audio_b64(seg["audio"], seg["sample_rate"])
-        player_html = f"<audio controls style='width:100%;margin-top:6px;height:40px;' src='{wav_b64}'></audio>"
+        fname = seg["recording_id"].split("/")[-1]
+        # Plain HTML5 audio bar (the compact player). Encoding is forced to
+        # 16-bit PCM in _make_audio_b64, and we declare an explicit
+        # type='audio/wav' on a <source> element -- Safari is the pickiest
+        # browser about MIME sniffing on data: URIs and plays far more
+        # reliably when the type is stated rather than inferred.
+        player_html = (
+            f"<audio controls preload='auto' "
+            f"style='width:100%;margin-top:6px;height:40px;'>"
+            f"<source src='{wav_b64}' type='audio/wav'>"
+            f"</audio>"
+        )
         return (
             f"<div style='background:#1e293b;border-radius:8px;padding:12px;"
             f"margin-bottom:8px;color:#e2e8f0;font-family:monospace;font-size:11px;'>"
@@ -2034,39 +2073,48 @@ def _launch_labeling_gui(
     else:
         _choices = _default_classes
 
-    with gr.Blocks(
-        title="Perch Hoplite — Audio Labeling",
-        css=(
-            "body { background: #0f172a; color: #e2e8f0; font-family: 'Courier New', monospace; }"
-            ".gr-button-primary { background: #0ea5e9 !important; }"
-            ".gr-button { border-radius: 6px !important; }"
-            ".label-radio .wrap { display: flex; flex-direction: column; gap: 6px !important; }"
-            ".label-radio .wrap label { border-radius: 8px; padding: 7px 14px;"
-            "  font-weight: 700; font-size: 13px; cursor: pointer;"
-            "  transition: box-shadow 0.15s; }"
-            ".label-radio .wrap label:nth-child(1) { background:#15803d; color:#dcfce7; }"
-            ".label-radio .wrap label:nth-child(2) { background:#b45309; color:#fef3c7; }"
-            ".label-radio .wrap label:nth-child(3) { background:#1d4ed8; color:#dbeafe; }"
-            ".label-radio .wrap label:nth-child(4) { background:#7e22ce; color:#f3e8ff; }"
-            ".label-radio .wrap label:nth-child(5) { background:#0e7490; color:#cffafe; }"
-            ".label-radio .wrap label:nth-child(6) { background:#c2410c; color:#ffedd5; }"
-            ".label-radio .wrap label:last-child   { background:#374151; color:#d1d5db; }"
-            ".label-radio .wrap label:nth-child(1):has(input:checked)"
-            "  { background:#16a34a; box-shadow:0 0 0 3px #86efac; }"
-            ".label-radio .wrap label:nth-child(2):has(input:checked)"
-            "  { background:#d97706; box-shadow:0 0 0 3px #fcd34d; }"
-            ".label-radio .wrap label:nth-child(3):has(input:checked)"
-            "  { background:#2563eb; box-shadow:0 0 0 3px #93c5fd; }"
-            ".label-radio .wrap label:nth-child(4):has(input:checked)"
-            "  { background:#9333ea; box-shadow:0 0 0 3px #d8b4fe; }"
-            ".label-radio .wrap label:nth-child(5):has(input:checked)"
-            "  { background:#0891b2; box-shadow:0 0 0 3px #67e8f9; }"
-            ".label-radio .wrap label:nth-child(6):has(input:checked)"
-            "  { background:#ea580c; box-shadow:0 0 0 3px #fdba74; }"
-            ".label-radio .wrap label:last-child:has(input:checked)"
-            "  { background:#4b5563; box-shadow:0 0 0 3px #9ca3af; }"
-        ),
-    ) as demo:
+    # ── Custom styling ────────────────────────────────────────────────────
+    # NOTE: Gradio 6.0 moved the `css` argument OFF the gr.Blocks constructor
+    # and ONTO launch(). Passing css= to Blocks on 6.x is silently ignored
+    # (you get a UserWarning and an unstyled page). We therefore keep the CSS
+    # in a variable and attach it wherever the running version honours it:
+    # Blocks on 4.x/5.x, launch() on 6.x+.
+    _LABELING_CSS = (
+        "body { background: #0f172a; color: #e2e8f0; font-family: 'Courier New', monospace; }"
+        ".gr-button-primary { background: #0ea5e9 !important; }"
+        ".gr-button { border-radius: 6px !important; }"
+        ".label-radio .wrap { display: flex; flex-direction: column; gap: 6px !important; }"
+        ".label-radio .wrap label { border-radius: 8px; padding: 7px 14px;"
+        "  font-weight: 700; font-size: 13px; cursor: pointer;"
+        "  transition: box-shadow 0.15s; }"
+        ".label-radio .wrap label:nth-child(1) { background:#15803d; color:#dcfce7; }"
+        ".label-radio .wrap label:nth-child(2) { background:#b45309; color:#fef3c7; }"
+        ".label-radio .wrap label:nth-child(3) { background:#1d4ed8; color:#dbeafe; }"
+        ".label-radio .wrap label:nth-child(4) { background:#7e22ce; color:#f3e8ff; }"
+        ".label-radio .wrap label:nth-child(5) { background:#0e7490; color:#cffafe; }"
+        ".label-radio .wrap label:nth-child(6) { background:#c2410c; color:#ffedd5; }"
+        ".label-radio .wrap label:last-child   { background:#374151; color:#d1d5db; }"
+        ".label-radio .wrap label:nth-child(1):has(input:checked)"
+        "  { background:#16a34a; box-shadow:0 0 0 3px #86efac; }"
+        ".label-radio .wrap label:nth-child(2):has(input:checked)"
+        "  { background:#d97706; box-shadow:0 0 0 3px #fcd34d; }"
+        ".label-radio .wrap label:nth-child(3):has(input:checked)"
+        "  { background:#2563eb; box-shadow:0 0 0 3px #93c5fd; }"
+        ".label-radio .wrap label:nth-child(4):has(input:checked)"
+        "  { background:#9333ea; box-shadow:0 0 0 3px #d8b4fe; }"
+        ".label-radio .wrap label:nth-child(5):has(input:checked)"
+        "  { background:#0891b2; box-shadow:0 0 0 3px #67e8f9; }"
+        ".label-radio .wrap label:nth-child(6):has(input:checked)"
+        "  { background:#ea580c; box-shadow:0 0 0 3px #fdba74; }"
+        ".label-radio .wrap label:last-child:has(input:checked)"
+        "  { background:#4b5563; box-shadow:0 0 0 3px #9ca3af; }"
+    )
+    _gr_major_ui = int(gr.__version__.split(".")[0])
+    _blocks_kwargs = {"title": "Perch Hoplite — Audio Labeling"}
+    if _gr_major_ui < 6:            # 4.x / 5.x honour css on the constructor
+        _blocks_kwargs["css"] = _LABELING_CSS
+
+    with gr.Blocks(**_blocks_kwargs) as demo:
         _class_str = ", ".join(f"`{c}`" for c in _choices if c != "unlabeled")
         _det_info = ""
         if detections_info:
@@ -2288,8 +2336,10 @@ Click a label for each segment, then **Save Labels to DB**.
     _gr_major = int(_gr.__version__.split(".")[0])
     if _gr_major >= 5:
         _launch_kwargs["allowed_paths"] = ["/mnt/PAM_Analysis", "/mnt/PAM_Archive", "/home/duane", "/tmp"]
-    demo.launch(**_launch_kwargs
-    )
+    if _gr_major >= 6:
+        # Gradio 6.0 moved `css` from gr.Blocks() to launch().
+        _launch_kwargs["css"] = _LABELING_CSS
+    demo.launch(**_launch_kwargs)
 
 
 # ---------------------------------------------------------------------------
