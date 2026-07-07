@@ -8,7 +8,9 @@
 ## Motivation
 
 Perch 2.0 is Google Research's state-of-the-art bioacoustics embedding model,
-producing 1536-dimensional embeddings from 5-second audio clips. The
+producing 1536-dimensional embeddings from 5-second audio clips. It was
+pretrained on 14,597 species (birds, mammals, amphibians, insects) with
+almost no marine mammal audio in the training set. The
 perch-hoplite framework wraps Perch 2.0 with an agile active-learning pipeline
 for rapid species detection from passive acoustic monitoring (PAM) data.
 
@@ -114,16 +116,19 @@ package itself was not modified or forked.
 **6. New `phase1_embed_torch.py` replaces Colab notebook**
 - Calls `build_db()` from `perch_hoplite_torch_adapter.py` directly
 - Handles date filtering, dataset naming, model_config patching
-- `--compile` flag enables `torch.compile` for ~35% throughput gain
+- `--compile` flag enables `torch.compile` for ~2× throughput gain
+  (warm compile: 130 → 260 windows/sec end-to-end; cold compile: 130 → 175/sec)
 
 **Net result:** zero TF imports at startup, zero TF calls at runtime.
 Single venv, single `source ~/perch-hoplite/venv/bin/activate`.
 
-**Bonus — training is ~37× faster than TF (~90× faster than the naive version):** The initial PyTorch training loop
+**Training is ~37× faster than TF (~90× faster than the naive PyTorch version):** The initial PyTorch training loop
 called `batched_example_iterator` on every batch, causing 256 individual DB
 reads per training run (~24 minutes). Fixed by pre-loading all labeled
 embeddings into GPU memory once at startup (~5 MB for 800 labels), then doing
-pure GPU mini-batch updates. Result: **16 seconds** vs 24 minutes (TF: ~10 min).
+pure GPU mini-batch updates. Result: **16 seconds** total (includes ~14s GPU pre-load + ~1s of 256 training
+steps at 298 batches/sec — pure GPU math after pre-load) vs 24 minutes naive
+PyTorch (per-batch DB reads) and ~10 minutes TF.
 Memory scales with label count only, not DB size — safe for multi-month DBs.
 
 ### 3. Embedding Pipeline — Colab Eliminated
@@ -168,10 +173,12 @@ mock module has `__spec__ = None`. Fix: inject a mock with a proper
 `importlib.machinery.ModuleSpec`.
 
 ### Challenge 4: Perch V2 frontend precision
-The mel spectrogram frontend runs in float64 for precision — the reference
-TF implementation uses float64 internally. Running in float32 degrades
-embedding cosine similarity on quiet recordings (near the log floor) from
-~1e-4 to ~1e-3 relative error.
+The mel spectrogram frontend runs in float64 for precision. Running in float32
+degrades embedding cosine similarity on quiet recordings (near the log floor)
+from ~1e-4 to ~1e-3 relative error; we run float64 throughout the frontend
+to match the reference to ~1e-4. (Whether the original TF implementation
+runs float64 internally was not confirmed; the float64 requirement was
+determined empirically by matching the ONNX reference output.)
 
 ---
 
@@ -200,7 +207,9 @@ boundary (floating-point accumulation difference). Operationally identical.
 
 ### Embedding Throughput on GB10
 
-| Mode | Time (1 day, 17,280 windows) | Windows/sec |
+*All figures are end-to-end pipeline throughput including NFS I/O.*
+
+| Mode | Time (1 day, 17,280 windows) | Windows/sec (end-to-end) |
 |---|---|---|
 | Colab Pro A100 (TF) + Drive overhead | ~10 min total | ~152/sec compute |
 | Native PyTorch eager | 2.2 min | 130/sec |
@@ -211,15 +220,20 @@ Full month (30 days, 518,400 windows): ~33 minutes on GB10 with warm compile.
 
 ### Classifier Training Speed on GB10
 
-| Implementation | Time (256 steps, 559 labels) | Notes |
+| Implementation | Time (256 steps, 559 labels†) | Notes |
 |---|---|---|
 | TF `tf.keras` (original) | ~10 minutes | Per-batch DB reads + TF overhead |
 | PyTorch naive (per-batch DB reads) | ~24 minutes | Bottlenecked by DB I/O |
 | **PyTorch optimized (GPU pre-load)** | **16 seconds** | **~90× faster than naive, ~37× faster than TF** |
 
-Key insight: pre-load all labeled embeddings (~5 MB for 800 labels) into GPU
+Key insight: pre-load all labeled embeddings (~5 MB for ~800 labels‡) into GPU
 memory once at startup. Training then runs at 298 batches/sec — pure GPU math.
 Memory scales with label count only, not DB size — safe for multi-year archives.
+
+† 559 labels = specific timed run (April 13 single-day DB). ‡ ~800 = approximate for
+multi-day DBs used in production. The t-SNE figure uses 478 labeled windows
+from April 13 only (4 classes). The "100 human labels" figure below refers to
+the initial annotation session before negative examples were added.
 
 ---
 
@@ -284,8 +298,10 @@ separates the acoustic classes even before any classifier training.
 
 Key observations:
 - **Orca calls (green)** and **dolphin calls (purple)** form largely separate
-  clusters, despite Perch V2 having been trained on no marine mammal audio —
-  demonstrating strong transfer learning from the bird vocalization training set
+  clusters, despite Perch V2 having been trained on nearly no marine mammal audio
+  (Burns et al. 2025 confirm ~a dozen above-water cetacean recordings from
+  iNaturalist — not reflective of hydrophone recordings) —
+  demonstrating strong cross-domain transfer learning
 - **Negative/background (gray)** forms a diffuse cloud separate from the
   biological call clusters
 - **Other/vessel (orange)** clusters distinctly from biological sounds
@@ -377,10 +393,16 @@ and does not require retraining Perch V2 itself.
 | `duane-edgington/perch-pytorch` | Native PyTorch Perch 2.0 — frontend, embedder, weight extractor, hoplite adapter, benchmarks |
 | `duane-edgington/perch-hoplite` | TF-free active learning pipeline — phase1 PyTorch embedding, phase2 TF-free classify/train/review |
 
-Single unified venv — one `pip install` command, no TF, no Colab:
+Single unified venv — install script at `clean_install.sh` in the repo.
+Core dependencies:
 ```bash
-pip install torch perch-hoplite gradio librosa soundfile timm ml_collections
+pip install torch torchaudio torchvision \
+    perch-hoplite gradio==6.15.1 \
+    librosa soundfile timm ml_collections \
+    matplotlib scipy pandas scikit-learn
 ```
+(`gradio==6.15.1` pinned — later versions have audio playback issues in
+some browsers. `torchaudio`/`torchvision` required by some perch-hoplite deps.)
 
 ---
 
@@ -399,6 +421,8 @@ pip install torch perch-hoplite gradio librosa soundfile timm ml_collections
   https://github.com/google-research/perch-hoplite
 - Perch 2.0 model weights — Kaggle Model Hub.
   https://www.kaggle.com/models/google/bird-vocalization-classifier
+- BirdCLEF+ 2026 competition (uses Perch 2.0 embeddings as baseline).
+  https://www.kaggle.com/competitions/birdclef-2026/discussion/685318
 - `justinchuby/Perch-onnx` — ONNX export used for weight extraction and validation.
   https://huggingface.co/justinchuby/Perch-onnx
 - MBARI MARS hydrophone — continuous acoustic monitoring since 2015.
