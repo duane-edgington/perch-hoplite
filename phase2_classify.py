@@ -1734,48 +1734,27 @@ def cmd_infer(args) -> int:
     )
     t0 = time.monotonic()
 
-    # Use our own CSV writer instead of classifier_mod.write_inference_csv.
-    # The library version uses a ThreadPoolExecutor whose worker appends to the
-    # CSV file in a background thread — on NFS this hangs indefinitely waiting
-    # for slow writes to flush. Our version writes synchronously, batched, in
-    # the main thread, never hangs, and matches the original output format
-    # (one row per window×label pair where logit > threshold).
-    import csv as csv_mod
-    import numpy as _np_inf
-    from perch_hoplite.agile.classifier import batched_embedding_iterator
+    # Write to /tmp first, then copy to NFS.
+    # write_inference_csv uses a ThreadPoolExecutor that hangs on NFS writes;
+    # writing to local /tmp avoids the hang, and a single shutil.copy to NFS
+    # is fast and atomic.
+    import tempfile, shutil
 
-    labels = args.labels or linear_classifier.classes
-    labels = tuple(l for l in labels if l in linear_classifier.classes)
-    label_ids = {cl: i for i, cl in enumerate(linear_classifier.classes)}
-    target_ids = _np_inf.array([label_ids[l] for l in labels])
+    tmp_csv = tempfile.mktemp(suffix=".csv", dir="/tmp", prefix="perch_infer_")
+    log.info("Writing inference CSV to local tmp: %s", tmp_csv)
 
-    window_ids = _np_inf.array(db.match_window_ids())
-    detection_count = 0
+    classifier_mod.write_inference_csv(
+        linear_classifier, db, tmp_csv,
+        args.logit_threshold,
+        labels=args.labels,
+    )
 
-    import tqdm as _tqdm
-    with open(out_path, "w", newline="") as f:
-        writer = csv_mod.writer(f)
-        writer.writerow(["idx", "project", "filename",
-                         "window_start", "window_end", "label", "logits"])
+    log.info("Copying CSV to NFS: %s", out_path)
+    shutil.copy(tmp_csv, str(out_path))
+    os.unlink(tmp_csv)
+    log.info("Done.")
 
-        emb_iter = batched_embedding_iterator(db, window_ids, batch_size=1024)
-        for batch_ids, batch_embs in _tqdm.tqdm(emb_iter):
-            logits = linear_classifier(batch_embs)[:, target_ids]
-            for wid, row_logits in zip(batch_ids, logits):
-                # Write one row per label exceeding threshold — matches
-                # original write_inference_csv behavior
-                for label_idx, logit_val in enumerate(row_logits):
-                    if float(logit_val) <= args.logit_threshold:
-                        continue
-                    win = db.get_window(int(wid))
-                    rec = db.get_recording(win.recording_id)
-                    dep = db.get_deployment(rec.deployment_id)
-                    writer.writerow([
-                        int(wid), dep.project, rec.filename,
-                        win.offsets[0], win.offsets[1],
-                        labels[label_idx], float(logit_val),
-                    ])
-                    detection_count += 1
+    detection_count = sum(1 for _ in open(str(out_path))) - 1  # subtract header
 
     elapsed = time.monotonic() - t0
     log.info("Inference complete in %s", _format_duration(elapsed))
@@ -2331,17 +2310,21 @@ Click a label for each segment, then **Save Labels to DB**.
                 with gr.Row():
                     with gr.Column(scale=4):
                         gr.HTML(_segment_card(seg, i))
-                        # 30-second context — shown on demand
+                        # 30-second context — pre-computed at load time
+                        log.info("Pre-computing 30s context for segment %d/%d...", i+1, len(segments))
+                        _ctx_spec_html, _ctx_audio_data = _load_30s_context(seg)
+                        ctx_spec = gr.HTML(_ctx_spec_html, visible=True)
+                        ctx_audio = gr.Audio(
+                            value=_ctx_audio_data if _ctx_audio_data is not None else None,
+                            label="30s context", visible=True,
+                            show_label=False, interactive=False)
                         ctx_btn = gr.Button(
-                            "🔍 Show 30s context",
+                            "↺ Reload 30s context",
                             size="sm",
                             variant="secondary",
                             elem_classes=["ctx-btn"],
+                            visible=False,  # hidden since already loaded
                         )
-                        ctx_spec = gr.HTML("", visible=True)
-                        ctx_audio = gr.Audio(
-                            label="30s context", visible=False,
-                            show_label=False, interactive=False)
                         ctx_outputs.append((ctx_btn, ctx_spec, ctx_audio, seg))
                     with gr.Column(scale=1):
                         radio = gr.Radio(
