@@ -441,6 +441,23 @@ source files), uses a mel spectrogram (10 Hz floor) for the context view to
 emphasize low-frequency cetacean structure, and serves audio via a native
 Gradio `gr.Audio` component at full 32 kHz quality.
 
+### Orca and Dolphin Call Spectrograms
+
+![Orca call — linear STFT spectrogram from Gradio annotation tool](figures/orca.png)
+
+*Orca call (April 13 2018): discrete, broadband burst visible as vertical
+energy smear across 1–8 kHz. The linear STFT display is optimal for orca
+and dolphin calls.*
+
+![Dolphin call — linear STFT spectrogram from Gradio annotation tool](figures/dolphin_call.png)
+
+*Pacific white-sided dolphin burst-pulse call (April 13 2018): rapid
+broadband clicks spanning 2–16 kHz. Acoustically similar to orca calls
+in the embedding space — the primary source of false positives in early
+classifier versions.*
+
+### 30-Second Context Feature
+
 ![Gradio annotation tool — orca clip with 30s context showing broadband background](figures/gradio_30s_context_feature.png)
 
 *October 2020 orca candidate (score=3.021): 5-second linear STFT clip (top) and
