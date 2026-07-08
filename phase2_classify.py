@@ -322,6 +322,16 @@ def _torch_train_linear_classifier(
     import numpy as np
     from tqdm import tqdm
 
+# Local src modules — extracted from this file for maintainability
+try:
+    from src.spectrogram import make_spectrogram_image as _src_make_spectrogram
+    from src.audio import make_audio_b64 as _src_make_audio_b64
+    from src.audio import load_30s_context as _src_load_30s_context
+    _SRC_AVAILABLE = True
+except ImportError:
+    _SRC_AVAILABLE = False
+
+
     embedding_dim = data_manager.db.get_embedding_dim()
     target_labels = data_manager.get_target_labels()
     num_classes = len(target_labels)
@@ -1877,6 +1887,10 @@ def _launch_labeling_gui(
                                 spec_type: str = "linear",
                                 highlight_start: float | None = None,
                                 highlight_end: float | None = None) -> str:
+        if _SRC_AVAILABLE:
+            return _src_make_spectrogram(audio_array, sr, spec_type,
+                                         highlight_start, highlight_end)
+        # Fallback: inline implementation (kept for safety)
         """Return a base64-encoded PNG spectrogram.
 
         spec_type options:
@@ -2043,6 +2057,8 @@ def _launch_labeling_gui(
 
     def _make_audio_b64(audio_array: "np.ndarray", sr: int) -> str:
         """Return a base64-encoded WAV for HTML5 audio element."""
+        if _SRC_AVAILABLE:
+            return _src_make_audio_b64(audio_array, sr)
         buf = io.BytesIO()
         sf.write(buf, audio_array, sr, format="WAV")
         buf.seek(0)
@@ -2052,9 +2068,10 @@ def _launch_labeling_gui(
         """Load a 30-second context window centered on the 5-second clip.
 
         Returns (spec_html: str, audio_tuple: (sr, np.ndarray) | None)
-        Audio is returned as a tuple for gr.Audio — avoids gr.HTML sanitization
-        stripping <audio> tags from dynamically-updated components.
         """
+        if _SRC_AVAILABLE:
+            return _src_load_30s_context(seg, audio_base_dir, spectrogram_type)
+        # Fallback: inline implementation
         import os as _os
         import soundfile as _sf_ctx
         import numpy as _np_ctx
