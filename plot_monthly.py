@@ -48,6 +48,12 @@ def parse_datetime(filename, offset_s):
 
 def load_csv(input_csv):
     df = pd.read_csv(input_csv)
+    # Deduplicate on idx (window ID) — guards against double-written CSVs
+    before = len(df)
+    df = df.drop_duplicates(subset=["idx"])
+    dupes = before - len(df)
+    if dupes:
+        print(f"  Note: removed {dupes} duplicate rows")
     print(f"Loaded {len(df)} detections from {Path(input_csv).name}")
     df["datetime_utc"] = [
         parse_datetime(f, s)
