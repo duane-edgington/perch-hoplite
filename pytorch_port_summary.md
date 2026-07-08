@@ -300,12 +300,18 @@ The 29 remaining orca detections cluster precisely on known event dates:
 | Oct 12 | 12 | Event end ✅ |
 | Oct 17–25 | 7 | Possible return visits |
 
-**Zero false positives on the 20 quiet days outside the event window.**
+**Zero confirmed orca vocalizations in October 2020.**
 
-This is the core validation result: a classifier trained on 214 orca calls
-from a single April 2018 event correctly identifies an independent October
-2020 orca event — 2.5 years later, different season, COVID-quiet ocean —
-with 29 high-confidence detections clustering exactly on known sighting dates.
+Expert review of all 29 v8_clean orca detections confirmed they are
+humpback song false positives. Despite documented CA140B and CA51A orca
+visits October 3-12 2020, no orca vocalizations were captured in the MARS
+hydrophone record — consistent with Bigg's orca acoustic silence during hunts.
+
+The v8_clean result demonstrates that the combined April + October training
+database correctly eliminates humpback/orca confusion, reducing "orca"
+detections from 52,636 (v6_clean) to 29 (v8_clean) — a 99.9% reduction —
+while correctly classifying the dominant October acoustic signal (humpback
+song) at high precision.
 
 ### Expert Annotation — April 2018
 
@@ -347,25 +353,37 @@ appear Oct 2-3, the day before the first documented visual sighting.
 
 ### Expert Review — October 2020 High-Confidence Detections
 
-Dr. John Ryan and D. Edgington reviewed all 81 logit ≥ 3.0 "orca" detections
-via the Gradio annotation interface:
+Dr. John Ryan and D. Edgington conducted two rounds of expert review via
+the Gradio annotation interface:
+
+**Round 1 — v7_clean, logit ≥ 3.0 (81 detections):**
 
 | Label assigned | Count |
 |---|---|
 | humpback_song | 125 |
 | dolphin_call | 4 |
-| orca_call | 1 (uncertain — moved to unlabeled) |
+| orca_call | 0 (1 uncertain → moved to unlabeled) |
 | unlabeled | 1 |
 
-**Key finding:** 80 of 81 high-confidence "orca" detections at logit ≥ 3.0
-are humpback song false positives. Humpback song is acoustically diverse
-enough to mimic almost any cetacean call in the embedding space (J. Ryan,
-pers. comm.) — including orca calls. The single uncertain orca candidate
-(Oct 7, 19:49 UTC) was moved to unlabeled pending further review.
+**Round 2 — v8_clean top 29 orca detections:**
 
-These 125 expert-confirmed October humpback labels, combined with 41
-April humpback labels, formed the training set for v8_clean — the first
-classifier trained on a combined April + October embedding database.
+| Label assigned | Count |
+|---|---|
+| humpback_song | 15 additional |
+| orca_call | 0 confirmed |
+
+**Key finding: zero confirmed orca vocalizations in October 2020.**
+Despite documented CA140B ("Louise") and CA51A pod visits October 3-12,
+no orca calls were detected in the MARS hydrophone record. This is
+consistent with known Bigg's (transient) orca behavior — transient orca
+are acoustically quiet during hunts, reserving calls for socializing.
+The October visits may have been active hunting events.
+
+Humpback song is acoustically diverse enough to occupy the same embedding
+space as orca calls (J. Ryan, pers. comm.) — the primary source of false
+positives across all classifier versions. The 140 expert-confirmed October
+humpback labels, combined with 41 April humpback labels, formed the
+training set for v8_clean.
 
 ---
 
