@@ -117,6 +117,7 @@ try:
     from src.torch_model import load_model_from_db as _src_load_model_from_db
     from src.train import torch_train_linear_classifier as _src_torch_train
     from src.infer import run_inference as _src_run_inference
+    from src.review import launch_labeling_gui as _src_launch_labeling_gui
     _SRC_AVAILABLE = True
 except ImportError:
     _SRC_AVAILABLE = False
@@ -1315,7 +1316,8 @@ def cmd_search(args) -> int:
                         f"Search results — {args.query_label}")
 
     if args.serve:
-        _launch_labeling_gui(
+        _gui_fn = _src_launch_labeling_gui if _SRC_AVAILABLE else _launch_labeling_gui
+        _gui_fn(
             db=db,
             results_obj=results_obj,
             audio_filepath_loader=audio_filepath_loader,
@@ -1698,7 +1700,8 @@ def cmd_review(args) -> int:
                 "total":  _total_dets,
                 "csv":    args.detections_csv,
             }
-        _launch_labeling_gui(
+        _gui_fn = _src_launch_labeling_gui if _SRC_AVAILABLE else _launch_labeling_gui
+        _gui_fn(
             db=db,
             results_obj=results_obj,
             audio_filepath_loader=audio_filepath_loader,
