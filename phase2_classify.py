@@ -115,6 +115,7 @@ try:
     from src.audio import load_30s_context as _src_load_30s_context
     from src.torch_model import inject_tf_mock as _src_inject_tf_mock
     from src.torch_model import load_model_from_db as _src_load_model_from_db
+    from src.train import torch_train_linear_classifier as _src_torch_train
     _SRC_AVAILABLE = True
 except ImportError:
     _SRC_AVAILABLE = False
@@ -1367,7 +1368,8 @@ def cmd_train(args) -> int:
     )
 
     t0 = time.monotonic()
-    linear_classifier, eval_scores = _torch_train_linear_classifier(
+    _train_fn = _src_torch_train if _SRC_AVAILABLE else _torch_train_linear_classifier
+    linear_classifier, eval_scores = _train_fn(
         data_manager=data_manager,
         learning_rate=args.learning_rate,
         weak_neg_weight=args.weak_neg_weight,
