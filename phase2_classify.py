@@ -108,6 +108,16 @@ import time
 from pathlib import Path
 from typing import Optional
 
+# Local src modules — extracted for maintainability
+try:
+    from src.spectrogram import make_spectrogram_image as _src_make_spectrogram
+    from src.audio import make_audio_b64 as _src_make_audio_b64
+    from src.audio import load_30s_context as _src_load_30s_context
+    _SRC_AVAILABLE = True
+except ImportError:
+    _SRC_AVAILABLE = False
+
+
 # ---------------------------------------------------------------------------
 # Logging
 # ---------------------------------------------------------------------------
@@ -321,16 +331,6 @@ def _torch_train_linear_classifier(
     import torch.nn as nn
     import numpy as np
     from tqdm import tqdm
-
-# Local src modules — extracted from this file for maintainability
-try:
-    from src.spectrogram import make_spectrogram_image as _src_make_spectrogram
-    from src.audio import make_audio_b64 as _src_make_audio_b64
-    from src.audio import load_30s_context as _src_load_30s_context
-    _SRC_AVAILABLE = True
-except ImportError:
-    _SRC_AVAILABLE = False
-
 
     embedding_dim = data_manager.db.get_embedding_dim()
     target_labels = data_manager.get_target_labels()
