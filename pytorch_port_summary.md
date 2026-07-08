@@ -464,13 +464,33 @@ source files), uses a mel spectrogram (10 Hz floor) for the context view to
 emphasize low-frequency cetacean structure, and serves audio via a native
 Gradio `gr.Audio` component at full 32 kHz quality.
 
-### Orca and Dolphin Call Spectrograms
+### Orca Call Examples — April 13 2018 (Gradio Annotation Interface)
 
-![Orca call — linear STFT spectrogram from Gradio annotation tool](figures/orca.png)
+Three high-confidence orca detections from the April 13 2018 MARS hydrophone
+recording (v8_clean, logit scores 5.17–5.59), reviewed and confirmed via
+the Gradio annotation tool. Each clip shows the 5-second linear STFT (top),
+the 30-second mel context window with yellow fiducial markers locating the
+clip (bottom), and the 30-second audio player.
 
-*Orca call (April 13 2018): discrete, broadband burst visible as vertical
-energy smear across 1–8 kHz. The linear STFT display is optimal for orca
-and dolphin calls.*
+![Orca call #1 — wid=7986, 325–330s, score=5.168](figures/gradio_orca_clip1.png)
+
+*Clip 1 (325–330s, score=5.168): broadband burst energy visible across
+1–8 kHz in the linear STFT. The 30-second mel context confirms the call
+sits within a quiet background — a clean isolated orca vocalization.*
+
+![Orca call #2 — wid=2202, 205–210s, score=5.349](figures/gradio_orca_clip2.png)
+
+*Clip 2 (205–210s, score=5.349): structured harmonic stack visible around
+2–4s in the linear STFT, spanning 2–12 kHz — characteristic of Bigg's
+orca pulsed calls. The 30-second mel context shows additional call energy
+to the right of the fiducial markers.*
+
+![Orca call #3 — wid=8027, 530–535s, score=5.588](figures/gradio_orca_clip3.png)
+
+*Clip 3 (530–535s, score=5.588, highest confidence): structured call
+energy visible at the end of the 5-second clip, with additional activity
+visible in the 30-second mel context. Score 5.588 is among the highest
+in the April 13 dataset.*
 
 ![Dolphin call — linear STFT spectrogram from Gradio annotation tool](figures/dolphin_call.png)
 
