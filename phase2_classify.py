@@ -116,6 +116,7 @@ try:
     from src.torch_model import inject_tf_mock as _src_inject_tf_mock
     from src.torch_model import load_model_from_db as _src_load_model_from_db
     from src.train import torch_train_linear_classifier as _src_torch_train
+    from src.infer import run_inference as _src_run_inference
     _SRC_AVAILABLE = True
 except ImportError:
     _SRC_AVAILABLE = False
@@ -1742,43 +1743,32 @@ def cmd_infer(args) -> int:
         "Running inference (logit_threshold=%.3f, labels=%s)...",
         args.logit_threshold, args.labels or "all",
     )
-    t0 = time.monotonic()
 
-    # Write to /tmp first, then copy to NFS.
-    # write_inference_csv uses a ThreadPoolExecutor that hangs on NFS writes;
-    # writing to local /tmp avoids the hang, and a single shutil.copy to NFS
-    # is fast and atomic.
-    import tempfile, shutil
-
-    tmp_csv = tempfile.mktemp(suffix=".csv", dir="/tmp", prefix="perch_infer_")
-    log.info("Writing inference CSV to local tmp: %s", tmp_csv)
-
-    classifier_mod.write_inference_csv(
-        linear_classifier, db, tmp_csv,
-        args.logit_threshold,
-        labels=args.labels,
-    )
-
-    log.info("Copying CSV to NFS: %s", out_path)
-    shutil.copy(tmp_csv, str(out_path))
-    os.unlink(tmp_csv)
-    log.info("Done.")
-
-    detection_count = sum(1 for _ in open(str(out_path))) - 1  # subtract header
-
-    elapsed = time.monotonic() - t0
-    log.info("Inference complete in %s", _format_duration(elapsed))
-    log.info("Total detections written: %d", detection_count)
-
-    # Quick summary
-    try:
+    if _SRC_AVAILABLE:
+        result = _src_run_inference(
+            db=db,
+            linear_classifier=linear_classifier,
+            output_csv=str(out_path),
+            logit_threshold=args.logit_threshold,
+            labels=args.labels,
+            classifier_mod=classifier_mod,
+        )
+        elapsed = result["elapsed_s"]
+        detection_count = result["detection_count"]
+    else:
+        import tempfile, shutil
         from collections import Counter
-        with open(out_path, newline="") as f:
-            by_label = Counter(r["label"] for r in csv_mod.DictReader(f))
-        for lbl, cnt in sorted(by_label.items()):
-            log.info("  %-40s  %d", lbl, cnt)
-    except Exception:
-        pass
+        t0 = time.monotonic()
+        tmp_csv = tempfile.mktemp(suffix=".csv", dir="/tmp", prefix="perch_infer_")
+        classifier_mod.write_inference_csv(
+            linear_classifier, db, tmp_csv,
+            args.logit_threshold, labels=args.labels)
+        shutil.copy(tmp_csv, str(out_path))
+        os.unlink(tmp_csv)
+        elapsed = time.monotonic() - t0
+        detection_count = sum(1 for _ in open(str(out_path))) - 1
+        log.info("Inference complete in %s", _format_duration(elapsed))
+        log.info("Total detections written: %d", detection_count)
 
     if args.plot_distribution:
         try:
