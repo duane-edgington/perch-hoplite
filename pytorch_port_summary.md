@@ -375,6 +375,8 @@ t-SNE dimensionality reduction of the 1536-dimensional Perch V2 embeddings,
 colored by human annotation label, confirms that the embedding space naturally
 separates the acoustic classes even before any classifier training.
 
+### April 13 2018 — Single Event, 4 Classes
+
 ![t-SNE of Perch V2 embeddings — April 13 2018](figures/tsne_MARS_20180413.png)
 
 **April 13 2018 — 478 labeled embeddings — 4 classes**
@@ -393,6 +395,27 @@ Key observations:
   are acoustically similar to orca calls in the embedding space)
 - The separation visible here explains why a simple linear classifier achieves
   ROC-AUC 0.974 — the embedding space does most of the work
+
+### April 2018 + October 2020 — Cross-Season, 7 Classes
+
+![t-SNE of Perch V2 embeddings — April 2018 + October 2020](figures/tsne_apr2018_oct2020.png)
+
+**697 labeled embeddings — 7 classes — 2 seasons (spring 2018 + fall 2020)**
+
+Key observations:
+- **Orca (green)** and **dolphin (purple)** remain well-separated across
+  both seasons — the inter-class structure is season-invariant
+- **Humpback song (orange)** spans two distinct regions: one near the orca
+  cluster (upper right) and one near the dolphin/other region (lower left).
+  This directly explains the humpback/orca confusion in v6 and v7 classifiers,
+  and why 125 October humpback labels were required to resolve it in v8_clean
+- **Ship noise (cyan)** forms the tightest, most isolated cluster — consistent
+  with its highly stereotyped broadband acoustic signature
+- **Negative/background (gray)** is isolated in its own compact region
+- **Cross-season consistency:** October 2020 humpback embeddings (n=125,
+  fall 2020 COVID-quiet ocean) land in the same embedding regions as April
+  2018 humpback (n=21, spring 2018). Perch V2 embeddings are season-invariant
+  — a key property for multi-year passive acoustic monitoring
 
 ---
 
