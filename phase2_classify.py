@@ -1734,23 +1734,58 @@ def cmd_infer(args) -> int:
     )
     t0 = time.monotonic()
 
-    classifier_mod.write_inference_csv(
-        linear_classifier, db, str(out_path),
-        args.logit_threshold,
-        labels=args.labels,
-    )
+    # Use our own CSV writer instead of classifier_mod.write_inference_csv.
+    # The library version uses a ThreadPoolExecutor whose worker appends to the
+    # CSV file in a background thread — on NFS this hangs indefinitely waiting
+    # for slow writes to flush. Our version writes synchronously, batched, in
+    # the main thread, never hangs, and matches the original output format
+    # (one row per window×label pair where logit > threshold).
+    import csv as csv_mod
+    import numpy as _np_inf
+    from perch_hoplite.agile.classifier import batched_embedding_iterator
+
+    labels = args.labels or linear_classifier.classes
+    labels = tuple(l for l in labels if l in linear_classifier.classes)
+    label_ids = {cl: i for i, cl in enumerate(linear_classifier.classes)}
+    target_ids = _np_inf.array([label_ids[l] for l in labels])
+
+    window_ids = _np_inf.array(db.match_window_ids())
+    detection_count = 0
+
+    import tqdm as _tqdm
+    with open(out_path, "w", newline="") as f:
+        writer = csv_mod.writer(f)
+        writer.writerow(["idx", "project", "filename",
+                         "window_start", "window_end", "label", "logits"])
+
+        emb_iter = batched_embedding_iterator(db, window_ids, batch_size=1024)
+        for batch_ids, batch_embs in _tqdm.tqdm(emb_iter):
+            logits = linear_classifier(batch_embs)[:, target_ids]
+            for wid, row_logits in zip(batch_ids, logits):
+                # Write one row per label exceeding threshold — matches
+                # original write_inference_csv behavior
+                for label_idx, logit_val in enumerate(row_logits):
+                    if float(logit_val) <= args.logit_threshold:
+                        continue
+                    win = db.get_window(int(wid))
+                    rec = db.get_recording(win.recording_id)
+                    dep = db.get_deployment(rec.deployment_id)
+                    writer.writerow([
+                        int(wid), dep.project, rec.filename,
+                        win.offsets[0], win.offsets[1],
+                        labels[label_idx], float(logit_val),
+                    ])
+                    detection_count += 1
 
     elapsed = time.monotonic() - t0
     log.info("Inference complete in %s", _format_duration(elapsed))
+    log.info("Total detections written: %d", detection_count)
 
     # Quick summary
     try:
-        import csv as csv_mod
-        with open(out_path, newline="") as f:
-            rows = list(csv_mod.DictReader(f))
-        log.info("Total detections written: %d", len(rows))
         from collections import Counter
-        by_label = Counter(r.get("label", "?") for r in rows)
+        with open(out_path, newline="") as f:
+            by_label = Counter(r["label"] for r in csv_mod.DictReader(f))
         for lbl, cnt in sorted(by_label.items()):
             log.info("  %-40s  %d", lbl, cnt)
     except Exception:
