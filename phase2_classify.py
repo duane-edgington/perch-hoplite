@@ -113,6 +113,8 @@ try:
     from src.spectrogram import make_spectrogram_image as _src_make_spectrogram
     from src.audio import make_audio_b64 as _src_make_audio_b64
     from src.audio import load_30s_context as _src_load_30s_context
+    from src.torch_model import inject_tf_mock as _src_inject_tf_mock
+    from src.torch_model import load_model_from_db as _src_load_model_from_db
     _SRC_AVAILABLE = True
 except ImportError:
     _SRC_AVAILABLE = False
@@ -550,28 +552,31 @@ def _require_perch():
     # perch_hoplite.agile.classifier imports TF unconditionally at module level.
     # Inject a minimal mock so the import succeeds without TF installed.
     # LinearClassifier and train_linear_classifier only use numpy/sklearn at runtime.
-    import types as _types
-    if 'tensorflow' not in sys.modules:
-        import importlib.machinery as _imach
-        _tf_mock = _types.ModuleType('tensorflow')
-        # __spec__ must be non-None or importlib.util.find_spec raises ValueError
-        _tf_mock.__spec__ = _imach.ModuleSpec('tensorflow', loader=None)
-        _tf_mock.__version__ = '0.0.0-mock'
-        _tf_mock.Tensor = object
-        _tf_mock.keras = _types.ModuleType('tensorflow.keras')
-        _tf_mock.keras.__spec__ = _imach.ModuleSpec('tensorflow.keras', loader=None)
-        _tf_mock.keras.Model = object
-        _tf_mock.keras.layers = _types.ModuleType('tensorflow.keras.layers')
-        _tf_mock.keras.optimizers = _types.ModuleType('tensorflow.keras.optimizers')
-        _tf_mock.keras.losses = _types.ModuleType('tensorflow.keras.losses')
-        sys.modules['tensorflow'] = _tf_mock
-        sys.modules['tensorflow.keras'] = _tf_mock.keras
-        sys.modules['tensorflow.keras.layers'] = _tf_mock.keras.layers
-        sys.modules['tensorflow.keras.optimizers'] = _tf_mock.keras.optimizers
-        sys.modules['tensorflow.keras.losses'] = _tf_mock.keras.losses
-        _injected_tf_mock = True
+    if _SRC_AVAILABLE:
+        _injected_tf_mock = _src_inject_tf_mock()
     else:
-        _injected_tf_mock = False
+        # Inline fallback
+        import types as _types
+        if 'tensorflow' not in sys.modules:
+            import importlib.machinery as _imach
+            _tf_mock = _types.ModuleType('tensorflow')
+            _tf_mock.__spec__ = _imach.ModuleSpec('tensorflow', loader=None)
+            _tf_mock.__version__ = '0.0.0-mock'
+            _tf_mock.Tensor = object
+            _tf_mock.keras = _types.ModuleType('tensorflow.keras')
+            _tf_mock.keras.__spec__ = _imach.ModuleSpec('tensorflow.keras', loader=None)
+            _tf_mock.keras.Model = object
+            _tf_mock.keras.layers = _types.ModuleType('tensorflow.keras.layers')
+            _tf_mock.keras.optimizers = _types.ModuleType('tensorflow.keras.optimizers')
+            _tf_mock.keras.losses = _types.ModuleType('tensorflow.keras.losses')
+            sys.modules['tensorflow'] = _tf_mock
+            sys.modules['tensorflow.keras'] = _tf_mock.keras
+            sys.modules['tensorflow.keras.layers'] = _tf_mock.keras.layers
+            sys.modules['tensorflow.keras.optimizers'] = _tf_mock.keras.optimizers
+            sys.modules['tensorflow.keras.losses'] = _tf_mock.keras.losses
+            _injected_tf_mock = True
+        else:
+            _injected_tf_mock = False
     try:
         from perch_hoplite.agile import classifier, classifier_data
     except Exception as _e:
@@ -927,49 +932,42 @@ def _get_source(db, window_id):
 
 
 def load_model_from_db(db):
-    """Load the embedding model for this DB.
+    """Load the Perch V2 embedding model for a given DB.
 
-    For DBs created by the native PyTorch pipeline (model_key='perch_torch')
-    or the Colab TF pipeline (model_key='taxonomy_model_tf'), load the
-    PerchTorchModel from ~/perch-pytorch. This removes the TensorFlow
-    dependency entirely.
-
-    Falls back to the original TF model_configs path only if explicitly
-    requested via PERCH_USE_TF=1 environment variable.
+    Delegates to src.torch_model.load_model_from_db when available,
+    otherwise falls back to the inline implementation.
     """
-    import os
+    if _SRC_AVAILABLE:
+        return _src_load_model_from_db(db, cuda_available_fn=_cuda_available)
+    # Inline fallback
+    import os as _os2
     from perch_hoplite.agile import source_info
     db_model_config = db.get_metadata("model_config")
     embed_config    = db.get_metadata("audio_sources")
     audio_sources   = source_info.AudioSources.from_config_dict(embed_config)
     model_key       = db_model_config.model_key
-
-    use_tf = os.environ.get("PERCH_USE_TF", "0") == "1"
-
+    use_tf = _os2.environ.get("PERCH_USE_TF", "0") == "1"
     if not use_tf and model_key in ("taxonomy_model_tf", "perch_torch"):
-        # Use native PyTorch Perch V2 — no TensorFlow needed
-        import sys
-        _pytorch_dir = os.path.expanduser("~/perch-pytorch")
-        if _pytorch_dir not in sys.path:
-            sys.path.insert(0, _pytorch_dir)
+        import sys as _sys2
+        _pytorch_dir = _os2.path.expanduser("~/perch-pytorch")
+        if _pytorch_dir not in _sys2.path:
+            _sys2.path.insert(0, _pytorch_dir)
         try:
             from perch_hoplite_torch_adapter import PerchTorchModel
             embedding_model = PerchTorchModel(
-                weights_dir=os.path.join(_pytorch_dir, "perch_weights"),
-                exact_mel=os.path.join(_pytorch_dir, "const__pad1_output_0.npy"),
+                weights_dir=_os2.path.join(_pytorch_dir, "perch_weights"),
+                exact_mel=_os2.path.join(_pytorch_dir, "const__pad1_output_0.npy"),
                 device="cuda" if _cuda_available() else "cpu",
             )
             log.info("Loaded embedding model: PerchTorchModel (PyTorch, no TF)")
         except ImportError as e:
             log.warning("PerchTorchModel not available (%s); falling back to TF", e)
             use_tf = True
-
     if use_tf:
         from perch_hoplite.zoo import model_configs
         model_class = model_configs.get_model_class(model_key)
         embedding_model = model_class.from_config(db_model_config.model_config)
         log.info("Loaded embedding model: %s (TensorFlow)", model_key)
-
     return embedding_model, audio_sources
 
 
