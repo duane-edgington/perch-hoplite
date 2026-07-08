@@ -1722,6 +1722,11 @@ def cmd_infer(args) -> int:
 
     out_path = Path(args.output_csv)
     out_path.parent.mkdir(parents=True, exist_ok=True)
+    # Delete existing CSV before inference — perch-hoplite's csv_worker_fn
+    # opens in append mode, so a stale file causes row multiplication
+    if out_path.exists():
+        out_path.unlink()
+        log.info("Removed existing output CSV (append-mode safeguard)")
 
     log.info(
         "Running inference (logit_threshold=%.3f, labels=%s)...",
