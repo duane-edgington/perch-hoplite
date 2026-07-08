@@ -240,7 +240,7 @@ def merge_usearch_indexes(index_a: str, index_b: str,
     idx_out = ui.Index(ndim=dim, metric=metric, dtype=dtype)
 
     # Copy index A vectors
-    keys_a = np.array(idx_a.keys, dtype=np.int64)
+    keys_a = np.asarray(list(idx_a.keys), dtype=np.int64)
     vecs_a = idx_a.get(keys_a.tolist())
     if isinstance(vecs_a, tuple):
         vecs_a = np.stack(vecs_a)
@@ -248,7 +248,7 @@ def merge_usearch_indexes(index_a: str, index_b: str,
     print(f"  Copied {n_a:,} vectors from A")
 
     # Copy index B vectors with offset IDs
-    keys_b = np.array(idx_b.keys, dtype=np.int64)
+    keys_b = np.asarray(list(idx_b.keys), dtype=np.int64)
     keys_b_offset = keys_b + window_id_offset
     vecs_b = idx_b.get(keys_b.tolist())
     if isinstance(vecs_b, tuple):
