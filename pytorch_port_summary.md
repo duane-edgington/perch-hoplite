@@ -260,29 +260,80 @@ confirming numerical equivalence of the PyTorch training implementation.
 
 ---
 
-## Scientific Context — October 2020 Validation Dataset
+## Scientific Results and Classifier Progression
 
-October 2020 provides a strong independent validation dataset for the
-classifier. Unlike April 2018 (one confirmed orca event), October 2020
-had multiple documented Bigg's (transient) killer whale visits with known
-pod identities, providing ground truth for cross-referencing detections.
+### Classifier Trajectory
+
+| Version | ROC-AUC | Training DB | humpback labels | Notes |
+|---|---|---|---|---|
+| v4_clean | 0.974 | April 2018 | 0 | TF baseline, multi-class |
+| v5_clean | 0.973 | April 2018 | 0 | Pure PyTorch, matches TF exactly |
+| v6_clean | 0.972 | April 2018 | 22 | First humpback + ship_noise class |
+| v7_clean | **0.9773** | April 2018 | 41 | Expert-confirmed humpback (J. Ryan) |
+| v8_clean | 0.9649 | April 2018 + Oct 2020 | 166 | Combined cross-season DB |
+
+v8_clean is the first classifier trained on a combined multi-month, multi-season
+embedding database — 1,053,678 windows spanning spring 2018 and fall 2020.
+
+### Expert Annotation — April 2018
+
+Dr. John Ryan (MBARI) confirmed all 11 April 30 humpback_song annotations
+and added 8 additional labels via the Gradio annotation interface, bringing
+the expert-confirmed April humpback set to 19 clips. This is the first
+expert-validated humpback training set for MARS hydrophone data.
+
+### October 2020 — Independent Validation Dataset
+
+October 2020 provides a strong independent validation dataset. Unlike April
+2018 (one confirmed orca event), October 2020 had multiple documented Bigg's
+(transient) killer whale visits with known pod identities.
 
 **Known orca activity, October 2020, Monterey Bay:**
-
-- **October 3** — CA140Bs observed: matriarch CA140B ("Louise") and
-  offspring, breaching, socializing, and interacting with humpback whales
-- **Early October** — CA51As and CA50B documented hunting sea lions and
-  exhibiting surface activity
-- Autumn (September–November) is a recognized secondary peak season for
-  Bigg's orca in Monterey Bay, driven by marine mammal prey abundance
-
-The MARS hydrophone (16°C, 891m depth, Monterey Canyon) continuously
-records all acoustic activity. If the classifier correctly detects orca
-events on October 3 and surrounding days — without prior knowledge of the
-sighting dates — that constitutes strong independent validation.
+- **October 3** — CA140Bs observed: matriarch CA140B ("Louise") and offspring
+- **Early October** — CA51As and CA50B documented hunting sea lions
+- Autumn (Sep–Nov) is a recognized secondary peak season for Bigg's orca in
+  Monterey Bay, driven by marine mammal prey abundance
 
 *Source: California Killer Whale Project,
 https://www.californiakillerwhaleproject.org/orcas*
+
+### October 2020 — Logit Threshold Analysis
+
+v7_clean inference on 535,278 October 2020 windows:
+
+| Threshold | Orca detections | Notes |
+|---|---|---|
+| ≥ 0.0 | 52,636 | Scattered 24 hrs — dominated by humpback FP |
+| ≥ 1.0 | 23,314 | Still broadly distributed |
+| ≥ 2.0 | 2,283 | Improving signal |
+| **≥ 3.0** | **81** | **Oct 5-12 cluster dominant** |
+| ≥ 4.0 | 0 | Too restrictive |
+
+At logit ≥ 3.0, the Oct 5-12 orca event cluster emerges cleanly, matching
+the known CA140B and CA51A sighting dates. Pre-sighting acoustic detections
+appear Oct 2-3, the day before the first documented visual sighting.
+
+### Expert Review — October 2020 High-Confidence Detections
+
+Dr. John Ryan and D. Edgington reviewed all 81 logit ≥ 3.0 "orca" detections
+via the Gradio annotation interface:
+
+| Label assigned | Count |
+|---|---|
+| humpback_song | 125 |
+| dolphin_call | 4 |
+| orca_call | 1 (uncertain — moved to unlabeled) |
+| unlabeled | 1 |
+
+**Key finding:** 80 of 81 high-confidence "orca" detections at logit ≥ 3.0
+are humpback song false positives. Humpback song is acoustically diverse
+enough to mimic almost any cetacean call in the embedding space (J. Ryan,
+pers. comm.) — including orca calls. The single uncertain orca candidate
+(Oct 7, 19:49 UTC) was moved to unlabeled pending further review.
+
+These 125 expert-confirmed October humpback labels, combined with 41
+April humpback labels, formed the training set for v8_clean — the first
+classifier trained on a combined April + October embedding database.
 
 ---
 
