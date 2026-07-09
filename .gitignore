@@ -1,3 +1,6 @@
 tf-env/
 venv/
 nvml-unified-shim/
+__pycache__/
+*.pyc
+*.pyo
