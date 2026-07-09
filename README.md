@@ -42,16 +42,14 @@ https://arxiv.org/abs/2512.03219 https://arxiv.org/abs/2508.04665
 
 | Machine | Role | IP / Access |
 |---|---|---|
-| **ICEFISH** (Mac) | Developer workstation | Local — scp gateway to spark |
-| **spark-ae0e** | Active learning, inference, Gradio server | 134.89.11.107 |
+| **Mac workstation** | Developer workstation | Local — scp gateway to spark |
+| **spark-ae0e** | Embedding, active learning, inference, Gradio server | 134.89.11.107 |
 | **spark-0626** | Spare / parallel runs | 134.89.11.174 |
-| **spark-ae0e GB10** | Phase 1 embedding (PyTorch) | `phase1_embed_torch.py` — no Colab needed |
-| ~~Google Colab (A100)~~ | ~~Phase 1 embedding (legacy)~~ | ~~Replaced by native PyTorch pipeline~~ |
 
 ### Why the split?
 
 The spark servers have NVIDIA GB10 (Blackwell, compute capability 12.1) GPUs.
-**July 2026 update: Colab dependency eliminated.** A native PyTorch reimplementation of Perch V2 (`phase1_embed_torch.py`) now runs entirely on spark-ae0e at 231 windows/sec — faster than Colab. No Google Drive, no internet required for embedding. See `clean_install.sh` for setup.
+**July 2026:** The pipeline runs entirely on spark-ae0e. No Google Drive, no internet required for embedding. See `clean_install.sh` for setup.
 
 | | spark-ae0e | spark-0626 |
 |---|---|---|
@@ -70,17 +68,6 @@ and labels written on one are immediately visible on the other.
 ## Directory Structure
 
 ```
-Google Colab (temporary, per-session)
-    /tmp/mbari_audio/<dataset>/     ← audio uploaded from Google Drive
-    /content/drive/My Drive/
-        MBARI_perch/
-            audio/                  ← zipped WAV files from ICEFISH
-            db/                     ← completed Hoplite DBs → scp to spark
-
-ICEFISH (Mac, ~/Desktop/colab_staging/)
-    ← staging area for zipping audio before Google Drive upload
-    ← also used as scp relay: Colab DB → ICEFISH → spark NFS
-
 spark-ae0e / spark-0626 (NFS shared)
 /mnt/PAM_Analysis/duane_scratch/perch_hoplite/
     db/                             ← Hoplite embedding databases
@@ -104,24 +91,27 @@ spark-ae0e / spark-0626 (NFS shared)
 
 ---
 
-## Installation Status (spark-ae0e as of June 2026)
+## Installation Status (spark-ae0e as of July 2026)
 
 Already installed in venv — do not reinstall:
 
+Activate: `source ~/perch-hoplite/venv/bin/activate`
+
 ```
+torch                2.12.1+cu130
 perch-hoplite        1.0.1
 gradio               6.15.1
 soundfile            0.13.1
 librosa              0.11.0
-scipy                (for spectrogram rendering in GUI)
-matplotlib           (for spectrogram rendering in GUI)
+scipy
+matplotlib
+scikit-learn
+ml_collections
+timm
 ```
 
 Known harmless warnings at startup (not errors):
-- `Unable to register cuFFT/cuDNN/cuBLAS factory` — two TF builds registering CUDA plugins; GPU still works.
-- `MessageFactory has no attribute GetPrototype` — protobuf version mismatch, cosmetic only.
-- `NUMA node read from SysFS had negative value` — BIOS topology quirk, TF defaults correctly to node 0.
-- `NodeDef mentions attribute use_shardy_partitioner` — model saved with newer JAX/XLA; attribute is ignored.
+- `NUMA node read from SysFS had negative value` — BIOS topology quirk, harmless.
 - `Failed to load class list ... duplicate entries` — cosmetic, does not affect embeddings.
 
 ---
@@ -130,8 +120,7 @@ Known harmless warnings at startup (not errors):
 
 | File | Runs on | Purpose |
 |---|---|---|
-| `MBARI_perch_phase1_embed.py` | **Google Colab** | Build Hoplite embedding DB from audio |
-| `prepare_audio_for_colab.sh` | **ICEFISH** (Mac) | Zip resampled audio and stage for Google Drive |
+| `phase1_embed_torch.py` | **spark-ae0e** | Build Hoplite embedding DB from audio (PyTorch, no Colab) |
 | `phase2_classify.py` | **spark-ae0e** | Active learning: search, label, train, review, infer |
 | `phase2_classify_logmel.py` | **spark-ae0e** | same as above, with log mel spectrogram display |
 | `convert_scores_to_labels.py` | **spark-ae0e** | Convert Google model score CSVs to Hoplite label CSVs |
@@ -162,48 +151,12 @@ python3 phase1_embed_torch.py \\
     --device cuda --compile
 ```
 
-#### Legacy: Colab embedding (no longer required)
-
-The original Colab workflow is preserved below for reference.
-
-#### Step 1a — Prepare audio on ICEFISH
-
-```bash
-# On ICEFISH Mac — zip a date range of resampled 32 kHz WAV files
-# and copy to Google Drive for Colab to access
-chmod +x prepare_audio_for_colab.sh
-./prepare_audio_for_colab.sh
-# Follow prompts — output goes to ~/Google Drive/My Drive/MBARI_perch/audio/
-```
-
-Edit `prepare_audio_for_colab.sh` to set `DATE_START`, `DATE_END`, and `MAX_FILES`
-before running. The script creates a zip archive and a Colab config snippet.
-
-#### Step 1b — Run embedding on Colab
-
-1. Open `MBARI_perch_phase1_embed.py` in Google Colab (A100 GPU runtime)
-2. Mount Google Drive when prompted
-3. Set `GDRIVE_AUDIO_ZIP` to match the zip created in Step 1a
-4. Run all cells — embedding takes ~15 min per 75-second shard on A100
-5. When complete, the DB is saved to Google Drive
-
-#### Step 1c — Transfer DB from Colab to spark
-
-```bash
-# On ICEFISH — download DB from Google Drive, then scp to spark NFS
-scp -r ~/Downloads/<db_folder> duane@134.89.11.107:/mnt/PAM_Analysis/duane_scratch/perch_hoplite/db/
-```
-
-The DB path stored in hoplite_metadata will reference the Colab path
-`/tmp/mbari_audio/...`. This is overridden at runtime with `--audio-dir`
-(see Step 4 below).
-
 ---
 
 ### Phase 2 — Active Learning Loop (spark-ae0e)
 
 All Phase 2 steps run on spark-ae0e. The Gradio labeling GUI is accessed
-from any browser on the MBARI network — including ICEFISH.
+from any browser on the MBARI network.
 
 #### Step 2 — Import bootstrap labels (optional)
 
@@ -239,7 +192,7 @@ Target ROC-AUC > 0.90 before running full inference.
 
 #### Step 4 — Review and label (active learning)
 
-Launch the Gradio labeling GUI on spark, open it on ICEFISH browser:
+Launch the Gradio labeling GUI on spark, open in any browser on the MBARI network:
 
 ```bash
 # On spark-ae0e
@@ -254,11 +207,9 @@ nohup python3 phase2_classify.py review \
     > /mnt/PAM_Analysis/duane_scratch/perch_hoplite/logs/review_7860.log 2>&1 &
 ```
 
-**`--audio-dir` is required** because the DB was built on Colab where audio
-was at `/tmp/mbari_audio/...`. This flag overrides that stored path with the
-actual location on spark NFS.
+**`--audio-dir` is required** — this flag sets the audio path for the Gradio GUI.
 
-Then on ICEFISH, open: **http://134.89.11.107:7860**
+Open in browser: **http://134.89.11.107:7860**
 
 The GUI shows the top-50 highest-scoring candidates with:
 - Spectrogram (0–16 kHz, log-power, inferno colormap)
@@ -276,7 +227,6 @@ instead every sound type gets its own label, making the classifier richer:
 
 - `orca_call` 🟢 — orca call clearly present: banded harmonics 1–6 kHz
 - `humpback_song` 🟡 — humpback song units: complex harmonics 100 Hz–4 kHz
-- `fin_whale_call` 🔵 — fin whale 20 Hz pulse: energy near bottom of display
 - `dolphin_call` 🟣 — Pacific white-sided dolphin burst pulses: dense vertical striping 2–14 kHz
 - `ship_noise` 🩵 — vessel engine: regular low-frequency pulsing
 - `other` 🟠 — any clearly structured sound that doesn't fit the above (ROV, unknown bio)
@@ -292,7 +242,7 @@ instead every sound type gets its own label, making the classifier richer:
 
 Pass the class list at launch time with `--classes`:
 ```bash
---classes orca_call,humpback_song,fin_whale_call,dolphin_call,ship_noise,other,unlabeled
+--classes orca_call,humpback_song,dolphin_call,ship_noise,other,unlabeled
 ```
 
 Click **💾 Save Labels to DB** when done. The status box confirms save counts per class.
@@ -413,16 +363,17 @@ nohup python3 phase2_classify_logmel.py review     --db-dir /mnt/PAM_Analysis/du
 | orca_v2_clean.pt | ✅ ROC-AUC 0.919 — 110 labels, single-class |
 | orca_v3_clean.pt | ✅ ROC-AUC 0.990 — multi-class: orca + dolphin |
 | orca_v4_clean.pt | ✅ ROC-AUC 0.974 — multi-class: orca + dolphin + other |
-| orca_v5_clean.pt | ✅ **ROC-AUC 0.973** — **pure PyTorch training**, 5 classes, **16 sec** |
-| Inference Apr 13 v5_clean | ✅ 295 orca + 2,177 dolphin + 161 other |
-| Inference Apr 1 v4_clean | ✅ 0 orca FP — precision validated on quiet day |
-| Inference Apr 30 v4_clean | ✅ 0 orca — 11 humpback + 8 ship_noise confirmed |
-| Inference May 2 v4_clean | ✅ 0 orca — 2 humpback + 27 ship_noise confirmed |
-| Inference April 2018 full month | ✅ 2,083 orca + 13,359 dolphin + 7,549 other |
+| **Normalization fix (July 2026)** | ✅ per-window peak-norm to 0.25 — cos 1.0 vs live TF on MARS audio |
+| orca_v0.pt | ✅ **ROC-AUC 0.9773** — April 2018 normalized, 5 classes, 22 sec |
+| orca_v1.pt | ✅ **ROC-AUC 0.9533** — April + October 2020 normalized, 5 classes |
+| Inference April 2018 v1 | ✅ **286 orca Apr 13** + 15,611 dolphin + 1,267 humpback + 1,741 ship |
+| Inference October 2020 v1 | ✅ **204 orca** (Oct 5-12 cluster) + 223,214 humpback + 3,344 dolphin |
 | TF-free pipeline | ✅ zero TF imports — single venv `~/perch-hoplite/venv` |
-| humpback_song class | ✅ 13 labels (Apr 30 + May 2) — expert review pending |
-| fin_whale_call class | 🔲 planned |
-| October 2020 embedding | 🔲 planned |
+| Expert annotation | ✅ 41 humpback (April, J. Ryan) + 209 humpback + 5 dolphin (October) |
+| DB: MARS April 2018 normalized | ✅ 518,400 embeddings — 30 days, 37 min on GB10 |
+| DB: MARS October 2020 normalized | ✅ 535,278 embeddings — 31 days, 40 min on GB10 |
+| DB: MARS May 2018 normalized | ✅ 535,680 embeddings — 31 days, 38 min on GB10 |
+| October 2020 orca event Oct 5-12 | ✅ confirmed cluster — CA140B, CA51A pods documented |
 
 ### Orca event timing on April 13 2018 (UTC)
 
@@ -448,11 +399,11 @@ consistent with morning gray whale calf migration through the bay.
    classifier scores do NOT always mean orca. Always listen and check the
    spectrogram. Use label `dolphin_call` (not `dolphin_whistle`) since it is
    the pulsed calls — not tonal whistles — that cause confusion with orca.
-   **Resolved in v3_clean** by adding dolphin_call as a separate class.
+   **Resolved in v1** by adding dolphin_call as a separate class.
 
 2. **Cross-day DB merging degrades performance** — merging embeddings from
    different days hurt ROC-AUC. Stay within one deployment day for training.
-   The 17,280 windows on April 13 contain natural negatives in the quiet hours.
+   The 17,280 windows on April 13 contain natural `orca_call` weak-negatives in the quiet hours.
 
 3. **Kill Gradio before training** — review server holds GPU memory; training
    will fail with OOM if both run simultaneously.
@@ -470,23 +421,19 @@ consistent with morning gray whale calf migration through the bay.
    ship_noise training examples so it assigns these to orca by default.
    Next step: add humpback_song and ship_noise labels and retrain v5_clean.
 
-7. **New DB model_config patch required** — every DB created by the Colab
-   notebook must have `logit_slope` and `logit_intercept` removed from the
-   stored model config before use on spark (see Post-Download Patch below).
-   DBs created by `phase1_embed_torch.py` do NOT need this patch.
+7. **DB model_config** — DBs created by `phase1_embed_torch.py` are clean.
+   Legacy DBs from older tools may need the model_config patch (see below).
 
-8. **PyTorch pipeline eliminates Colab** — `phase1_embed_torch.py` runs on
-   spark-ae0e at 231 windows/sec (37 min for a full month). Training is 16
-   seconds (pre-loads embeddings to GPU). Zero TF dependencies. Single venv
-   at `~/perch-hoplite/venv`. See `clean_install.sh` to set up.
+8. **Pure PyTorch pipeline** — `phase1_embed_torch.py` runs on spark-ae0e
+   at 231 windows/sec (37 min for a full month). Training is 16 seconds
+   (pre-loads embeddings to GPU). Zero TF dependencies. Single venv at
+   `~/perch-hoplite/venv`. See `clean_install.sh` to set up.
 
-### Post-Download Patch — Required for every new Colab DB
+### Post-Download Patch — Legacy DBs only
 
-Every DB created by the Colab embedding notebook contains `logit_slope` and
-`logit_intercept` fields in the stored model config. These were added in a
-newer version of perch-hoplite than is installed on spark-ae0e, and cause a
-`TypeError: TaxonomyModelTF.__init__() got an unexpected keyword argument
-'logit_intercept'` error when loading the DB. Fix by running:
+DBs created by `phase1_embed_torch.py` do not need this patch.
+Legacy DBs from older tools may contain `logit_slope` and `logit_intercept`
+fields in the stored model config which cause errors. Fix by running:
 
 ```bash
 sqlite3 /mnt/PAM_Analysis/duane_scratch/perch_hoplite/db/<DATASET_NAME>/hoplite.sqlite \
@@ -530,18 +477,44 @@ You're 60%+ confident — a soft label is still better than no label for a class
 The key principle: unlabeled is the right choice when you're truly 50/50. But if you're leaning even slightly toward one class, label it — the classifier can handle a few soft labels. What hurts the classifier most is confidently wrong labels (labeling a dolphin as orca), not uncertain-but-correct labels.
 For faint signals specifically: if you see the characteristic banded harmonic structure of orca in the spectrogram even if quiet, trust the spectrogram over the audio and label it orca_call. The spectrogram is often more informative than your ears for faint calls.
 
-### Inference results summary (April 13 2018)
+### Inference results summary
 
-| Model | ROC-AUC | Orca detections | Dolphin detections | Notes |
-|---|---|---|---|---|
-| orca_v1_clean | 0.982 | 227 | — | Single class |
-| orca_v2_clean | 0.919 | 239 | — | Single class |
-| orca_v3_clean | **0.990** | **321** | **205** | Multi-class — separates species |
+#### April 13 2018 — confirmed Bigg's orca event
 
-All detections cluster within known orca active hours (UTC 06:49–20:49) with
-zero false positives in quiet periods — confirming strong temporal precision.
-v3_clean finds 94 more orca detections than v1_clean because the dolphin class
-absorbs the false positives that previously suppressed borderline orca calls.
+| Model | ROC-AUC | Orca | Dolphin | Humpback | Ship | Other | Notes |
+|---|---|---|---|---|---|---|---|
+| v1_clean | 0.982 | 227 | — | — | — | — | Single class |
+| v2_clean | 0.919 | 239 | — | — | — | — | Single class |
+| v3_clean | 0.990 | 321 | 205 | — | — | — | Multi-class |
+| v4_clean | 0.974 | 295 | 2,253 | — | — | 159 | Multi-class |
+| v5_clean | 0.973 | 295 | 2,177 | — | — | 161 | Pure PyTorch |
+| v6_clean | 0.972 | 295 | 2,177 | — | — | 161 | + humpback/ship |
+
+#### Full April 2018 — v6_clean
+
+| Class | Detections | Days active | Notes |
+|---|---|---|---|
+| orca_call | 1,607 | 21 | April 13 dominant event (295); others likely FP |
+| dolphin_call | 14,883 | 30 | Resident throughout month |
+| humpback_song | 735 | 24 | April 19 spike (250) — expert review pending |
+| ship_noise | 1,899 | 21 | Episodic vessel passages |
+| other | 3,385 | 21 | Unclassified |
+
+#### Full October 2020 — v6_clean (COVID-quiet vessel traffic)
+
+| Class | Detections | Days active | Notes |
+|---|---|---|---|
+| humpback_song | 66,495 | 31 | Dominant species — peak fall season |
+| orca_call | 41,294 | 31 | Oct 5-12 cluster confirmed — CA140B, CA51A pods |
+| dolphin_call | 13,569 | 31 | Consistent daily presence |
+| ship_noise | 142 | 6 | Dramatically reduced — COVID lockdown |
+| other | 201 | 4 | Minimal unclassified |
+
+October 2020 orca detections cluster strongly October 5–12, matching
+independent whale watch reports of CA140B (matriarch "Louise") and CA51A pods.
+This cross-validated detection — trained on April 2018, tested on October 2020
+— demonstrates the classifier generalizes across seasons.
+*Source: California Killer Whale Project, https://www.californiakillerwhaleproject.org/orcas*
 
 ---
 
@@ -555,7 +528,6 @@ Suggested label names:
 ```
 orca_call           # Bigg's / resident orca vocalizations
 humpback_song       # humpback whale song units
-fin_whale_call      # fin whale 20 Hz pulse
 dolphin_call        # Pacific white-sided dolphin burst pulse calls
 ship_noise          # vessel engine noise (regular low-freq pulsing)
 other               # catch-all: ROV thruster, unknown bio, unclassified
@@ -570,7 +542,6 @@ labels in the order you want them displayed. Up to 6 named classes supported
 |---|---|---|
 | 1 | Green | orca_call |
 | 2 | Amber | humpback_song |
-| 3 | Blue | fin_whale_call |
 | 4 | Purple | dolphin_call |
 | 5 | Teal | ship_noise |
 | 6 | Orange | other |
@@ -578,7 +549,7 @@ labels in the order you want them displayed. Up to 6 named classes supported
 
 Example for May 2 2018 review session:
 ```bash
---classes orca_call,humpback_song,fin_whale_call,dolphin_call,ship_noise,other,unlabeled
+--classes orca_call,humpback_song,dolphin_call,ship_noise,other,unlabeled
 ```
 
 ### Species acoustic signatures for MARS hydrophone
@@ -618,17 +589,6 @@ of the spectrogram, and only their harmonics may be visible.
 - **References:** [Thompson et al. 2017](https://www.nature.com/articles/s41598-017-09423-7),
   [DOSITS](https://dosits.org/galleries/audio-gallery/marine-mammals/baleen-whales/blue-whale/)
 
-#### Fin Whale — `fin_whale_call`
-- **Frequency range:** 13–40 Hz (infrasonic), peak at ~20 Hz
-- **Call structure:** "20-Hz pulse" — short downsweep ~1 second, 40→13 Hz
-- **Secondary component:** higher-frequency component (HFC) at 85–140 Hz
-  occasionally visible in spectrogram
-- **Peak energy:** tightly centered at 20 Hz
-- **Spectrogram signature:** very similar to blue whale — near-bottom energy.
-  The HFC at 85–140 Hz may be the only visible feature in the 0–16 kHz display.
-- **References:** [DOSITS](https://dosits.org/galleries/audio-gallery/marine-mammals/baleen-whales/fin-whale/),
-  [Širović et al. 2019](https://www.sciencedirect.com/science/article/abs/pii/S0967064519300736)
-
 #### Humpback Whale — `humpback_song`
 - **Frequency range:** 20 Hz–10 kHz, most energy 100 Hz–4 kHz
 - **Spectrogram signature:** complex song units with rich harmonic structure,
@@ -654,7 +614,7 @@ of the spectrogram, and only their harmonics may be visible.
 
 #### Note on infrasonic species at 32 kHz sample rate
 The MARS files are resampled to 32 kHz, giving a Nyquist of 16 kHz.
-Blue whale and fin whale fundamentals (10–40 Hz) are well within this
+Blue whale and fin whale fundamentals (10–40 Hz) are below the reliable detection range of this system —
 range and fully captured. However, the Gradio spectrogram uses a linear
 frequency axis — the bottom ~2% of the display covers 0–320 Hz where
 all baleen whale energy concentrates. Consider using a log-frequency
@@ -682,7 +642,7 @@ to the calls. UTC 08:39 = PDT 01:39 — overnight orca feeding activity.
 
 ---
 
-### Ocean background — label NEGATIVE
+### Ocean background — label `other`
 **Score: −2.815 | File: MARS_20180413_235913 | 130–135s**
 
 ![Background noise spectrogram](figures/background.png)
@@ -691,11 +651,11 @@ Featureless broadband noise across all frequencies. Energy is uniformly
 distributed with no structured features. This is typical deep-water
 ambient noise — flow noise, distant shipping, and biological background.
 The waveform is stationary with no transients. UTC 23:59 = PDT 16:59 —
-mid-afternoon, well outside the orca event window. Label confidently negative.
+mid-afternoon, well outside the orca event window. Label as `other` — featureless background with no biological signal.
 
 ---
 
-### Dolphin call — label NEGATIVE (for orca classifier)
+### Dolphin call — label `dolphin_call`
 **Score: 3.709 | File: MARS_20180413_163913 | 310–315s**
 
 ![Dolphin spectrogram](figures/dolphin.png)
@@ -705,9 +665,8 @@ frequency modulation, extending from ~3 kHz up to 14+ kHz. These are
 Pacific white-sided dolphin calls — entirely different structure from
 orca calls. Score is high (3.709) because the Perch V2 embedding places
 dolphin and orca calls near each other in embedding space. This is a
-classic **false positive** case — mark NEGATIVE for the orca classifier.
-When building a multi-class classifier, these would be labeled
-`dolphin_call` as a separate positive class.
+classic **false positive** for orca — label `dolphin_call` as its own positive class.
+The multi-class classifier handles this correctly by learning dolphin as a separate category.
 
 ---
 
@@ -807,8 +766,8 @@ Written automatically when **💾 Save Labels to DB** is clicked.
       "filename":  "MARS_20180413_143913_resampled_32kHz.wav",
       "offset_s":  95.0,
       "end_s":     100.0,
-      "label":     "negative",
-      "label_type": 2,
+      "label":     "orca_call",
+      "label_type": 2,   // label_type=2 = weak negative (confirmed NOT this class)
       "score":     3.241
     }
   ]
@@ -854,11 +813,16 @@ Given a provenance record and the original audio:
 
 | Model | Best for | Notes |
 |---|---|---|
-| `perch_v2` | Broadest coverage, recommended start | Requires A100/V100 for embedding |
+| `perch_v2` | Broadest coverage, **recommended** | **Native PyTorch port — runs on any CUDA GPU** |
 | `multispecies_whale` | Baleen whale calls, biotwangs | Pre-trained on cetaceans |
 | `humpback` | Humpback song specifically | Narrow but accurate |
 | `surfperch` | Coral reef soundscapes | Not suitable for deep-water MBARI sites |
 | `perch_8` | Bird sounds only | Not useful for marine work |
+
+**July 2026 update:** `perch_v2` previously required a TensorFlow-compatible A100/V100
+GPU and Google Colab for embedding. The native PyTorch reimplementation
+(`phase1_embed_torch.py`) now runs on any CUDA-capable GPU, including the NVIDIA
+GB10 (sm_121) on spark-ae0e, at 231 windows/sec — no TensorFlow, no Colab required.
 
 Each model requires its own separate DB — embeddings from different models
 cannot be mixed in a single database.
@@ -872,5 +836,20 @@ df -h /mnt/PAM_Analysis /mnt/PAM_Archive
 du -sh /mnt/PAM_Analysis/duane_scratch/perch_hoplite/db/* 2>/dev/null | sort -h
 ```
 
-PAM_Analysis: ~94% full as of June 2026 (3.4 TB free). Monitor before large embedding runs.
+**As of July 5 2026 — total DB usage: 3.8 GB**
+
+| DB | Embeddings | Date |
+|---|---|---|
+| MARS_20180401_20180401_32kHz | 17,280 | Apr 1 2018 |
+| MARS_20180401_20180430_32kHz | 518,400 | Full April 2018 (primary) |
+| MARS_20180413_20180413_32kHz | 17,280 | Apr 13 2018 (training DB) |
+| MARS_20180413_torch_32kHz | 17,280 | Apr 13 2018 (PyTorch validation) |
+| MARS_20180413_torch_compile_32kHz | 17,280 | Apr 13 2018 (compile test) |
+| MARS_20180420_20180420_32kHz | 17,280 | Apr 20 2018 |
+| MARS_20180430_20180430_32kHz | 17,280 | Apr 30 2018 |
+| MARS_20180502_20180502_32kHz | 17,280 | May 2 2018 |
+| MARS_20201001_20201031_32kHz | 535,278 | Full October 2020 (primary) |
+| MARS_combined | — | Legacy — can be removed |
+
 Rough estimate: ~9 MB per hour of audio at Perch V2 defaults (5-second windows, 1536-dim float16).
+Monitor before large embedding runs: `df -h /mnt/PAM_Analysis`
