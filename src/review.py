@@ -18,7 +18,7 @@ from src.audio import make_audio_b64, load_30s_context
 log = logging.getLogger(__name__)
 
 # Provenance base directory
-PROVENANCE_BASE = "/mnt/PAM_Analysis/duane_scratch/perch_hoplite/provenance"
+PROVENANCE_BASE = "/mnt/PAM_Analysis/perch-hoplite/provenance"
 
 
 # ---------------------------------------------------------------------------

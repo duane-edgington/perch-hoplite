@@ -23,19 +23,19 @@ Usage examples:
     python3 phase1_embed_torch.py \\
         --audio-dir /mnt/PAM_Analysis/GoogleMultiSpeciesWhaleModel2/resampled_32kHz/2018/04 \\
         --date 20180413 \\
-        --db-dir /mnt/PAM_Analysis/duane_scratch/perch_hoplite/db/MARS_20180413_torch_32kHz \\
+        --db-dir /mnt/PAM_Analysis/perch-hoplite/db/MARS_20180413_torch_32kHz \\
         --device cuda
 
     # Embed all of April 2018:
     python3 phase1_embed_torch.py \\
         --audio-dir /mnt/PAM_Analysis/GoogleMultiSpeciesWhaleModel2/resampled_32kHz/2018/04 \\
-        --db-dir /mnt/PAM_Analysis/duane_scratch/perch_hoplite/db/MARS_20180401_20180430_32kHz \\
+        --db-dir /mnt/PAM_Analysis/perch-hoplite/db/MARS_20180401_20180430_32kHz \\
         --device cuda
 
     # Embed October 2020:
     python3 phase1_embed_torch.py \\
         --audio-dir /mnt/PAM_Analysis/GoogleMultiSpeciesWhaleModel2/resampled_32kHz/2020/10 \\
-        --db-dir /mnt/PAM_Analysis/duane_scratch/perch_hoplite/db/MARS_20201001_20201031_32kHz \\
+        --db-dir /mnt/PAM_Analysis/perch-hoplite/db/MARS_20201001_20201031_32kHz \\
         --device cuda
 
     # CPU-only (slower, for testing):
@@ -75,7 +75,7 @@ EXACT_MEL_NPY     = PERCH_PYTORCH_DIR / "const__pad1_output_0.npy"
 ADAPTER_SCRIPT    = PERCH_PYTORCH_DIR / "perch_hoplite_torch_adapter.py"
 
 # Default DB base directory
-DB_BASE = Path("/mnt/PAM_Analysis/duane_scratch/perch_hoplite/db")
+DB_BASE = Path("/mnt/PAM_Analysis/perch-hoplite/db")
 
 # Audio base paths
 AUDIO_BASE_32K = Path("/mnt/PAM_Analysis/GoogleMultiSpeciesWhaleModel2/resampled_32kHz")
@@ -267,7 +267,7 @@ def main():
              "E.g. /mnt/PAM_Analysis/.../resampled_32kHz/2018/04")
     ap.add_argument("--db-dir", required=True,
         help="Output hoplite DB directory (created if needed). "
-             "E.g. /mnt/PAM_Analysis/duane_scratch/perch_hoplite/db/MARS_20180413_torch_32kHz")
+             "E.g. /mnt/PAM_Analysis/perch-hoplite/db/MARS_20180413_torch_32kHz")
     ap.add_argument("--date", default=None,
         help="Embed only files matching this date string YYYYMMDD. "
              "Omit to embed all files in --audio-dir.")
@@ -358,8 +358,8 @@ def main():
     print(f"\nNext step — run inference:")
     print(f"  python3 phase2_classify.py infer \\")
     print(f"    --db-dir {db_dir} \\")
-    print(f"    --classifier /mnt/PAM_Analysis/duane_scratch/perch_hoplite/models/orca_v4_clean.pt \\")
-    print(f"    --output-csv /mnt/PAM_Analysis/duane_scratch/perch_hoplite/results/{dataset_name}_detections.csv \\")
+    print(f"    --classifier /mnt/PAM_Analysis/perch-hoplite/models/orca_v4_clean.pt \\")
+    print(f"    --output-csv /mnt/PAM_Analysis/perch-hoplite/results/{dataset_name}_detections.csv \\")
     print(f"    --logit-threshold 0.0")
     print("=" * 60)
 

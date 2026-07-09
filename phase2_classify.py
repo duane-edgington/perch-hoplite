@@ -19,61 +19,61 @@ Environment
 -----------
 MBARI NVIDIA DGX SPARC nodes: spark-ae0e (134.89.11.107)
                                spark-0626 (134.89.11.174)
-NFS base : /mnt/PAM_Analysis/duane_scratch/perch_hoplite/
+NFS base : /mnt/PAM_Analysis/perch-hoplite/
 Audio    : /mnt/PAM_Archive/<year>/<deployment>/
 
 Path constants are in:
-  /mnt/PAM_Analysis/duane_scratch/perch_hoplite/.perch_env
+  /mnt/PAM_Analysis/perch-hoplite/.perch_env
   source that file to avoid typing long paths.
 
 Usage examples
 --------------
 # 0. Source path constants (optional but convenient):
-source /mnt/PAM_Analysis/duane_scratch/perch_hoplite/.perch_env
+source /mnt/PAM_Analysis/perch-hoplite/.perch_env
 
 # 1. Search and launch Gradio labeling GUI:
 #    Browser: http://134.89.11.107:7860  (spark-ae0e)
 #          or http://134.89.11.174:7860  (spark-0626)
 python3 phase2_classify.py search \
-    --db-dir /mnt/PAM_Analysis/duane_scratch/perch_hoplite/db/MARS_2018 \
-    --query-audio /mnt/PAM_Analysis/duane_scratch/perch_hoplite/queries/cetaceans/orca_call.wav \
+    --db-dir /mnt/PAM_Analysis/perch-hoplite/db/MARS_2018 \
+    --query-audio /mnt/PAM_Analysis/perch-hoplite/queries/cetaceans/orca_call.wav \
     --query-label orca_call \
     --num-results 200 \
-    --output-csv /mnt/PAM_Analysis/duane_scratch/perch_hoplite/results/MARS_2018_orca_search.csv \
+    --output-csv /mnt/PAM_Analysis/perch-hoplite/results/MARS_2018_orca_search.csv \
     --serve --port 7860
 
 # 2. Import labels from Raven Pro / PAMGuard CSV:
 #    CSV columns: recording_id, offset_s, end_offset_s, label, label_type
 #    label_type values: positive | negative | weak_negative
 python3 phase2_classify.py label \
-    --db-dir /mnt/PAM_Analysis/duane_scratch/perch_hoplite/db/MARS_2018 \
-    --labels-csv /mnt/PAM_Analysis/duane_scratch/perch_hoplite/labels/orca_raven.csv \
+    --db-dir /mnt/PAM_Analysis/perch-hoplite/db/MARS_2018 \
+    --labels-csv /mnt/PAM_Analysis/perch-hoplite/labels/orca_raven.csv \
     --annotator-id duane
 
 # 3. Train a linear classifier:
 python3 phase2_classify.py train \
-    --db-dir /mnt/PAM_Analysis/duane_scratch/perch_hoplite/db/MARS_2018 \
-    --classifier-out /mnt/PAM_Analysis/duane_scratch/perch_hoplite/models/orca_v1.pt \
+    --db-dir /mnt/PAM_Analysis/perch-hoplite/db/MARS_2018 \
+    --classifier-out /mnt/PAM_Analysis/perch-hoplite/models/orca_v1.pt \
     --num-steps 256 --learning-rate 0.001
 
 # 4. Active learning — review classifier results and add more labels:
 python3 phase2_classify.py review \
-    --db-dir /mnt/PAM_Analysis/duane_scratch/perch_hoplite/db/MARS_2018 \
-    --classifier /mnt/PAM_Analysis/duane_scratch/perch_hoplite/models/orca_v1.pt \
+    --db-dir /mnt/PAM_Analysis/perch-hoplite/db/MARS_2018 \
+    --classifier /mnt/PAM_Analysis/perch-hoplite/models/orca_v1.pt \
     --target-label orca_call \
     --num-results 100 \
     --serve --port 7860
 
 # 5. Full inference — write detections CSV:
 python3 phase2_classify.py infer \
-    --db-dir /mnt/PAM_Analysis/duane_scratch/perch_hoplite/db/MARS_2018 \
-    --classifier /mnt/PAM_Analysis/duane_scratch/perch_hoplite/models/orca_v1.pt \
-    --output-csv /mnt/PAM_Analysis/duane_scratch/perch_hoplite/results/MARS_2018_orca_detections.csv \
+    --db-dir /mnt/PAM_Analysis/perch-hoplite/db/MARS_2018 \
+    --classifier /mnt/PAM_Analysis/perch-hoplite/models/orca_v1.pt \
+    --output-csv /mnt/PAM_Analysis/perch-hoplite/results/MARS_2018_orca_detections.csv \
     --logit-threshold 0.0
 
 # 6. Check DB statistics:
 python3 phase2_classify.py stats \
-    --db-dir /mnt/PAM_Analysis/duane_scratch/perch_hoplite/db/MARS_2018
+    --db-dir /mnt/PAM_Analysis/perch-hoplite/db/MARS_2018
 
 GUI
 ---
@@ -83,7 +83,7 @@ any browser on the MBARI network. Press Ctrl+C to stop the server.
 
 For multi-analyst annotation campaigns, use Label Studio (Docker):
   docker run -d -p 8080:8080 \
-      -v /mnt/PAM_Analysis/duane_scratch/perch_hoplite/labelstudio:/label-studio/data \
+      -v /mnt/PAM_Analysis/perch-hoplite/labelstudio:/label-studio/data \
       heartexlabs/label-studio:latest
   Access at http://134.89.11.107:8080
 
@@ -163,7 +163,7 @@ log = logging.getLogger(__name__)
 # These records — combined with the audio files — allow full reproduction
 # of any classifier from scratch.
 
-PROVENANCE_BASE = "/mnt/PAM_Analysis/duane_scratch/perch_hoplite/provenance"
+PROVENANCE_BASE = "/mnt/PAM_Analysis/perch-hoplite/provenance"
 
 
 def _provenance_path(subdir: str, stem: str) -> Path:
