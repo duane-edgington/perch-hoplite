@@ -712,11 +712,36 @@ Per-clip display:
 - **Header**: filename, time offset, classifier score
 - **Spectrogram**: 0–16 kHz, 60 dB dynamic range, inferno colormap
 - **Waveform**: full 5-second window
-- **Player**: HTML5 audio player with normalization to −3 dBFS
-- **Radio**: positive / negative / unlabeled
+- **Player**: HTML5 audio player
+- **30-second context**: pre-computed mel spectrogram with yellow fiducial markers
+  showing the 5-second clip location within the broader acoustic context
+- **Radio**: label class buttons (color-coded per class)
 
-Labels are written to the Hoplite SQLite DB on click of **💾 Save Labels to DB**.
+Labels auto-save on every click and on **💾 Save Labels to DB**.
 Only one analyst should label a given DB at a time to avoid SQLite write conflicts.
+
+### 30-Second Context Feature
+
+Each clip displays a 30-second mel spectrogram context window centered on the
+5-second clip, with yellow markers showing exactly where the clip falls. This
+is pre-computed at Gradio startup — no waiting.
+
+![Gradio annotation tool — orca clip with 30s context](figures/gradio_30s_context_feature.png)
+
+*Orca candidate: 5-second linear STFT (top), 30-second mel context with yellow
+fiducial markers (bottom), and 30-second audio player. The context window reveals
+the broader acoustic environment surrounding the candidate call.*
+
+### Spectrogram Modes
+
+The `--spectrogram-type` flag controls the 5-second clip display:
+
+| Mode | Best for | Description |
+|---|---|---|
+| `linear` | Orca, dolphin | Linear-frequency STFT, 0–16 kHz (default) |
+| `mel` | Humpback | Mel-scale log power, 10 Hz floor |
+| `perch` | Model inspection | Exact Perch 2.0 frontend — what the model sees |
+| `pcen` | Quiet signals | PCEN mel — makes low-amplitude calls pop |
 
 For concurrent multi-analyst campaigns, use Label Studio:
 ```bash
