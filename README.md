@@ -366,8 +366,10 @@ nohup python3 phase2_classify_logmel.py review     --db-dir /mnt/PAM_Analysis/du
 | **Normalization fix (July 2026)** | ✅ per-window peak-norm to 0.25 — cos 1.0 vs live TF on MARS audio |
 | orca_v0.pt | ✅ **ROC-AUC 0.9773** — April 2018 normalized, 5 classes, 22 sec |
 | orca_v1.pt | ✅ **ROC-AUC 0.9533** — April + October 2020 normalized, 5 classes |
+| orca_v2.pt | ✅ **ROC-AUC 0.9654** — April 2018 expanded labels, cmap 0.8930 |
 | Inference April 2018 v1 | ✅ **286 orca Apr 13** + 15,611 dolphin + 1,267 humpback + 1,741 ship |
 | Inference October 2020 v1 | ✅ **204 orca** (Oct 5-12 cluster) + 223,214 humpback + 3,344 dolphin |
+| Inference May 2018 v1 | ✅ **183 orca May 12** + 22 May 14 + 6,621 dolphin |
 | TF-free pipeline | ✅ zero TF imports — single venv `~/perch-hoplite/venv` |
 | Expert annotation | ✅ 41 humpback (April, J. Ryan) + 209 humpback + 5 dolphin (October) |
 | DB: MARS April 2018 normalized | ✅ 518,400 embeddings — 30 days, 37 min on GB10 |
