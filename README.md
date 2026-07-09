@@ -728,9 +728,18 @@ is pre-computed at Gradio startup — no waiting.
 
 ![Gradio annotation tool — orca clip with 30s context](figures/gradio_30s_context_feature.png)
 
-*Orca candidate: 5-second linear STFT (top), 30-second mel context with yellow
-fiducial markers (bottom), and 30-second audio player. The context window reveals
-the broader acoustic environment surrounding the candidate call.*
+*Orca candidate (April 13 2018): 5-second linear STFT (top), 30-second mel context
+with yellow fiducial markers (bottom), and 30-second audio player. The context window
+reveals the broader acoustic environment — quiet background confirming this is a clean
+isolated orca call, not embedded in noise.*
+
+![Gradio annotation tool — humpback clip with 30s context showing repeating phrase](figures/gradio_30s_context_humpback.png)
+
+*Humpback song candidate (October 2020): the 30-second mel context reveals the
+repeating low-frequency phrase structure diagnostic of humpback song — entirely
+invisible in the 5-second clip alone. Yellow markers locate the 5-second window
+within the broader context. This is why the 30-second context is essential for
+distinguishing humpback song from other low-frequency sounds.*
 
 ### Spectrogram Modes
 
