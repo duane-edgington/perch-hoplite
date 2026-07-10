@@ -1725,6 +1725,7 @@ def cmd_review(args) -> int:
             label_classes=custom_classes,
             detections_info=_det_info_dict,
             spectrogram_type=getattr(args, "spectrogram_type", "linear"),
+            colormap=getattr(args, "colormap", None),
             audio_base_dir=getattr(args, "audio_dir", ""),
         )
 
@@ -1889,10 +1890,12 @@ def _launch_labeling_gui(
     def _make_spectrogram_image(audio_array: "np.ndarray", sr: int,
                                 spec_type: str = "linear",
                                 highlight_start: float | None = None,
-                                highlight_end: float | None = None) -> str:
+                                highlight_end: float | None = None,
+                                colormap: str | None = None) -> str:
         if _SRC_AVAILABLE:
             return _src_make_spectrogram(audio_array, sr, spec_type,
-                                         highlight_start, highlight_end)
+                                         highlight_start, highlight_end,
+                                         colormap)
         # Fallback: inline implementation (kept for safety)
         """Return a base64-encoded PNG spectrogram.
 
