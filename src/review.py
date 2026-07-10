@@ -141,6 +141,7 @@ def launch_labeling_gui(
     label_classes=None,
     detections_info=None,
     spectrogram_type: str = "linear",
+    colormap: str | None = None,
     audio_base_dir: str = "",
 ) -> None:
     """Launch a Gradio web app for interactive audio labeling.
@@ -260,7 +261,8 @@ def launch_labeling_gui(
     def _segment_card(seg, idx):
         wav_b64  = make_audio_b64(seg["audio"], seg["sample_rate"])
         spec_b64 = make_spectrogram_image(
-            seg["audio"], seg["sample_rate"], spec_type=spectrogram_type)
+            seg["audio"], seg["sample_rate"], spec_type=spectrogram_type,
+            colormap=colormap)
         fname = seg["recording_id"].split("/")[-1]
         player_html = (
             f"<audio controls style='width:100%;margin-top:6px;height:40px;'"
@@ -402,7 +404,7 @@ Click a label for each segment, then **Save Labels to DB**.
                         log.info("Pre-computing 30s context for segment %d/%d...",
                                  i+1, len(segments))
                         _ctx_spec_html, _ctx_audio_data = load_30s_context(
-                            seg, audio_base_dir, spectrogram_type)
+                            seg, audio_base_dir, spectrogram_type, colormap=colormap)
                         ctx_spec  = gr.HTML(_ctx_spec_html, visible=True)
                         ctx_audio = gr.Audio(
                             value=_ctx_audio_data if _ctx_audio_data is not None else None,

@@ -1,169 +1,199 @@
 #!/usr/bin/env python3
 """extract_example_clips.py
-Extract representative 5-second WAV clips from the MARS hydrophone
-recordings for use in PyTorch/Perch model porting and testing.
+Extract 10 peak-normalized 5-second example clips from annotated MARS windows.
 
-Pulls labeled examples directly from the hoplite SQLite DB:
-  - 2 strong orca_call       (highest logit scores from v4_clean inference)
-  - 2 strong dolphin_call    (highest logit scores)
-  - 2 ship_noise
-  - 2 humpback_song
-  - 2 background             (lowest logit scores — quiet clips)
+Selects 2 clips per class (orca_call, dolphin_call, humpback_song, ship_noise,
+other/background) from the April 2018 and October 2020 annotated DBs.
 
-Output: 10 WAV files in /mnt/PAM_Analysis/duane_scratch/example_clips/
-  e.g. orca_call_01.wav, dolphin_call_01.wav, background_01.wav ...
+Each clip is:
+  - Extracted from the source WAV at the annotated offset
+  - Peak-normalized to 0.25 (idempotent with Perch's internal normalization)
+  - Saved as 32kHz 16-bit PCM WAV
+  - Named: {label}_{date}_{offset_s}s.wav
 
-Usage:
-    python3 extract_example_clips.py
+Output: /mnt/PAM_Analysis/perch-hoplite/example_clips/
 """
-
+import json
 import os
-import struct
 import sqlite3
-import csv
-import soundfile as sf
+import struct
+import sys
+from pathlib import Path
+
 import numpy as np
+import soundfile as sf
 
-# ── Configuration ──────────────────────────────────────────────────────────
-DB_DIR      = "/mnt/PAM_Analysis/duane_scratch/perch_hoplite/db/MARS_20180413_20180413_32kHz"
-AUDIO_DIR   = "/mnt/PAM_Analysis/GoogleMultiSpeciesWhaleModel2/resampled_32kHz/2018/04"
-APR30_DB    = "/mnt/PAM_Analysis/duane_scratch/perch_hoplite/db/MARS_20180430_20180430_32kHz"
-APR30_AUDIO = "/mnt/PAM_Analysis/GoogleMultiSpeciesWhaleModel2/resampled_32kHz/2018/04"
-V4_CSV      = "/mnt/PAM_Analysis/duane_scratch/perch_hoplite/results/MARS_20180413_orca_v4_clean_detections.csv"
-V4_APR30    = "/mnt/PAM_Analysis/duane_scratch/perch_hoplite/results/MARS_20180430_orca_v4_clean_detections.csv"
-OUTPUT_DIR  = "/mnt/PAM_Analysis/duane_scratch/example_clips"
+# ---------------------------------------------------------------------------
+# Paths
+# ---------------------------------------------------------------------------
+PAM_ROOT    = Path("/mnt/PAM_Analysis")
+PERCH_ROOT  = PAM_ROOT / "perch-hoplite"
+OUTPUT_DIR  = PERCH_ROOT / "example_clips"
 
-CLIPS = {
+DBS = [
+    (PERCH_ROOT / "db" / "MARS_20180401_20180430_32kHz_norm" / "hoplite.sqlite",
+     PAM_ROOT / "GoogleMultiSpeciesWhaleModel2" / "resampled_32kHz" / "2018" / "04"),
+    (PERCH_ROOT / "db" / "MARS_20201001_20201031_32kHz_norm" / "hoplite.sqlite",
+     PAM_ROOT / "GoogleMultiSpeciesWhaleModel2" / "resampled_32kHz" / "2020" / "10"),
+]
+
+CLASSES = {
     "orca_call":     2,
     "dolphin_call":  2,
-    "ship_noise":    2,
     "humpback_song": 2,
-    "background":    2,
+    "ship_noise":    2,
+    "other":         2,
 }
-# ──────────────────────────────────────────────────────────────────────────
+PEAK_TARGET = 0.25
+WINDOW_S    = 5.0
+SR          = 32000
 
-def get_annotations(db_path, label, n, highest=True):
-    """Get top-n annotations by label from DB, ordered by annotation id."""
+
+# ---------------------------------------------------------------------------
+# Helpers
+# ---------------------------------------------------------------------------
+
+def peak_normalize(audio: np.ndarray, target: float = PEAK_TARGET) -> np.ndarray:
+    """Peak-normalize to target amplitude. Matches perch_hoplite_torch_adapter."""
+    audio = audio.astype(np.float64)
+    peak  = np.abs(audio).max()
+    if peak > 1e-12:
+        audio = audio * (target / peak)
+    return audio.astype(np.float32)
+
+
+def get_annotations(db_path: Path, label: str, n: int) -> list:
+    """Return up to n annotations for a label from a DB."""
     con = sqlite3.connect(db_path)
     rows = con.execute("""
-        SELECT r.filename, w.offsets, a.label
+        SELECT r.filename, a.offsets
         FROM annotations a
-        JOIN recordings r ON r.id = a.recording_id
-        JOIN windows w ON w.recording_id = a.recording_id AND w.offsets = a.offsets
+        JOIN recordings r ON a.recording_id = r.id
         WHERE a.label = ? AND a.label_type = 1
-        ORDER BY a.id DESC
+        ORDER BY RANDOM()
         LIMIT ?
     """, (label, n)).fetchall()
     con.close()
-    return rows
+    results = []
+    for fname, off_blob in rows:
+        if isinstance(off_blob, (bytes, bytearray)) and len(off_blob) >= 16:
+            start_s, end_s = struct.unpack_from("<dd", off_blob)
+        else:
+            start_s, end_s = 0.0, WINDOW_S
+        results.append({"filename": fname, "start_s": start_s, "end_s": end_s})
+    return results
 
 
-def get_top_from_csv(csv_path, label, n, highest=True):
-    """Get top-n detections by logit score from inference CSV."""
-    rows = []
-    with open(csv_path, newline="") as f:
-        for row in csv.DictReader(f):
-            if row.get("label") == label:
-                rows.append((row["filename"], float(row["window_start"]), float(row["logits"])))
-    rows.sort(key=lambda x: x[2], reverse=highest)
-    return rows[:n]
+def extract_clip(audio_dir: Path, filename: str,
+                 start_s: float, end_s: float):
+    """Load and return a 5-second audio clip."""
+    wav_path = audio_dir / filename
+    if not wav_path.exists():
+        print(f"  WARNING: {wav_path} not found — skipping")
+        return None
+    start_smp = int(start_s * SR)
+    end_smp   = int(end_s   * SR)
+    audio, sr_file = sf.read(str(wav_path), start=start_smp, stop=end_smp,
+                              dtype="float32", always_2d=False)
+    if sr_file != SR:
+        print(f"  WARNING: sample rate {sr_file} != {SR} for {filename}")
+    # Pad to exactly WINDOW_S if short
+    target_len = int(WINDOW_S * SR)
+    if len(audio) < target_len:
+        audio = np.pad(audio, (0, target_len - len(audio)))
+    elif len(audio) > target_len:
+        audio = audio[:target_len]
+    return audio
 
 
-def get_background(csv_path, n):
-    """Get n clips with lowest logit scores (most background-like)."""
-    rows = []
-    with open(csv_path, newline="") as f:
-        for row in csv.DictReader(f):
-            rows.append((row["filename"], float(row["window_start"]), float(row["logits"])))
-    # Sort by logit ascending — lowest scores are most background-like
-    rows.sort(key=lambda x: x[2])
-    return rows[:n]
-
-
-def extract_clip(audio_dir, filename, start_s, output_path):
-    """Extract a 5-second clip from a WAV file and save it."""
-    filepath = os.path.join(audio_dir, filename)
-    if not os.path.exists(filepath):
-        print(f"  WARNING: file not found: {filepath}")
-        return False
-    data, sr = sf.read(filepath)
-    start_sample = int(start_s * sr)
-    end_sample   = start_sample + int(5.0 * sr)
-    clip = data[start_sample:end_sample]
-    if len(clip) < int(5.0 * sr):
-        # Pad if needed
-        clip = np.pad(clip, (0, int(5.0 * sr) - len(clip)))
-    sf.write(output_path, clip, sr, subtype="PCM_16")
-    duration = len(clip) / sr
-    print(f"  Wrote: {os.path.basename(output_path)}  ({duration:.1f}s, {sr}Hz, from {filename} @ {start_s:.1f}s)")
-    return True
-
+# ---------------------------------------------------------------------------
+# Main
+# ---------------------------------------------------------------------------
 
 def main():
-    os.makedirs(OUTPUT_DIR, exist_ok=True)
-    print(f"Output directory: {OUTPUT_DIR}\n")
+    OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
+    print(f"Output directory: {OUTPUT_DIR}")
+    print()
 
-    counts = {}
+    collected = {label: [] for label in CLASSES}
 
-    # ── Orca — top scoring from Apr 13 v4_clean inference ────────────────
-    print("Extracting orca_call clips...")
-    orca_rows = get_top_from_csv(V4_CSV, "orca_call", 2, highest=True)
-    for i, (fname, start_s, score) in enumerate(orca_rows, 1):
-        out = os.path.join(OUTPUT_DIR, f"orca_call_{i:02d}.wav")
-        print(f"  score={score:.3f}")
-        extract_clip(AUDIO_DIR, fname, start_s, out)
-    counts["orca_call"] = len(orca_rows)
+    for db_path, audio_dir in DBS:
+        if not db_path.exists():
+            print(f"Skipping missing DB: {db_path}")
+            continue
+        for label, needed in CLASSES.items():
+            already = len(collected[label])
+            if already >= needed:
+                continue
+            anns = get_annotations(db_path, label, needed - already)
+            for ann in anns:
+                audio = extract_clip(audio_dir, ann["filename"],
+                                     ann["start_s"], ann["end_s"])
+                if audio is None:
+                    continue
+                collected[label].append({
+                    "audio":    audio,
+                    "filename": ann["filename"],
+                    "start_s":  ann["start_s"],
+                    "label":    label,
+                })
 
-    # ── Dolphin — top scoring from Apr 13 v4_clean inference ─────────────
-    print("\nExtracting dolphin_call clips...")
-    dolp_rows = get_top_from_csv(V4_CSV, "dolphin_call", 2, highest=True)
-    for i, (fname, start_s, score) in enumerate(dolp_rows, 1):
-        out = os.path.join(OUTPUT_DIR, f"dolphin_call_{i:02d}.wav")
-        print(f"  score={score:.3f}")
-        extract_clip(AUDIO_DIR, fname, start_s, out)
-    counts["dolphin_call"] = len(dolp_rows)
+    print(f"{'Class':<20} {'Source file':<45} {'Offset':>8}  {'Raw peak':>10}  {'Norm peak':>10}")
+    print("-" * 100)
 
-    # ── Ship noise — from Apr 13 annotations ─────────────────────────────
-    print("\nExtracting ship_noise clips...")
-    ship_rows = get_annotations(DB_DIR, "ship_noise", 2)
-    if len(ship_rows) < 2:
-        # Fall back to Apr 30 annotations
-        ship_rows = get_annotations(APR30_DB, "ship_noise", 2)
-        audio_dir = APR30_AUDIO
-    else:
-        audio_dir = AUDIO_DIR
-    for i, (fname, off_blob, label) in enumerate(ship_rows, 1):
-        start_s = struct.unpack_from("<dd", off_blob)[0]
-        out = os.path.join(OUTPUT_DIR, f"ship_noise_{i:02d}.wav")
-        extract_clip(audio_dir, fname, start_s, out)
-    counts["ship_noise"] = len(ship_rows)
+    manifest = []
+    for label, clips in collected.items():
+        if not clips:
+            print(f"{label:<20}  *** NO CLIPS FOUND ***")
+            continue
+        for clip in clips:
+            raw_peak   = float(np.abs(clip["audio"]).max())
+            norm_audio = peak_normalize(clip["audio"])
+            norm_peak  = float(np.abs(norm_audio).max())
 
-    # ── Humpback — from Apr 30 annotations ───────────────────────────────
-    print("\nExtracting humpback_song clips...")
-    hump_rows = get_annotations(APR30_DB, "humpback_song", 2)
-    for i, (fname, off_blob, label) in enumerate(hump_rows, 1):
-        start_s = struct.unpack_from("<dd", off_blob)[0]
-        out = os.path.join(OUTPUT_DIR, f"humpback_song_{i:02d}.wav")
-        extract_clip(APR30_AUDIO, fname, start_s, out)
-    counts["humpback_song"] = len(hump_rows)
+            date_str = clip["filename"].split("_")[1]
+            offset   = int(clip["start_s"])
+            out_name = f"{label}_{date_str}_{offset:04d}s.wav"
+            out_path = OUTPUT_DIR / out_name
 
-    # ── Background — lowest scoring from Apr 13 inference ────────────────
-    print("\nExtracting background clips...")
-    bg_rows = get_background(V4_CSV, 2)
-    for i, (fname, start_s, score) in enumerate(bg_rows, 1):
-        out = os.path.join(OUTPUT_DIR, f"background_{i:02d}.wav")
-        print(f"  score={score:.3f}")
-        extract_clip(AUDIO_DIR, fname, start_s, out)
-    counts["background"] = len(bg_rows)
+            sf.write(str(out_path), norm_audio, SR,
+                     subtype="PCM_16", format="WAV")
 
-    # ── Summary ───────────────────────────────────────────────────────────
-    print(f"\n=== Done ===")
-    print(f"Output: {OUTPUT_DIR}")
-    for label, n in counts.items():
-        print(f"  {label}: {n} clips")
-    print(f"\nTotal WAV files: {sum(counts.values())}")
-    print("\nThese clips can be used to validate the PyTorch Perch V2 port")
-    print("by comparing embeddings against the TF reference implementation.")
+            print(f"{label:<20}  {clip['filename']:<45}  {clip['start_s']:>6.1f}s"
+                  f"  {raw_peak:>10.5f}  {norm_peak:>10.5f}")
+
+            manifest.append({
+                "output_file": out_name,
+                "label":       label,
+                "source_file": clip["filename"],
+                "offset_s":    clip["start_s"],
+                "raw_peak":    round(raw_peak, 6),
+                "norm_peak":   round(norm_peak, 6),
+            })
+
+    manifest_path = OUTPUT_DIR / "manifest.json"
+    with open(str(manifest_path), "w") as f:
+        json.dump({
+            "description": (
+                "10 peak-normalized (0.25) 5-second MARS hydrophone clips, "
+                "2 per class. For use as Perch V2 validation/test examples."
+            ),
+            "sample_rate":  SR,
+            "window_s":     WINDOW_S,
+            "peak_target":  PEAK_TARGET,
+            "normalization": "per-window peak normalization to 0.25 — "
+                             "idempotent with Perch internal peak_norm",
+            "clips": manifest,
+        }, f, indent=2)
+
+    print()
+    print(f"Wrote {len(manifest)} clips + manifest to {OUTPUT_DIR}")
+    print()
+    print("Summary:")
+    for label in CLASSES:
+        n = len(collected[label])
+        status = "OK" if n == CLASSES[label] else f"WARNING: only {n}"
+        print(f"  {label:<20} {n}/{CLASSES[label]}  {status}")
 
 
 if __name__ == "__main__":

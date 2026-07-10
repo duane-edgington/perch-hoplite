@@ -24,6 +24,7 @@ def load_30s_context(
     seg: dict,
     audio_base_dir: str,
     spectrogram_type: str = "linear",
+    colormap: str | None = None,
 ) -> tuple:
     """Load a 30-second context window centered on the 5-second clip.
 
@@ -70,6 +71,7 @@ def load_30s_context(
             spec_type=ctx_spec_type,
             highlight_start=hl_start,
             highlight_end=hl_end,
+            colormap=colormap,
         )
         actual_dur = ctx_end - ctx_start
         clip_note  = "" if actual_dur >= 29.9 else f" (clipped to {actual_dur:.0f}s)"

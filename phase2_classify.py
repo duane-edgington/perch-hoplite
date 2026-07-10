@@ -650,6 +650,14 @@ def build_parser() -> argparse.ArgumentParser:
                 "'perch' = exact Perch 2.0 frontend (what the model sees); "
                 "'pcen' = PCEN mel, makes quiet calls pop."
             ))
+        p.add_argument("--colormap", default=None,
+            help=(
+                "Override spectrogram colormap. Examples: "
+                "'gray' (classic grayscale), 'gray_r' (inverted gray), "
+                "'viridis' (blue-green-yellow), 'inferno' (default for linear/mel), "
+                "'magma', 'plasma', 'cividis'. "
+                "None = use per-mode default."
+            ))
         p.add_argument("--serve", action="store_true", default=False,
                        help="Launch the Gradio labeling GUI.")
         p.add_argument("--port", type=int, default=7860,
@@ -1330,6 +1338,7 @@ def cmd_search(args) -> int:
             db_dir=args.db_dir,
             classifier_path=None,
             spectrogram_type=getattr(args, "spectrogram_type", "linear"),
+            colormap=getattr(args, "colormap", None),
             audio_base_dir=getattr(args, "audio_dir", ""),
         )
     else:
@@ -1819,6 +1828,7 @@ def _launch_labeling_gui(
     label_classes: list[str] | None = None,
     detections_info: dict | None = None,
     spectrogram_type: str = "linear",
+    colormap: str | None = None,
     audio_base_dir: str = "",
 ) -> None:
     """
@@ -2125,7 +2135,7 @@ def _launch_labeling_gui(
     # Build per-segment HTML card
     def _segment_card(seg: dict, idx: int) -> str:
         wav_b64  = _make_audio_b64(seg["audio"], seg["sample_rate"])
-        spec_b64 = _make_spectrogram_image(seg["audio"], seg["sample_rate"], spec_type=spectrogram_type)
+        spec_b64 = _make_spectrogram_image(seg["audio"], seg["sample_rate"], spec_type=spectrogram_type, colormap=colormap)
         fname = seg["recording_id"].split("/")[-1]
         pid = f"player_{idx}"   # unique ID for JS targeting
 

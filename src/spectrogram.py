@@ -24,6 +24,7 @@ def make_spectrogram_image(
     spec_type: str = "linear",
     highlight_start: float | None = None,
     highlight_end: float | None = None,
+    colormap: str | None = None,
 ) -> str:
     """Return a base64-encoded PNG spectrogram.
 
@@ -35,6 +36,10 @@ def make_spectrogram_image(
         Sample rate in Hz.
     spec_type : str
         One of "linear", "mel", "perch", "pcen".
+    colormap : str | None
+        Override the default colormap. Examples: "gray", "gray_r",
+        "viridis", "inferno", "magma", "plasma", "cividis".
+        None = use per-mode default (inferno/magma/viridis).
     highlight_start, highlight_end : float | None
         If both provided, draw yellow fiducial markers at these times (seconds)
         within the spectrogram — used by the 30-second context display to mark
@@ -141,10 +146,12 @@ def make_spectrogram_image(
     fig.patch.set_facecolor("#111827")
 
     ax_spec = axes[0]
+    # Apply colormap override if specified
+    _cmap = colormap if colormap else cmap
     ax_spec.pcolormesh(
         t, f_plot, S_plot,
         vmin=vmin, vmax=vmax,
-        cmap=cmap, shading="gouraud",
+        cmap=_cmap, shading="gouraud",
     )
     # Yellow fiducial markers for the 5-second clip within a context window
     if highlight_start is not None and highlight_end is not None:
