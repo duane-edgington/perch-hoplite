@@ -150,31 +150,37 @@ def make_spectrogram_image(
     _cmap = colormap if colormap else cmap
 
     if spec_type in ("mel", "pcen", "perch"):
-        # Use imshow for mel-scale spectrograms — each row is one mel band
-        # (uniformly spaced in mel, NOT in Hz), so imshow correctly preserves
-        # the mel spacing. pcolormesh with Hz values looks linear because
-        # matplotlib interpolates between Hz values linearly.
-        n_rows = S_plot.shape[0]
-        ax_spec.imshow(
-            S_plot[::-1],   # flip: low freq at bottom, high at top
-            aspect="auto",
-            extent=[t[0], t[-1], 0, n_rows],
+        # Use pcolormesh with mel bin EDGES (not centers) so each patch is
+        # drawn from one mel boundary to the next — no banding artifacts.
+        # Bin edges are midpoints between consecutive center frequencies,
+        # with the floor extended to fmin (10 Hz).
+        f_edges = np.concatenate([
+            [max(f_plot[0] - (f_plot[1] - f_plot[0]) / 2, 10.0)],
+            (f_plot[:-1] + f_plot[1:]) / 2,
+            [f_plot[-1] + (f_plot[-1] - f_plot[-2]) / 2],
+        ])
+        # Time edges for pcolormesh
+        dt = t[1] - t[0] if len(t) > 1 else 1.0
+        t_edges = np.concatenate([[t[0] - dt/2],
+                                   (t[:-1] + t[1:]) / 2,
+                                   [t[-1] + dt/2]])
+        ax_spec.pcolormesh(
+            t_edges, f_edges, S_plot,
             vmin=vmin, vmax=vmax,
-            cmap=_cmap, interpolation="bilinear",
+            cmap=_cmap, shading="flat",
         )
-        # Set y-ticks at round Hz values mapped to mel row positions
-        tick_hz  = [500, 1000, 2000, 4000, 8000, 12000, 16000]
-        tick_rows, tick_lbls = [], []
-        for hz in tick_hz:
-            if hz < f_plot[0] or hz > f_plot[-1]:
-                continue
-            row = float(np.searchsorted(f_plot, hz))
-            tick_rows.append(row)
-            tick_lbls.append(f"{hz//1000}k" if hz >= 1000 else str(hz))
-        ax_spec.set_yticks(tick_rows)
-        ax_spec.set_yticklabels(tick_lbls, color="#94a3b8", fontsize=7)
-        ax_spec.set_ylim(0, n_rows)
-        ax_spec.set_xlim(t[0], t[-1])
+        # Log y-axis so mel spacing is visually apparent
+        # (mel scale is approximately logarithmic in Hz)
+        ax_spec.set_yscale("symlog", linthresh=100, linscale=0.3)
+        ax_spec.set_ylim(f_edges[0], f_edges[-1])
+        ax_spec.set_xlim(t_edges[0], t_edges[-1])
+        # Custom ticks at perceptually meaningful Hz values
+        tick_hz  = [100, 500, 1000, 2000, 4000, 8000, 16000]
+        tick_hz  = [h for h in tick_hz if f_edges[0] <= h <= f_edges[-1]]
+        ax_spec.set_yticks(tick_hz)
+        ax_spec.set_yticklabels(
+            [f"{h//1000}k" if h >= 1000 else str(h) for h in tick_hz],
+            color="#94a3b8", fontsize=7)
     else:
         ax_spec.pcolormesh(
             t, f_plot, S_plot,
