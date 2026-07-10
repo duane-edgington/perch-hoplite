@@ -150,16 +150,16 @@ def make_spectrogram_image(
     _cmap = colormap if colormap else cmap
 
     if spec_type in ("mel", "pcen", "perch"):
-        # Use pcolormesh with mel bin EDGES (not centers) so each patch is
-        # drawn from one mel boundary to the next — no banding artifacts.
-        # Bin edges are midpoints between consecutive center frequencies,
-        # with the floor extended to fmin (10 Hz).
+        # Use pcolormesh with mel bin EDGES for clean patch boundaries.
+        # Display floor clipped at 80 Hz — the 10-100 Hz region is
+        # dominated by vessel/electrical noise and obscures the display,
+        # even though the mel filterbank starts at 10 Hz for computation.
+        DISPLAY_FMIN = 80.0
         f_edges = np.concatenate([
-            [max(f_plot[0] - (f_plot[1] - f_plot[0]) / 2, 10.0)],
+            [max(f_plot[0] - (f_plot[1] - f_plot[0]) / 2, f_plot[0])],
             (f_plot[:-1] + f_plot[1:]) / 2,
             [f_plot[-1] + (f_plot[-1] - f_plot[-2]) / 2],
         ])
-        # Time edges for pcolormesh
         dt = t[1] - t[0] if len(t) > 1 else 1.0
         t_edges = np.concatenate([[t[0] - dt/2],
                                    (t[:-1] + t[1:]) / 2,
@@ -169,18 +169,19 @@ def make_spectrogram_image(
             vmin=vmin, vmax=vmax,
             cmap=_cmap, shading="flat",
         )
-        # Log y-axis so mel spacing is visually apparent
-        # (mel scale is approximately logarithmic in Hz)
-        ax_spec.set_yscale("symlog", linthresh=100, linscale=0.3)
-        ax_spec.set_ylim(f_edges[0], f_edges[-1])
+        # Log y-axis from 80 Hz — clean mel spacing without low-freq noise
+        ax_spec.set_yscale("log")
+        ax_spec.set_ylim(DISPLAY_FMIN, f_edges[-1])
         ax_spec.set_xlim(t_edges[0], t_edges[-1])
-        # Custom ticks at perceptually meaningful Hz values
-        tick_hz  = [100, 500, 1000, 2000, 4000, 8000, 16000]
-        tick_hz  = [h for h in tick_hz if f_edges[0] <= h <= f_edges[-1]]
+        tick_hz = [100, 500, 1000, 2000, 4000, 8000, 16000]
+        tick_hz = [h for h in tick_hz if DISPLAY_FMIN <= h <= f_edges[-1]]
         ax_spec.set_yticks(tick_hz)
         ax_spec.set_yticklabels(
             [f"{h//1000}k" if h >= 1000 else str(h) for h in tick_hz],
             color="#94a3b8", fontsize=7)
+        ax_spec.yaxis.set_minor_locator(plt.NullLocator())
+        ax_spec.grid(False)
+        ax_spec.tick_params(axis="y", which="both", length=0)
     else:
         ax_spec.pcolormesh(
             t, f_plot, S_plot,
