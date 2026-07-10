@@ -148,11 +148,39 @@ def make_spectrogram_image(
     ax_spec = axes[0]
     # Apply colormap override if specified
     _cmap = colormap if colormap else cmap
-    ax_spec.pcolormesh(
-        t, f_plot, S_plot,
-        vmin=vmin, vmax=vmax,
-        cmap=_cmap, shading="gouraud",
-    )
+
+    if spec_type in ("mel", "pcen", "perch"):
+        # Use imshow for mel-scale spectrograms — each row is one mel band
+        # (uniformly spaced in mel, NOT in Hz), so imshow correctly preserves
+        # the mel spacing. pcolormesh with Hz values looks linear because
+        # matplotlib interpolates between Hz values linearly.
+        n_rows = S_plot.shape[0]
+        ax_spec.imshow(
+            S_plot[::-1],   # flip: low freq at bottom, high at top
+            aspect="auto",
+            extent=[t[0], t[-1], 0, n_rows],
+            vmin=vmin, vmax=vmax,
+            cmap=_cmap, interpolation="bilinear",
+        )
+        # Set y-ticks at round Hz values mapped to mel row positions
+        tick_hz  = [500, 1000, 2000, 4000, 8000, 12000, 16000]
+        tick_rows, tick_lbls = [], []
+        for hz in tick_hz:
+            if hz < f_plot[0] or hz > f_plot[-1]:
+                continue
+            row = float(np.searchsorted(f_plot, hz))
+            tick_rows.append(row)
+            tick_lbls.append(f"{hz//1000}k" if hz >= 1000 else str(hz))
+        ax_spec.set_yticks(tick_rows)
+        ax_spec.set_yticklabels(tick_lbls, color="#94a3b8", fontsize=7)
+        ax_spec.set_ylim(0, n_rows)
+        ax_spec.set_xlim(t[0], t[-1])
+    else:
+        ax_spec.pcolormesh(
+            t, f_plot, S_plot,
+            vmin=vmin, vmax=vmax,
+            cmap=_cmap, shading="gouraud",
+        )
     # Yellow fiducial markers for the 5-second clip within a context window
     if highlight_start is not None and highlight_end is not None:
         ax_spec.axvspan(highlight_start, highlight_end,
