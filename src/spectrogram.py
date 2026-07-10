@@ -150,11 +150,11 @@ def make_spectrogram_image(
     _cmap = colormap if colormap else cmap
 
     if spec_type in ("mel", "pcen", "perch"):
-        # Use pcolormesh with mel bin EDGES for clean patch boundaries.
-        # Display floor clipped at 80 Hz — the 10-100 Hz region is
-        # dominated by vessel/electrical noise and obscures the display,
-        # even though the mel filterbank starts at 10 Hz for computation.
-        DISPLAY_FMIN = 80.0
+        # pcolormesh with mel bin edges — each patch spans exactly one mel
+        # band boundary to the next, preserving the mel frequency spacing.
+        # Y-axis is in Hz (mel-spaced) with ticks at perceptually meaningful
+        # values. No log scale — the mel spacing itself provides the
+        # perceptual compression. All frequency content is shown.
         f_edges = np.concatenate([
             [max(f_plot[0] - (f_plot[1] - f_plot[0]) / 2, f_plot[0])],
             (f_plot[:-1] + f_plot[1:]) / 2,
@@ -169,17 +169,15 @@ def make_spectrogram_image(
             vmin=vmin, vmax=vmax,
             cmap=_cmap, shading="flat",
         )
-        # Log y-axis from 80 Hz — clean mel spacing without low-freq noise
-        ax_spec.set_yscale("log")
-        ax_spec.set_ylim(DISPLAY_FMIN, f_edges[-1])
+        ax_spec.set_ylim(f_edges[0], f_edges[-1])
         ax_spec.set_xlim(t_edges[0], t_edges[-1])
-        tick_hz = [100, 500, 1000, 2000, 4000, 8000, 16000]
-        tick_hz = [h for h in tick_hz if DISPLAY_FMIN <= h <= f_edges[-1]]
+        # Ticks at mel-meaningful Hz values
+        tick_hz = [500, 1000, 2000, 4000, 8000, 16000]
+        tick_hz = [h for h in tick_hz if f_edges[0] <= h <= f_edges[-1]]
         ax_spec.set_yticks(tick_hz)
         ax_spec.set_yticklabels(
             [f"{h//1000}k" if h >= 1000 else str(h) for h in tick_hz],
             color="#94a3b8", fontsize=7)
-        ax_spec.yaxis.set_minor_locator(plt.NullLocator())
         ax_spec.grid(False)
         ax_spec.tick_params(axis="y", which="both", length=0)
     else:
