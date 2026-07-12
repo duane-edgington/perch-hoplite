@@ -1,0 +1,10 @@
+{
+  "saved_filename": "tsne_apr2018_oct2020_norm.png",
+  "original_filename": "tsne_apr2018_oct2020_norm.png",
+  "capture_computer": "spark-ae0e",
+  "capture_timestamp": "unknown",
+  "date_registered": "2026-07-12T11:08:00.531464",
+  "figure_type": "tsne_plot",
+  "caption": "Perch V2 embeddings t-SNE \u2014 April 2018 + October 2020 (normalized). 778 labeled embeddings, 6 classes. Orca (green) forms a tight cluster. Humpback (orange) spans two regions confirming dual acoustic cluster. Ship noise (cyan) and background (gray) tightly isolated.",
+  "command": "python3 tools/plot_tsne.py --db-dir /mnt/PAM_Analysis/perch-hoplite/db/MARS_20180401_20180430_32kHz_norm /mnt/PAM_Analysis/perch-hoplite/db/MARS_20201001_20201031_32kHz_norm --output /mnt/PAM_Analysis/perch-hoplite/results/tsne_apr2018_oct2020_norm.png --title 'Perch V2 Embeddings \u2014 April 2018 + October 2020 (normalized)'"
+}

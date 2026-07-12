@@ -1,0 +1,17 @@
+{
+  "saved_filename": "gradio_orca_clip3.png",
+  "original_filename": "Screenshot_2026-07-08_unknown_time_clip3.png",
+  "capture_computer": "ICEFISH",
+  "capture_timestamp": "unknown",
+  "date_registered": "2026-07-12T11:08:00.647674",
+  "figure_type": "gradio_screenshot",
+  "caption": "Confirmed April 13 2018 orca call #3 \u2014 highest confidence detection (score=5.588). Structured call energy at end of clip, additional activity in 30s context. Classifier: orca_v8_clean.",
+  "command": "python3 phase2_classify.py review --db-dir .../MARS_20180413_20180413_32kHz --classifier .../orca_v8_clean.pt --serve --port 7861",
+  "source_wav": "MARS_20180413_resampled_32kHz.wav",
+  "spectrogram_type": "linear",
+  "colormap": "inferno",
+  "classifier": "orca_v8_clean.pt",
+  "db": "MARS_20180413_20180413_32kHz",
+  "label_selected": "orca_call",
+  "notes": "Captured July 8 2026 on ICEFISH. Exact offset unknown \u2014 commit ee889f9."
+}

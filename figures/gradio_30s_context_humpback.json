@@ -1,0 +1,16 @@
+{
+  "saved_filename": "gradio_30s_context_humpback.png",
+  "original_filename": "Screenshot_2026-07-07_unknown_time.png",
+  "capture_computer": "ICEFISH",
+  "capture_timestamp": "unknown",
+  "date_registered": "2026-07-12T11:08:00.513133",
+  "figure_type": "gradio_screenshot",
+  "caption": "Humpback song (October 2020): the 30-second mel context reveals the repeating low-frequency phrase structure diagnostic of humpback song \u2014 entirely invisible in the 5-second clip alone. Yellow markers locate the 5-second window within the broader context.",
+  "command": "python3 phase2_classify.py review --db-dir .../MARS_20201001_20201031_32kHz --spectrogram-type mel --serve --port 7861",
+  "source_wav": "unknown_october_2020",
+  "spectrogram_type": "mel",
+  "colormap": "inferno",
+  "classifier": "orca_v7_clean.pt",
+  "db": "MARS_20201001_20201031_32kHz",
+  "notes": "Captured July 7 2026 on ICEFISH. Exact WAV file and offset unknown \u2014 commit 93c25bf."
+}
