@@ -779,37 +779,37 @@ Each clip displays a 30-second mel spectrogram context window centered on the
 5-second clip, with yellow markers showing exactly where the clip falls. This
 is pre-computed at Gradio startup — no waiting.
 
-![Gradio annotation tool — orca clip with 30s context](figures/gradio_30s_context_orca.png)
+---
 
-*Orca call confirmed (April 13 2018, score=3.679): 5-second linear STFT (top) showing
-structured call energy at 2–4 kHz, 30-second mel context (bottom) revealing multiple
-orca calls in the surrounding window — the event is clearly underway. Yellow fiducial
-markers locate the 5-second clip. `orca_call` selected (green button).*
+![Orca call — April 13 2018, 370-375s, score=3.308](figures/gradio_30s_context_orca2.png)
 
-![Gradio annotation tool — orca call at peak of April 13 event](figures/gradio_30s_context_orca2.png)
+*Orca call confirmed (April 13 2018, MARS_20180413_075913, 370–375s, score=3.308,
+UTC ~08:05): 5-second linear STFT (top) showing structured broadband call energy
+entering at 4s, spanning 2–10 kHz. The 30-second mel context (bottom) shows the
+hunt in full swing — multiple intense bursts throughout the window. `orca_call`
+selected (green button). Classifier: orca_v2.*
 
-*Orca call at peak of April 13 2018 event (score=3.308, UTC 07:59): the 30-second mel
-context shows the hunt in full swing — multiple intense broadband bursts spanning the
-entire 30-second window at 2–10 kHz. The waveform (bottom) shows sustained high-amplitude
-activity throughout. This is what an active Bigg's orca hunting event looks like
-acoustically at 891m depth on the MARS hydrophone.*
+---
 
-![Gradio annotation tool — humpback clip with 30s context showing repeating phrase](figures/gradio_30s_context_humpback.png)
+![Humpback song — October 2020, with repeating phrase structure](figures/gradio_30s_context_humpback.png)
 
-*Humpback song candidate (October 2020): the 30-second mel context reveals the
-repeating low-frequency phrase structure diagnostic of humpback song — entirely
-invisible in the 5-second clip alone. Yellow markers locate the 5-second window
-within the broader context. This is why the 30-second context is essential for
-distinguishing humpback song from other low-frequency sounds.*
+*Humpback song (October 2020): the 30-second mel context reveals the repeating
+low-frequency phrase structure diagnostic of humpback song — entirely invisible
+in the 5-second clip alone. Yellow markers locate the 5-second window within the
+broader context. This is why the 30-second context is essential for distinguishing
+humpback song from other low-frequency sounds.*
 
-![Gradio annotation tool — dolphin call with 30s context](figures/gradio_30s_context_dolphin.png)
+---
 
-*Dolphin call (April 20 2018, score=0.147): structured vertical call features
-visible around 1–2s in the 5-second linear STFT, spanning 2–12 kHz — characteristic
-Pacific white-sided dolphin burst pulses. The 30-second mel context shows an active
-acoustic environment with continuous dolphin calling. `dolphin_call` selected
-(blue button). Score is low because this is a lower-confidence detection — the
-classifier correctly distinguishes dolphin from orca at high confidence.*
+![Dolphin call — April 20 2018, 205-210s, score=0.147](figures/gradio_30s_context_dolphin.png)
+
+*Pacific white-sided dolphin call (April 20 2018, MARS_20180420_200913, 205–210s,
+score=0.147): structured vertical call features spanning 2–12 kHz in the 5-second
+linear STFT. The 30-second mel context shows an acoustically active environment
+with continuous dolphin calling. `dolphin_call` selected (blue button).
+Classifier: orca_v2.*
+
+---
 
 ### Spectrogram Modes
 
