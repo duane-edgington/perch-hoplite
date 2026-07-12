@@ -1,0 +1,10 @@
+{
+  "saved_filename": "May_2018_MARS_Hydrophone_v4_monthly_counts.png",
+  "original_filename": "May_2018_MARS_Hydrophone_v4_monthly_counts.png",
+  "capture_computer": "spark-ae0e",
+  "capture_timestamp": "unknown",
+  "date_registered": "2026-07-12T14:38:52.110918",
+  "figure_type": "monthly_plot",
+  "caption": "May 2018 MARS Hydrophone v4 \u2014 detections per day. May 12 orca spike (181 detections) is unmistakable. May 14 secondary event (19 detections). Classifier: orca_v4.",
+  "command": "python3 tools/plot_monthly.py --input /mnt/PAM_Analysis/perch-hoplite/results/MARS_20180501_20180531_v4_detections.csv --output-dir /mnt/PAM_Analysis/perch-hoplite/results --title 'May 2018 MARS Hydrophone v4'"
+}
