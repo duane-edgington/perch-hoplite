@@ -1,0 +1,18 @@
+{
+  "saved_filename": "gradio_30s_context_orca2.png",
+  "original_filename": "Screenshot_2026-07-12_at_9_04_41_AM.png",
+  "capture_computer": "DuaneEM1",
+  "capture_timestamp": "2026-07-12 09:04:41",
+  "date_registered": "2026-07-12T11:05:17.504897",
+  "figure_type": "gradio_screenshot",
+  "caption": "Orca call confirmed (April 13 2018, MARS_20180413_075913, 370-375s, score=3.308, UTC ~08:05): 5-second linear STFT showing structured broadband call energy entering at 4s, spanning 2-10 kHz. The 30-second mel context shows the hunt in full swing. orca_call selected (green button). Classifier: orca_v2.",
+  "command": "nohup python3 phase2_classify.py review --db-dir /mnt/PAM_Analysis/perch-hoplite/db/MARS_20180401_20180430_32kHz_norm --classifier /mnt/PAM_Analysis/perch-hoplite/models/orca_v2.pt --target-label orca_call --detections-csv /tmp/single_clip.csv --num-results 1 --classes orca_call,humpback_song,dolphin_call,ship_noise,other,unlabeled --audio-dir /mnt/PAM_Analysis/GoogleMultiSpeciesWhaleModel2/resampled_32kHz/2018/04 --spectrogram-type linear --serve --port 7862",
+  "source_wav": "MARS_20180413_075913_resampled_32kHz.wav",
+  "wav_offset_s": 370.0,
+  "spectrogram_type": "linear",
+  "colormap": "inferno",
+  "classifier": "orca_v2.pt",
+  "db": "MARS_20180401_20180430_32kHz_norm",
+  "score": 3.308,
+  "label_selected": "orca_call"
+}
