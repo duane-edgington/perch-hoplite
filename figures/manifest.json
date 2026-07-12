@@ -141,8 +141,56 @@
       "db": "MARS_20180413_20180413_32kHz",
       "label_selected": "orca_call",
       "notes": "Captured July 8 2026 on ICEFISH. Exact offset unknown \u2014 commit ee889f9."
+    },
+    "gradio_30s_context_feature.png": {
+      "saved_filename": "gradio_30s_context_feature.png",
+      "original_filename": "Screenshot_2026-07-07_unknown_time_feature.png",
+      "capture_computer": "ICEFISH",
+      "capture_timestamp": "unknown",
+      "date_registered": "2026-07-12T11:09:37.366087",
+      "figure_type": "gradio_screenshot",
+      "caption": "SUPERSEDED \u2014 humpback_song was selected instead of orca_call. Replaced by gradio_30s_context_orca2.png.",
+      "command": "python3 phase2_classify.py review --serve --port 7861",
+      "spectrogram_type": "linear",
+      "colormap": "inferno",
+      "classifier": "orca_v7_clean.pt",
+      "db": "MARS_20180413_20180413_32kHz",
+      "notes": "Superseded July 12 2026. Wrong label selected in screenshot. Commit 60674dd."
+    },
+    "tsne_combined.png": {
+      "saved_filename": "tsne_combined.png",
+      "original_filename": "tsne_combined.png",
+      "capture_computer": "spark-ae0e",
+      "capture_timestamp": "unknown",
+      "date_registered": "2026-07-12T11:09:37.386390",
+      "figure_type": "tsne_plot",
+      "caption": "SUPERSEDED \u2014 pre-normalization t-SNE. Replaced by tsne_apr2018_oct2020_norm.png.",
+      "command": "python3 tools/plot_tsne.py ...",
+      "notes": "Superseded July 9 2026 by normalized embeddings rebuild."
+    },
+    "tsne_MARS_20180413.png": {
+      "saved_filename": "tsne_MARS_20180413.png",
+      "original_filename": "tsne_MARS_20180413.png",
+      "capture_computer": "spark-ae0e",
+      "capture_timestamp": "unknown",
+      "date_registered": "2026-07-12T11:09:37.404884",
+      "figure_type": "tsne_plot",
+      "caption": "SUPERSEDED \u2014 single-day April 13 2018 t-SNE, pre-normalization. Replaced by multi-month normalized t-SNE.",
+      "command": "python3 tools/plot_tsne.py ...",
+      "notes": "Superseded July 9 2026 by normalized embeddings rebuild."
+    },
+    "tsne_apr2018_oct2020.png": {
+      "saved_filename": "tsne_apr2018_oct2020.png",
+      "original_filename": "tsne_apr2018_oct2020.png",
+      "capture_computer": "spark-ae0e",
+      "capture_timestamp": "unknown",
+      "date_registered": "2026-07-12T11:09:37.422766",
+      "figure_type": "tsne_plot",
+      "caption": "SUPERSEDED \u2014 pre-normalization 2-season t-SNE. Replaced by tsne_apr2018_oct2020_norm.png.",
+      "command": "python3 tools/plot_tsne.py ...",
+      "notes": "Superseded July 9 2026 by normalized embeddings rebuild."
     }
   },
-  "last_updated": "2026-07-12T11:08:00.648033",
-  "figure_count": 9
+  "last_updated": "2026-07-12T11:09:37.422948",
+  "figure_count": 13
 }

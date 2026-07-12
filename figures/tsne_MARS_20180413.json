@@ -1,0 +1,11 @@
+{
+  "saved_filename": "tsne_MARS_20180413.png",
+  "original_filename": "tsne_MARS_20180413.png",
+  "capture_computer": "spark-ae0e",
+  "capture_timestamp": "unknown",
+  "date_registered": "2026-07-12T11:09:37.404884",
+  "figure_type": "tsne_plot",
+  "caption": "SUPERSEDED \u2014 single-day April 13 2018 t-SNE, pre-normalization. Replaced by multi-month normalized t-SNE.",
+  "command": "python3 tools/plot_tsne.py ...",
+  "notes": "Superseded July 9 2026 by normalized embeddings rebuild."
+}
