@@ -4,8 +4,7 @@
 ---
 ## Overview
 
-Built on Google perch-hoplite
-https://github.com/google-research/perch-hoplite
+Built on Google perch-hoplite https://github.com/google-research/perch-hoplite. Updated to run pure PyTorch and Python, no TensorFlow, and to use the Perch V2 embedding model reimplemented in pure PyTorch and Python (no TensorFlow) (https://github.com/duane-edgington/perch-pytorch).
 
 https://github.com/google-research/perch/blob/main/chirp/projects/whale_demo/agile_modeling_noaa_demo.ipynb
 
