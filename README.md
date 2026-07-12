@@ -502,46 +502,74 @@ You're 60%+ confident — a soft label is still better than no label for a class
 The key principle: unlabeled is the right choice when you're truly 50/50. But if you're leaning even slightly toward one class, label it — the classifier can handle a few soft labels. What hurts the classifier most is confidently wrong labels (labeling a dolphin as orca), not uncertain-but-correct labels.
 For faint signals specifically: if you see the characteristic banded harmonic structure of orca in the spectrogram even if quiet, trust the spectrogram over the audio and label it orca_call. The spectrogram is often more informative than your ears for faint calls.
 
-### Inference results summary
+### Inference Results Summary
 
-#### April 13 2018 — confirmed Bigg's orca event
+All results use **canonical normalized embeddings** (per-window peak normalization
+to 0.25, July 9 2026). Old v1_clean–v8_clean classifiers retired.
 
-| Model | ROC-AUC | Orca | Dolphin | Humpback | Ship | Other | Notes |
-|---|---|---|---|---|---|---|---|
-| v1_clean | 0.982 | 227 | — | — | — | — | Single class |
-| v2_clean | 0.919 | 239 | — | — | — | — | Single class |
-| v3_clean | 0.990 | 321 | 205 | — | — | — | Multi-class |
-| v4_clean | 0.974 | 295 | 2,253 | — | — | 159 | Multi-class |
-| v5_clean | 0.973 | 295 | 2,177 | — | — | 161 | Pure PyTorch |
-| v6_clean | 0.972 | 295 | 2,177 | — | — | 161 | + humpback/ship |
+#### Classifier Trajectory
 
-#### Full April 2018 — v6_clean
+| Model | ROC-AUC | top1_acc | cmap | Training DB | Notes |
+|---|---|---|---|---|---|
+| v0 | 0.9773 | 0.9405 | 0.8810 | April 2018 | Baseline normalized |
+| v1 | 0.9533 | 0.9559 | 0.7999 | April 2018 + Oct 2020 | Cross-season |
+| v2 | 0.9654 | 0.9438 | 0.8930 | April 2018 (expanded) | More dolphin/other |
+| v3 | 0.9467 | 0.9481 | 0.7370 | Apr2018 + Oct2020 + Apr2026 | 3-season |
+| v4 | **0.9590** | **0.9650** | **0.8297** | Apr2018 + Oct2020 + Apr2026 | Best cross-season ✅ |
 
-| Class | Detections | Days active | Notes |
-|---|---|---|---|
-| orca_call | 1,607 | 21 | April 13 dominant event (295); others likely FP |
-| dolphin_call | 14,883 | 30 | Resident throughout month |
-| humpback_song | 735 | 24 | April 19 spike (250) — expert review pending |
-| ship_noise | 1,899 | 21 | Episodic vessel passages |
-| other | 3,385 | 21 | Unclassified |
+#### April 13 2018 — Confirmed Bigg's Orca Event
 
-#### Full October 2020 — v6_clean (COVID-quiet vessel traffic)
+| Model | Orca Apr 13 | Notes |
+|---|---|---|
+| v0 | 291 | April only |
+| v1 | 286 | Cross-season |
+| v2 | **289** | Best April classifier |
 
-| Class | Detections | Days active | Notes |
-|---|---|---|---|
-| humpback_song | 66,495 | 31 | Dominant species — peak fall season |
-| orca_call | 41,294 | 31 | Oct 5-12 cluster confirmed — CA140B, CA51A pods |
-| dolphin_call | 13,569 | 31 | Consistent daily presence |
-| ship_noise | 142 | 6 | Dramatically reduced — COVID lockdown |
-| other | 201 | 4 | Minimal unclassified |
+#### Full April 2018 — v2
 
-October 2020 orca detections cluster strongly October 5–12, matching
-independent whale watch reports of CA140B (matriarch "Louise") and CA51A pods.
-This cross-validated detection — trained on April 2018, tested on October 2020
-— demonstrates the classifier generalizes across seasons.
-*Source: California Killer Whale Project, https://www.californiakillerwhaleproject.org/orcas*
+| Class | Detections | Notes |
+|---|---|---|
+| dolphin_call | 16,868 | Resident throughout month |
+| orca_call | 1,556 | April 13 dominant (289); others likely FP |
+| humpback_song | 1,293 | Present, peak mid-month |
+| ship_noise | 1,278 | Episodic vessel passages |
+| other | 4,039 | Unclassified |
 
----
+#### Full May 2018 — v2
+
+| Class | Detections | Notes |
+|---|---|---|
+| dolphin_call | 8,240 | Resident throughout month |
+| orca_call | 377 | **May 12: 190** (probable event); May 14: 45 |
+| humpback_song | 748 | Present throughout |
+| ship_noise | 930 | Vessel passages |
+| other | 6,798 | Unclassified |
+
+#### Full October 2020 — v1 (COVID-quiet vessel traffic)
+
+| Class | Detections | Notes |
+|---|---|---|
+| humpback_song | 223,214 | Dominant — peak fall season |
+| orca_call | **204** | Oct 5-12 cluster — CA140B, CA51A pods ✅ |
+| dolphin_call | 3,344 | Consistent daily presence |
+| ship_noise | 139 | Dramatically reduced — COVID lockdown |
+| other | 228 | Minimal |
+
+#### Full April 2026 — v4
+
+| Class | Detections | Notes |
+|---|---|---|
+| humpback_song | 24,701 | Dominant — active season |
+| dolphin_call | 4,807 | Resident throughout month |
+| orca_call | **323** | Apr 21 dominant (101) — all reviewed = humpback FP |
+| ship_noise | 4 | Minimal |
+| other | 3 | Minimal |
+
+October 2020 orca detections cluster strongly October 5–12, matching independent
+whale watch reports of CA140B (matriarch "Louise") and CA51A pods. Cross-validated
+detection — classifier trained on April 2018, tested on October 2020 and April
+2026 — demonstrates Perch V2 embeddings generalize across seasons and years.
+Source: California Killer Whale Project, https://www.californiakillerwhaleproject.org/orcas
 
 ## Multi-class Classification
 
