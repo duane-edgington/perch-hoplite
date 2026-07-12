@@ -69,7 +69,7 @@ and labels written on one are immediately visible on the other.
 
 ```
 spark-ae0e / spark-0626 (NFS shared)
-/mnt/PAM_Analysis/duane_scratch/perch_hoplite/
+/mnt/PAM_Analysis/perch-hoplite/
     db/                             ← Hoplite embedding databases
         MARS_20180413_20180413_32kHz/   ← April 13 2018 (144 files, 17,280 embeddings)
     models/                         ← trained classifiers (.pt + .metrics.json)
@@ -122,8 +122,12 @@ Known harmless warnings at startup (not errors):
 |---|---|---|
 | `phase1_embed_torch.py` | **spark-ae0e** | Build Hoplite embedding DB from audio (PyTorch, no Colab) |
 | `phase2_classify.py` | **spark-ae0e** | Active learning: search, label, train, review, infer |
-| `phase2_classify_logmel.py` | **spark-ae0e** | same as above, with log mel spectrogram display |
-| `convert_scores_to_labels.py` | **spark-ae0e** | Convert Google model score CSVs to Hoplite label CSVs |
+| `tools/plot_monthly.py` | **spark-ae0e** | Monthly detection timeline and heatmap plots |
+| `tools/plot_tsne.py` | **spark-ae0e** | t-SNE visualization of labeled embeddings |
+| `tools/merge_dbs.py` | **spark-ae0e** | Merge two Hoplite DBs (SQLite + USearch index) |
+| `tools/merge_annotations.py` | **spark-ae0e** | Copy annotations between DBs |
+| `tools/extract_example_clips.py` | **spark-ae0e** | Extract and peak-normalize 10 example clips |
+| `tools/review_example_clips.py` | **spark-ae0e** | Launch Gradio review for example clips |
 
 ---
 
@@ -141,13 +145,13 @@ source ~/perch-hoplite/venv/bin/activate
 python3 phase1_embed_torch.py \\
     --audio-dir /mnt/PAM_Analysis/GoogleMultiSpeciesWhaleModel2/resampled_32kHz/2018/04 \\
     --date 20180413 \\
-    --db-dir /mnt/PAM_Analysis/duane_scratch/perch_hoplite/db/MARS_20180413_torch_32kHz \\
+    --db-dir /mnt/PAM_Analysis/perch-hoplite/db/MARS_20180413_torch_32kHz \\
     --device cuda --compile
 
 # Embed a full month (~37 min for 30 days)
 python3 phase1_embed_torch.py \\
     --audio-dir /mnt/PAM_Analysis/GoogleMultiSpeciesWhaleModel2/resampled_32kHz/2018/04 \\
-    --db-dir /mnt/PAM_Analysis/duane_scratch/perch_hoplite/db/MARS_20180401_20180430_32kHz \\
+    --db-dir /mnt/PAM_Analysis/perch-hoplite/db/MARS_20180401_20180430_32kHz \\
     --device cuda --compile
 ```
 
@@ -167,14 +171,14 @@ species model score CSVs, import them first:
 # From Google model score CSVs
 python3 convert_scores_to_labels.py \
     --scores-dir /mnt/PAM_Analysis/GoogleMultiSpeciesWhaleModel2/scores_gpu/ \
-    --output-csv /mnt/PAM_Analysis/duane_scratch/perch_hoplite/labels/bootstrap_orca.csv \
+    --output-csv /mnt/PAM_Analysis/perch-hoplite/labels/bootstrap_orca.csv \
     --target-class orca_call \
     --threshold 0.7
 
 # Import into DB
 python3 phase2_classify.py label \
-    --db-dir /mnt/PAM_Analysis/duane_scratch/perch_hoplite/db/MARS_20180413_20180413_32kHz \
-    --labels-csv /mnt/PAM_Analysis/duane_scratch/perch_hoplite/labels/bootstrap_orca.csv \
+    --db-dir /mnt/PAM_Analysis/perch-hoplite/db/MARS_20180413_20180413_32kHz \
+    --labels-csv /mnt/PAM_Analysis/perch-hoplite/labels/bootstrap_orca.csv \
     --annotator-id duane
 ```
 
@@ -182,8 +186,8 @@ python3 phase2_classify.py label \
 
 ```bash
 python3 phase2_classify.py train \
-    --db-dir /mnt/PAM_Analysis/duane_scratch/perch_hoplite/db/MARS_20180413_20180413_32kHz \
-    --classifier-out /mnt/PAM_Analysis/duane_scratch/perch_hoplite/models/orca_v1.pt \
+    --db-dir /mnt/PAM_Analysis/perch-hoplite/db/MARS_20180413_20180413_32kHz \
+    --classifier-out /mnt/PAM_Analysis/perch-hoplite/models/orca_v1.pt \
     --num-steps 256
 ```
 
@@ -197,14 +201,14 @@ Launch the Gradio labeling GUI on spark, open in any browser on the MBARI networ
 ```bash
 # On spark-ae0e
 nohup python3 phase2_classify.py review \
-    --db-dir /mnt/PAM_Analysis/duane_scratch/perch_hoplite/db/MARS_20180413_20180413_32kHz \
-    --classifier /mnt/PAM_Analysis/duane_scratch/perch_hoplite/models/orca_v1.pt \
+    --db-dir /mnt/PAM_Analysis/perch-hoplite/db/MARS_20180413_20180413_32kHz \
+    --classifier /mnt/PAM_Analysis/perch-hoplite/models/orca_v1.pt \
     --target-label orca_call \
     --num-results 50 \
     --sample-size 5000 \
     --audio-dir /mnt/PAM_Analysis/GoogleMultiSpeciesWhaleModel2/resampled_32kHz/2018/04 \
     --serve --port 7860 \
-    > /mnt/PAM_Analysis/duane_scratch/perch_hoplite/logs/review_7860.log 2>&1 &
+    > /mnt/PAM_Analysis/perch-hoplite/logs/review_7860.log 2>&1 &
 ```
 
 **`--audio-dir` is required** — this flag sets the audio path for the Gradio GUI.
@@ -249,7 +253,7 @@ Click **💾 Save Labels to DB** when done. The status box confirms save counts 
 
 To monitor the server:
 ```bash
-tail -f /mnt/PAM_Analysis/duane_scratch/perch_hoplite/logs/review_7860.log
+tail -f /mnt/PAM_Analysis/perch-hoplite/logs/review_7860.log
 ```
 
 To stop the server:
@@ -269,21 +273,21 @@ pkill -f "phase2_classify.py review"
 
 ```bash
 nohup python3 phase2_classify.py train \
-    --db-dir /mnt/PAM_Analysis/duane_scratch/perch_hoplite/db/MARS_20180413_20180413_32kHz \
-    --classifier-out /mnt/PAM_Analysis/duane_scratch/perch_hoplite/models/orca_v2.pt \
+    --db-dir /mnt/PAM_Analysis/perch-hoplite/db/MARS_20180413_20180413_32kHz \
+    --classifier-out /mnt/PAM_Analysis/perch-hoplite/models/orca_v2.pt \
     --num-steps 256 \
-    > /mnt/PAM_Analysis/duane_scratch/perch_hoplite/logs/train_orca_v2.log 2>&1 &
-tail -f /mnt/PAM_Analysis/duane_scratch/perch_hoplite/logs/train_orca_v2.log
+    > /mnt/PAM_Analysis/perch-hoplite/logs/train_orca_v2.log 2>&1 &
+tail -f /mnt/PAM_Analysis/perch-hoplite/logs/train_orca_v2.log
 ```
 
 ```bash
 nohup python3 phase2_classify.py train \
-    --db-dir /mnt/PAM_Analysis/duane_scratch/perch_hoplite/db/MARS_20180413_20180413_32kHz \
-    --classifier-out /mnt/PAM_Analysis/duane_scratch/perch_hoplite/models/orca_v3_clean.pt \
+    --db-dir /mnt/PAM_Analysis/perch-hoplite/db/MARS_20180413_20180413_32kHz \
+    --classifier-out /mnt/PAM_Analysis/perch-hoplite/models/orca_v3_clean.pt \
     --num-steps 256 \
     --train-ratio 0.8 \
-    > /mnt/PAM_Analysis/duane_scratch/perch_hoplite/logs/train_orca_v3_clean.log 2>&1 &
-sleep 5 && tail -f /mnt/PAM_Analysis/duane_scratch/perch_hoplite/logs/train_orca_v3_clean.log
+    > /mnt/PAM_Analysis/perch-hoplite/logs/train_orca_v3_clean.log 2>&1 &
+sleep 5 && tail -f /mnt/PAM_Analysis/perch-hoplite/logs/train_orca_v3_clean.log
 ```
 
 
@@ -293,45 +297,45 @@ Repeat Steps 4–5 until ROC-AUC is satisfactory. Increment the version number
 For margin sampling (finding hard negatives near the decision boundary):
 ```bash
 nohup python3 phase2_classify.py review \
-    --db-dir /mnt/PAM_Analysis/duane_scratch/perch_hoplite/db/MARS_20180413_20180413_32kHz \
-    --classifier /mnt/PAM_Analysis/duane_scratch/perch_hoplite/models/orca_v2.pt \
+    --db-dir /mnt/PAM_Analysis/perch-hoplite/db/MARS_20180413_20180413_32kHz \
+    --classifier /mnt/PAM_Analysis/perch-hoplite/models/orca_v2.pt \
     --target-label orca_call \
     --num-results 50 \
     --sample-size 17280 \
     --margin-target-score 0.0 \
     --audio-dir /mnt/PAM_Analysis/GoogleMultiSpeciesWhaleModel2/resampled_32kHz/2018/04 \
     --serve --port 7860 \
-    > /mnt/PAM_Analysis/duane_scratch/perch_hoplite/logs/review_7860.log 2>&1 &
+    > /mnt/PAM_Analysis/perch-hoplite/logs/review_7860.log 2>&1 &
 ```
 
 #### Step 6 — Check label counts at any time
 
 ```bash
 python3 phase2_classify.py stats \
-    --db-dir /mnt/PAM_Analysis/duane_scratch/perch_hoplite/db/MARS_20180413_20180413_32kHz
+    --db-dir /mnt/PAM_Analysis/perch-hoplite/db/MARS_20180413_20180413_32kHz
 ```
 
 #### Step 7 — Full inference → detections CSV
 
 ```bash
 python3 phase2_classify.py infer \
-    --db-dir /mnt/PAM_Analysis/duane_scratch/perch_hoplite/db/MARS_20180413_20180413_32kHz \
-    --classifier /mnt/PAM_Analysis/duane_scratch/perch_hoplite/models/orca_v2.pt \
-    --output-csv /mnt/PAM_Analysis/duane_scratch/perch_hoplite/results/MARS_20180413_orca_detections.csv \
+    --db-dir /mnt/PAM_Analysis/perch-hoplite/db/MARS_20180413_20180413_32kHz \
+    --classifier /mnt/PAM_Analysis/perch-hoplite/models/orca_v2.pt \
+    --output-csv /mnt/PAM_Analysis/perch-hoplite/results/MARS_20180413_orca_detections.csv \
     --logit-threshold 0.0 \
-    --plot-distribution /mnt/PAM_Analysis/duane_scratch/perch_hoplite/results/MARS_20180413_orca_logit_dist.png
+    --plot-distribution /mnt/PAM_Analysis/perch-hoplite/results/MARS_20180413_orca_logit_dist.png
 ```
 
 ### Step 8 - Review detections produced by perch-hoplite system
 
 ```bash
-nohup python3 phase2_classify.py review     --db-dir /mnt/PAM_Analysis/duane_scratch/perch_hoplite/db/MARS_20180413_20180413_32kHz     --classifier /mnt/PAM_Analysis/duane_scratch/perch_hoplite/models/orca_v1_clean.pt     --target-label orca_call     --detections-csv /mnt/PAM_Analysis/duane_scratch/perch_hoplite/results/MARS_20180413_orca_v1_clean_detections.csv     --num-results 25     --detections-offset 1     --classes orca_call,dolphin_call,other,unlabeled     --audio-dir /mnt/PAM_Analysis/GoogleMultiSpeciesWhaleModel2/resampled_32kHz/2018/04     --serve --port 7860     > /mnt/PAM_Analysis/duane_scratch/perch_hoplite/logs/review_7860.log 2>&1 &
+nohup python3 phase2_classify.py review     --db-dir /mnt/PAM_Analysis/perch-hoplite/db/MARS_20180413_20180413_32kHz     --classifier /mnt/PAM_Analysis/perch-hoplite/models/orca_v1_clean.pt     --target-label orca_call     --detections-csv /mnt/PAM_Analysis/perch-hoplite/results/MARS_20180413_orca_v1_clean_detections.csv     --num-results 25     --detections-offset 1     --classes orca_call,dolphin_call,other,unlabeled     --audio-dir /mnt/PAM_Analysis/GoogleMultiSpeciesWhaleModel2/resampled_32kHz/2018/04     --serve --port 7860     > /mnt/PAM_Analysis/perch-hoplite/logs/review_7860.log 2>&1 &
 ```
 
 ### optional Step 8 -- Review detections, logmel spectrogram display, optional --grayscale spectrogram display
 
 ```bash
-nohup python3 phase2_classify_logmel.py review     --db-dir /mnt/PAM_Analysis/duane_scratch/perch_hoplite/db/MARS_20180413_20180413_32kHz     --classifier /mnt/PAM_Analysis/duane_scratch/perch_hoplite/models/orca_v1_clean.pt     --target-label orca_call     --detections-csv /mnt/PAM_Analysis/duane_scratch/perch_hoplite/results/MARS_20180413_orca_v1_clean_detections.csv     --num-results 25     --detections-offset 200     --classes orca_call,dolphin_call,other,unlabeled     --audio-dir /mnt/PAM_Analysis/GoogleMultiSpeciesWhaleModel2/resampled_32kHz/2018/04  --grayscale  --serve --port 7860     > /mnt/PAM_Analysis/duane_scratch/perch_hoplite/logs/review_7860.log 2>&1 &
+nohup python3 phase2_classify_logmel.py review     --db-dir /mnt/PAM_Analysis/perch-hoplite/db/MARS_20180413_20180413_32kHz     --classifier /mnt/PAM_Analysis/perch-hoplite/models/orca_v1_clean.pt     --target-label orca_call     --detections-csv /mnt/PAM_Analysis/perch-hoplite/results/MARS_20180413_orca_v1_clean_detections.csv     --num-results 25     --detections-offset 200     --classes orca_call,dolphin_call,other,unlabeled     --audio-dir /mnt/PAM_Analysis/GoogleMultiSpeciesWhaleModel2/resampled_32kHz/2018/04  --grayscale  --serve --port 7860     > /mnt/PAM_Analysis/perch-hoplite/logs/review_7860.log 2>&1 &
 ```
 
 --detections-offset is updated manually from 0 to n to select which annotations to review
@@ -364,12 +368,15 @@ nohup python3 phase2_classify_logmel.py review     --db-dir /mnt/PAM_Analysis/du
 | orca_v3_clean.pt | ✅ ROC-AUC 0.990 — multi-class: orca + dolphin |
 | orca_v4_clean.pt | ✅ ROC-AUC 0.974 — multi-class: orca + dolphin + other |
 | **Normalization fix (July 2026)** | ✅ per-window peak-norm to 0.25 — cos 1.0 vs live TF on MARS audio |
-| orca_v0.pt | ✅ **ROC-AUC 0.9773** — April 2018 normalized, 5 classes, 22 sec |
-| orca_v1.pt | ✅ **ROC-AUC 0.9533** — April + October 2020 normalized, 5 classes |
+| orca_v0.pt | ✅ **ROC-AUC 0.9773** — April 2018 normalized, 5 classes |
+| orca_v1.pt | ✅ **ROC-AUC 0.9533** — April + October 2020 normalized, cross-season |
 | orca_v2.pt | ✅ **ROC-AUC 0.9654** — April 2018 expanded labels, cmap 0.8930 |
-| Inference April 2018 v1 | ✅ **286 orca Apr 13** + 15,611 dolphin + 1,267 humpback + 1,741 ship |
-| Inference October 2020 v1 | ✅ **204 orca** (Oct 5-12 cluster) + 223,214 humpback + 3,344 dolphin |
-| Inference May 2018 v1 | ✅ **183 orca May 12** + 22 May 14 + 6,621 dolphin |
+| orca_v3.pt | ✅ **ROC-AUC 0.9467** — 3-season: Apr2018 + Oct2020 + Apr2026 |
+| orca_v4.pt | ✅ **ROC-AUC 0.9590** — best cross-season, top1_acc 0.9650 |
+| Inference April 2018 v2 | ✅ **289 orca Apr 13** + 16,868 dolphin + 1,293 humpback |
+| Inference May 2018 v2 | ✅ **190 orca May 12** + 45 May 14 + 8,240 dolphin |
+| Inference October 2020 v1 | ✅ **204 orca** (Oct 5-12 cluster) + 223,214 humpback |
+| Inference April 2026 v4 | ✅ **66 orca after dedup** — Apr 21 dominant, all reviewed = humpback FP |
 | TF-free pipeline | ✅ zero TF imports — single venv `~/perch-hoplite/venv` |
 | Expert annotation | ✅ 41 humpback (April, J. Ryan) + 209 humpback + 5 dolphin (October) |
 | DB: MARS April 2018 normalized | ✅ 518,400 embeddings — 30 days, 37 min on GB10 |
@@ -438,7 +445,7 @@ Legacy DBs from older tools may contain `logit_slope` and `logit_intercept`
 fields in the stored model config which cause errors. Fix by running:
 
 ```bash
-sqlite3 /mnt/PAM_Analysis/duane_scratch/perch_hoplite/db/<DATASET_NAME>/hoplite.sqlite \
+sqlite3 /mnt/PAM_Analysis/perch-hoplite/db/<DATASET_NAME>/hoplite.sqlite \
     "UPDATE hoplite_metadata SET value='{\"model_key\": \"taxonomy_model_tf\", \"embedding_dim\": 1536, \"model_config\": {\"window_size_s\": 5.0, \"hop_size_s\": 5.0, \"sample_rate\": 32000, \"tfhub_path\": \"google/bird-vocalization-classifier/tensorFlow2/perch_v2\", \"tfhub_version\": 2, \"model_path\": \"\"}, \"logits_key\": null, \"logits_idxes\": null}' WHERE key='model_config';"
 ```
 
@@ -774,7 +781,7 @@ The `--spectrogram-type` flag controls the 5-second clip display:
 For concurrent multi-analyst campaigns, use Label Studio:
 ```bash
 docker run -d -p 8080:8080 \
-    -v /mnt/PAM_Analysis/duane_scratch/perch_hoplite/labelstudio:/label-studio/data \
+    -v /mnt/PAM_Analysis/perch-hoplite/labelstudio:/label-studio/data \
     heartexlabs/label-studio:latest
 ```
 Access at http://134.89.11.107:8080
@@ -789,7 +796,7 @@ any classifier can be fully reproduced from scratch given the original audio.
 ### Directory structure
 
 ```
-/mnt/PAM_Analysis/duane_scratch/perch_hoplite/provenance/
+/mnt/PAM_Analysis/perch-hoplite/provenance/
     labels/
         labels_20260604_132500_analyst.json   ← one file per labeling session
         labels_20260605_110000_analyst.json
@@ -886,23 +893,22 @@ cannot be mixed in a single database.
 
 ```bash
 df -h /mnt/PAM_Analysis /mnt/PAM_Archive
-du -sh /mnt/PAM_Analysis/duane_scratch/perch_hoplite/db/* 2>/dev/null | sort -h
+du -sh /mnt/PAM_Analysis/perch-hoplite/db/* 2>/dev/null | sort -h
 ```
 
-**As of July 5 2026 — total DB usage: 3.8 GB**
+**As of July 11 2026 — total normalized DB usage: ~18 GB**
 
-| DB | Embeddings | Date |
-|---|---|---|
-| MARS_20180401_20180401_32kHz | 17,280 | Apr 1 2018 |
-| MARS_20180401_20180430_32kHz | 518,400 | Full April 2018 (primary) |
-| MARS_20180413_20180413_32kHz | 17,280 | Apr 13 2018 (training DB) |
-| MARS_20180413_torch_32kHz | 17,280 | Apr 13 2018 (PyTorch validation) |
-| MARS_20180413_torch_compile_32kHz | 17,280 | Apr 13 2018 (compile test) |
-| MARS_20180420_20180420_32kHz | 17,280 | Apr 20 2018 |
-| MARS_20180430_20180430_32kHz | 17,280 | Apr 30 2018 |
-| MARS_20180502_20180502_32kHz | 17,280 | May 2 2018 |
-| MARS_20201001_20201031_32kHz | 535,278 | Full October 2020 (primary) |
-| MARS_combined | — | Legacy — can be removed |
+All canonical DBs use per-window peak normalization to 0.25 (July 9 2026 fix).
+See `docs/FINDINGS_2026-07-09_tf_parity_and_lowamp_fix.md`.
+
+| DB | Embeddings | Annotations | Notes |
+|---|---|---|---|
+| MARS_20180401_20180430_32kHz_norm | 518,400 | 584 | Full April 2018 ✅ |
+| MARS_20180501_20180531_32kHz_norm | 535,680 | 0 | Full May 2018 ✅ |
+| MARS_20201001_20201031_32kHz_norm | 535,278 | 214 | Full October 2020 ✅ |
+| MARS_20260401_20260430_32kHz_norm | 505,630 | 25 | Full April 2026 ✅ |
+| MARS_combined_apr2018_oct2020_32kHz_norm | 1,053,678 | 778 | 2-season combined |
+| MARS_combined_3month_32kHz_norm_v2 | 1,559,308 | 803 | 3-season combined (current) |
 
 Rough estimate: ~9 MB per hour of audio at Perch V2 defaults (5-second windows, 1536-dim float16).
 Monitor before large embedding runs: `df -h /mnt/PAM_Analysis`
