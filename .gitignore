@@ -4,3 +4,5 @@ nvml-unified-shim/
 __pycache__/
 *.pyc
 *.pyo
+nvml-unified-shim/
+__pycache__/
