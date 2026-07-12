@@ -124,6 +124,22 @@ Known harmless warnings at startup (not errors):
 | `phase2_classify.py` | **spark-ae0e** | Active learning: search, label, train, review, infer |
 | `tools/plot_monthly.py` | **spark-ae0e** | Monthly detection timeline and heatmap plots |
 | `tools/plot_tsne.py` | **spark-ae0e** | t-SNE visualization of labeled embeddings |
+
+---
+
+## Embedding Visualization — t-SNE
+
+### Two-Season t-SNE — April 2018 + October 2020
+
+![Perch V2 embeddings t-SNE — 2 seasons normalized](figures/tsne_apr2018_oct2020_norm.png)
+
+*778 labeled embeddings from two seasons. Orca (green), humpback (orange), dolphin (purple), ship noise (cyan), and background (gray) form well-separated clusters, confirming that Perch V2 embeddings generalize across seasons.*
+
+### Three-Season t-SNE — April 2018 + October 2020 + April 2026
+
+![Perch V2 embeddings t-SNE — 3 seasons normalized](figures/tsne_apr2018_oct2020_apr2026_norm.png)
+
+*823 labeled embeddings from three seasons (July 2026). Orca (green) forms a tight cohesive cluster consistent across all three seasons. The 25 April 2026 humpback hard-negatives (orange) land within the main humpback cluster — confirming correct labels. Ship noise (cyan) and background (gray) are tightly isolated. The humpback/orca overlap in the upper-center region explains the persistent false positive challenge.*
 | `tools/merge_dbs.py` | **spark-ae0e** | Merge two Hoplite DBs (SQLite + USearch index) |
 | `tools/merge_annotations.py` | **spark-ae0e** | Copy annotations between DBs |
 | `tools/extract_example_clips.py` | **spark-ae0e** | Extract and peak-normalize 10 example clips |
