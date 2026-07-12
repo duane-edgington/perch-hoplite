@@ -349,23 +349,40 @@ python3 phase2_classify.py infer \
 nohup python3 phase2_classify.py review     --db-dir /mnt/PAM_Analysis/perch-hoplite/db/MARS_20180413_20180413_32kHz     --classifier /mnt/PAM_Analysis/perch-hoplite/models/orca_v1_clean.pt     --target-label orca_call     --detections-csv /mnt/PAM_Analysis/perch-hoplite/results/MARS_20180413_orca_v1_clean_detections.csv     --num-results 25     --detections-offset 1     --classes orca_call,dolphin_call,other,unlabeled     --audio-dir /mnt/PAM_Analysis/GoogleMultiSpeciesWhaleModel2/resampled_32kHz/2018/04     --serve --port 7860     > /mnt/PAM_Analysis/perch-hoplite/logs/review_7860.log 2>&1 &
 ```
 
-### optional Step 8 -- Review detections, logmel spectrogram display, optional --grayscale spectrogram display
+### optional Step 8 — Review detections with mel spectrogram and colormap options
+
+`phase2_classify_logmel.py` is retired — use `phase2_classify.py` with
+`--spectrogram-type` and `--colormap` flags instead:
 
 ```bash
-nohup python3 phase2_classify_logmel.py review     --db-dir /mnt/PAM_Analysis/perch-hoplite/db/MARS_20180413_20180413_32kHz     --classifier /mnt/PAM_Analysis/perch-hoplite/models/orca_v1_clean.pt     --target-label orca_call     --detections-csv /mnt/PAM_Analysis/perch-hoplite/results/MARS_20180413_orca_v1_clean_detections.csv     --num-results 25     --detections-offset 200     --classes orca_call,dolphin_call,other,unlabeled     --audio-dir /mnt/PAM_Analysis/GoogleMultiSpeciesWhaleModel2/resampled_32kHz/2018/04  --grayscale  --serve --port 7860     > /mnt/PAM_Analysis/perch-hoplite/logs/review_7860.log 2>&1 &
+nohup python3 phase2_classify.py review \
+    --db-dir /mnt/PAM_Analysis/perch-hoplite/db/MARS_20180401_20180430_32kHz_norm \
+    --classifier /mnt/PAM_Analysis/perch-hoplite/models/orca_v2.pt \
+    --target-label orca_call \
+    --num-results 25 \
+    --detections-offset 0 \
+    --classes orca_call,humpback_song,dolphin_call,ship_noise,other,unlabeled \
+    --audio-dir /mnt/PAM_Analysis/GoogleMultiSpeciesWhaleModel2/resampled_32kHz/2018/04 \
+    --spectrogram-type mel --colormap viridis \
+    --serve --port 7861 \
+    > /mnt/PAM_Analysis/perch-hoplite/logs/review_7861.log 2>&1 &
 ```
 
---detections-offset is updated manually from 0 to n to select which annotations to review
+Colormap options: `viridis` (preferred), `gray`, `gray_r`, `inferno`, `magma`.
+Spectrogram options: `linear` (default, best for orca/dolphin), `mel` (best for humpback), `perch`, `pcen`.
 
-0 (1 to --num-results here 25)
+**`--detections-offset`** pages through detections in batches of `--num-results`.
+Increment by `--num-results` (here 25) to review the next batch:
 
-25 (26 to 50)
+| `--detections-offset` | Detections shown |
+|---|---|
+| 0 | 1 – 25 (first batch, default) |
+| 25 | 26 – 50 |
+| 50 | 51 – 75 |
+| 200 | 201 – 225 |
 
-...
-
-200 (201 to 225)
-
-...
+Restart Gradio with the new offset to review the next batch. Labels are
+saved to the DB on every click — restarting is safe.
 
 ---
 
