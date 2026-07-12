@@ -48,12 +48,14 @@ def parse_datetime(filename, offset_s):
 
 def load_csv(input_csv):
     df = pd.read_csv(input_csv)
-    # Deduplicate on idx (window ID) — guards against double-written CSVs
+    # Deduplicate on (idx, label) — each unique window+label pair counts once.
+    # Deduplicating on idx alone would collapse multi-label detections
+    # (e.g. a window detected as both orca_call and humpback_song) into one row.
     before = len(df)
-    df = df.drop_duplicates(subset=["idx"])
-    dupes = before - len(df)
-    if dupes:
-        print(f"  Note: removed {dupes} duplicate rows")
+    df = df.drop_duplicates(subset=["idx", "label"])
+    removed = before - len(df)
+    if removed:
+        print(f"  Note: removed {removed} duplicate rows after deduplication on (idx, label)")
     print(f"Loaded {len(df)} detections from {Path(input_csv).name}")
     df["datetime_utc"] = [
         parse_datetime(f, s)
@@ -111,7 +113,11 @@ def plot_monthly(df, output_dir, title):
         for spine in ax.spines.values():
             spine.set_edgecolor("#334155")
 
-    axes[-1].set_xlabel("Day of month (April 2018 UTC)",
+    # Derive month label from title if possible
+    import re as _re2
+    _month_match = _re2.search(r'(January|February|March|April|May|June|July|August|September|October|November|December)\s+(\d{4})', title)
+    _month_label = f"{_month_match.group(1)} {_month_match.group(2)} UTC" if _month_match else "UTC"
+    axes[-1].set_xlabel(f"Day of month ({_month_label})",
                         color="#94a3b8", fontsize=9)
 
     # Derive prefix from input CSV filename
