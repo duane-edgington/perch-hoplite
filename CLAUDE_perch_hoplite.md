@@ -104,14 +104,17 @@ with data: URIs.
 Old classifiers (v1_clean through v8_clean) were trained on un-normalized
 embeddings and are retired. New versioning starts at v0:
 
-| Version | ROC-AUC | Training DB | Notes |
-|---|---|---|---|
-| v0 | 0.9773 | April 2018 norm | Baseline normalized |
-| v1 | 0.9533 | April + October 2020 norm | Cross-season |
-| v2 | 0.9654 | April 2018 norm (expanded) | More dolphin/other labels |
+| Version | ROC-AUC | top1_acc | cmap | Training DB | Notes |
+|---|---|---|---|---|---|
+| v0 | 0.9773 | 0.9405 | 0.8810 | April 2018 norm | Baseline normalized |
+| v1 | 0.9533 | 0.9559 | 0.7999 | April + October 2020 norm | Cross-season |
+| v2 | 0.9654 | 0.9438 | 0.8930 | April 2018 norm (expanded) | More dolphin/other labels |
+| v3 | 0.9467 | 0.9481 | 0.7370 | April 2018 + Oct 2020 + April 2026 norm | 3-season, 17 Apr2026 humpback |
+| v4 | 0.9590 | 0.9650 | 0.8297 | April 2018 + Oct 2020 + April 2026 norm | Best cross-season, 25 Apr2026 humpback |
 
 **Best for October 2020 analysis:** v1
 **Best for April/May 2018 analysis:** v2
+**Best for April 2026 / cross-season:** v4
 
 ---
 
@@ -121,6 +124,7 @@ embeddings and are retired. New versioning starts at v0:
 |---|---|
 | MARS_20180401_20180430_32kHz_norm | 219 orca + 195 dolphin + 41 humpback + 24 ship + 51 other + 54 neg |
 | MARS_20201001_20201031_32kHz_norm | 209 humpback + 5 dolphin |
+| MARS_20260401_20260430_32kHz_norm | 25 humpback (all high-scoring orca FPs — hard negatives) |
 
 ---
 
@@ -194,13 +198,13 @@ python3 tools/plot_tsne.py \
 
 ## Known Issues / Pending Work
 
-1. **Mel spectrogram banding** — minor horizontal artifacts in mel/pcen/perch modes
+1. **Mel spectrogram banding** — minor horizontal artifacts in mel/pcen/perch modes (partially fixed)
 2. **plot_monthly dedup** — should dedup on `(idx, label)` not just `idx`
 3. **Inference /tmp write speed** — 266K row CSV takes ~33 min to write
 4. **May 2018 expert review** — May 12 (190 orca) and May 14 (45) need confirmation
-5. **2026 orca events** — April 17-24 CA51As, April 22 CA200s — MARS recordings needed
-6. **Repo reorganization** — `reorganize_repo.sh` ready to run
-7. **v3 classifier** — train on combined DB with v2 labels for better October results
+5. **Repo reorganization** — `reorganize_repo.sh` ready to run
+6. **April 2026 orca FPs** — Apr 14, 16 still show elevated humpback FPs; need 2026 orca examples to resolve
+7. **May 2026 embedding** — not yet done
 
 ---
 
@@ -211,7 +215,8 @@ python3 tools/plot_tsne.py \
 | April 13 2018 | 289 orca detections — confirmed Bigg's orca hunting event ✅ |
 | May 12 2018 | 190 orca detections — probable event, expert review pending |
 | May 14 2018 | 45 orca detections — secondary event, expert review pending |
-| October 2020 | Oct 5-12 cluster confirmed — zero orca vocalizations (Bigg's orca silent during hunts) |
+| October 2020 | Oct 5-12 cluster confirmed — zero orca vocalizations (Bigg's orca silent during hunts) ✅ |
+| April 2026 | Apr 21 dominant (101 v4 detections) — all reviewed clips are humpback FP; consistent with Bigg's orca acoustic silence. Apr 17-24 CA51A/CA50B event window shows 129 detections but no confirmed orca vocalizations. |
 
 ---
 
