@@ -1,0 +1,10 @@
+{
+  "saved_filename": "October_2020_MARS_Hydrophone_v4_heatmap.png",
+  "original_filename": "October_2020_MARS_Hydrophone_v4_heatmap.png",
+  "capture_computer": "spark-ae0e",
+  "capture_timestamp": "unknown",
+  "date_registered": "2026-07-12T19:31:00.574071",
+  "figure_type": "heatmap_plot",
+  "caption": "October 2020 MARS Hydrophone v4 \u2014 detection heatmap (day x UTC hour). Humpback song fills the entire month across all hours. Orca detections scattered, highest Oct 5-7. Ship noise concentrated Oct 30-31 UTC 10-12. Classifier: orca_v4.",
+  "command": "python3 tools/plot_monthly.py --input /mnt/PAM_Analysis/perch-hoplite/results/MARS_20201001_20201031_v4_detections.csv --output-dir /mnt/PAM_Analysis/perch-hoplite/results --title 'October 2020 MARS Hydrophone v4'"
+}

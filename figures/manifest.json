@@ -209,8 +209,28 @@
       "figure_type": "heatmap_plot",
       "caption": "May 2018 MARS Hydrophone v4 \u2014 detection heatmap (day \u00d7 UTC hour). May 12 orca event concentrated UTC 07-10 (PDT 00-03). Classifier: orca_v4.",
       "command": "python3 tools/plot_monthly.py --input /mnt/PAM_Analysis/perch-hoplite/results/MARS_20180501_20180531_v4_detections.csv --output-dir /mnt/PAM_Analysis/perch-hoplite/results --title 'May 2018 MARS Hydrophone v4'"
+    },
+    "October_2020_MARS_Hydrophone_v4_monthly_counts.png": {
+      "saved_filename": "October_2020_MARS_Hydrophone_v4_monthly_counts.png",
+      "original_filename": "October_2020_MARS_Hydrophone_v4_monthly_counts.png",
+      "capture_computer": "spark-ae0e",
+      "capture_timestamp": "unknown",
+      "date_registered": "2026-07-12T19:31:00.556922",
+      "figure_type": "monthly_plot",
+      "caption": "October 2020 MARS Hydrophone v4 \u2014 detections per day. Oct 5-7 orca cluster (26, 22, 6 detections) matches documented CA140B and CA51A pod visits. Humpback dominant (254,546 total). Ship noise minimal \u2014 COVID lockdown. Classifier: orca_v4.",
+      "command": "python3 tools/plot_monthly.py --input /mnt/PAM_Analysis/perch-hoplite/results/MARS_20201001_20201031_v4_detections.csv --output-dir /mnt/PAM_Analysis/perch-hoplite/results --title 'October 2020 MARS Hydrophone v4'"
+    },
+    "October_2020_MARS_Hydrophone_v4_heatmap.png": {
+      "saved_filename": "October_2020_MARS_Hydrophone_v4_heatmap.png",
+      "original_filename": "October_2020_MARS_Hydrophone_v4_heatmap.png",
+      "capture_computer": "spark-ae0e",
+      "capture_timestamp": "unknown",
+      "date_registered": "2026-07-12T19:31:00.574071",
+      "figure_type": "heatmap_plot",
+      "caption": "October 2020 MARS Hydrophone v4 \u2014 detection heatmap (day x UTC hour). Humpback song fills the entire month across all hours. Orca detections scattered, highest Oct 5-7. Ship noise concentrated Oct 30-31 UTC 10-12. Classifier: orca_v4.",
+      "command": "python3 tools/plot_monthly.py --input /mnt/PAM_Analysis/perch-hoplite/results/MARS_20201001_20201031_v4_detections.csv --output-dir /mnt/PAM_Analysis/perch-hoplite/results --title 'October 2020 MARS Hydrophone v4'"
     }
   },
-  "last_updated": "2026-07-12T14:38:52.142493",
-  "figure_count": 15
+  "last_updated": "2026-07-12T19:31:00.574247",
+  "figure_count": 17
 }

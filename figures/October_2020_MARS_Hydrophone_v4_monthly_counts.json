@@ -1,0 +1,10 @@
+{
+  "saved_filename": "October_2020_MARS_Hydrophone_v4_monthly_counts.png",
+  "original_filename": "October_2020_MARS_Hydrophone_v4_monthly_counts.png",
+  "capture_computer": "spark-ae0e",
+  "capture_timestamp": "unknown",
+  "date_registered": "2026-07-12T19:31:00.556922",
+  "figure_type": "monthly_plot",
+  "caption": "October 2020 MARS Hydrophone v4 \u2014 detections per day. Oct 5-7 orca cluster (26, 22, 6 detections) matches documented CA140B and CA51A pod visits. Humpback dominant (254,546 total). Ship noise minimal \u2014 COVID lockdown. Classifier: orca_v4.",
+  "command": "python3 tools/plot_monthly.py --input /mnt/PAM_Analysis/perch-hoplite/results/MARS_20201001_20201031_v4_detections.csv --output-dir /mnt/PAM_Analysis/perch-hoplite/results --title 'October 2020 MARS Hydrophone v4'"
+}
