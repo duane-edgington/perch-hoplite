@@ -409,8 +409,12 @@ saved to the DB on every click — restarting is safe.
 | orca_v4.pt | ✅ **ROC-AUC 0.9590** — best cross-season, top1_acc 0.9650 |
 | Inference April 2018 v2 | ✅ **289 orca Apr 13** + 16,868 dolphin + 1,293 humpback |
 | Inference May 2018 v2 | ✅ **190 orca May 12** + 45 May 14 + 8,240 dolphin |
+| Inference May 2018 v4 | ✅ **181 orca May 12** + 19 May 14 — expert review pending |
 | Inference October 2020 v1 | ✅ **204 orca** (Oct 5-12 cluster) + 223,214 humpback |
-| Inference April 2026 v4 | ✅ **66 orca after dedup** — Apr 21 dominant, all reviewed = humpback FP |
+| Inference October 2020 v4 | ✅ **144 orca** (Oct 5-7 cluster, cleaner) + 254,546 humpback |
+| Inference April 2026 v4 | ✅ **323 orca** — Apr 21 dominant, all reviewed = humpback FP |
+| Figure provenance system | ✅ 17 figures registered with JSON sidecar + master manifest |
+| PyTorch Conference 2026 | ✅ Abstract submitted July 12 2026 — see `docs/PyTorch_abstract.md` |
 | TF-free pipeline | ✅ zero TF imports — single venv `~/perch-hoplite/venv` |
 | Expert annotation | ✅ 41 humpback (April, J. Ryan) + 209 humpback + 5 dolphin (October) |
 | DB: MARS April 2018 normalized | ✅ 518,400 embeddings — 30 days, 37 min on GB10 |
