@@ -2,7 +2,8 @@
 """tools/export_slim_npz.py  --  perch-hoplite
 
 Read embeddings back out of the Hoplite DB (no GPU), apply the orca_v4 linear
-classifier, and write one SLIM .npz per recording into a perch/YYYY/MM/ tree that
+classifier (orca_v4.pt, decoded directly as JSON+base64 -- no TF/torch), and
+write one SLIM .npz per recording into a perch/YYYY/MM/ tree that
 mirrors the multispecies logits/ tree. The slim file carries the 5 class-logit
 tracks + per-frame UTC epoch (what the temporal HMM needs); embeddings are omitted
 by default (--with-embeddings to include the [T,1536] block for a future sequence
@@ -24,7 +25,6 @@ Notes / deliberate choices:
 import argparse, os, re, sqlite3, struct, sys, datetime as dt
 import numpy as np
 
-FALLBACK_CLASSES = ['dolphin_call', 'humpback_song', 'orca_call', 'other', 'ship_noise']
 _TS = re.compile(r'MARS_(\d{8})_(\d{6})')
 
 
@@ -37,25 +37,24 @@ def rec_start(filename):
     return t.replace(tzinfo=dt.timezone.utc).timestamp(), m.group(1)
 
 
-def to_numpy(x):
-    try:
-        import torch
-        if isinstance(x, torch.Tensor):
-            return x.detach().cpu().numpy()
-    except ImportError:
-        pass
-    return np.asarray(x)
 
 
 def load_classifier(path):
-    import torch
-    clf = torch.load(path, map_location='cpu', weights_only=False)
-    beta = to_numpy(clf.beta).astype(np.float64)        # [1536, 5]
-    bias = to_numpy(clf.beta_bias).astype(np.float64)   # [5]
-    classes = [c.decode() if isinstance(c, bytes) else str(c)
-               for c in list(getattr(clf, 'classes', FALLBACK_CLASSES))]
-    assert beta.ndim == 2 and beta.shape[1] == len(classes) == bias.shape[0], \
-        f'shape mismatch: beta {beta.shape}, bias {bias.shape}, classes {len(classes)}'
+    """Decode orca_v4.pt directly: it's JSON with base64-encoded float32 arrays in
+    perch-hoplite's LinearClassifier format -- beta is (embedding_dim, num_classes) =
+    [1536,5], beta_bias is [num_classes]. Done in pure numpy so we DON'T import
+    perch_hoplite.agile.classifier, which pulls in TensorFlow (absent by design in
+    this TF-free env). Orientation matches phase2_classify.py's `emb @ beta + bias`.
+    Returns (beta [1536,5], bias [5], classes)."""
+    import json, base64
+    d = json.load(open(path))
+    classes = [c.decode() if isinstance(c, bytes) else str(c) for c in d['classes']]
+    bias = np.frombuffer(base64.b64decode(d['beta_bias']), dtype=np.float32).astype(np.float64)
+    beta_flat = np.frombuffer(base64.b64decode(d['beta']), dtype=np.float32).astype(np.float64)
+    n_cls = len(classes)
+    assert bias.shape[0] == n_cls, f'bias {bias.shape} vs {n_cls} classes'
+    assert beta_flat.size % n_cls == 0, f'beta size {beta_flat.size} not divisible by {n_cls}'
+    beta = beta_flat.reshape(-1, n_cls)          # (embedding_dim, num_classes) = [1536, 5], C-order
     return beta, bias, classes
 
 
