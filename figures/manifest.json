@@ -229,8 +229,18 @@
       "figure_type": "heatmap_plot",
       "caption": "October 2020 MARS Hydrophone v4 \u2014 detection heatmap (day x UTC hour). Humpback song fills the entire month across all hours. Orca detections scattered, highest Oct 5-7. Ship noise concentrated Oct 30-31 UTC 10-12. Classifier: orca_v4.",
       "command": "python3 tools/plot_monthly.py --input /mnt/PAM_Analysis/perch-hoplite/results/MARS_20201001_20201031_v4_detections.csv --output-dir /mnt/PAM_Analysis/perch-hoplite/results --title 'October 2020 MARS Hydrophone v4'"
+    },
+    "tsne_context_3season.png": {
+      "saved_filename": "tsne_context_3season.png",
+      "original_filename": "tsne_context_3season.png",
+      "capture_computer": "spark-ae0e",
+      "capture_timestamp": "unknown",
+      "date_registered": "2026-07-15T12:23:59.959987",
+      "figure_type": "tsne_plot",
+      "caption": "Perch V2 30s Gaussian-weighted context embeddings t-SNE \u2014 3 seasons. 770 labeled windows. Orca completely separated from humpback \u2014 zero overlap vs significant overlap in raw 5s embeddings. Humpback splits into 3 sub-clusters suggesting song type or seasonal variation. Context window \u00b115s, \u03c3=7.5s, center-weighted.",
+      "command": "python3 tools/plot_tsne_context.py --db-dir /mnt/PAM_Analysis/perch-hoplite/db/MARS_20180401_20180430_32kHz_norm /mnt/PAM_Analysis/perch-hoplite/db/MARS_20201001_20201031_32kHz_norm /mnt/PAM_Analysis/perch-hoplite/db/MARS_20260401_20260430_32kHz_norm --output /mnt/PAM_Analysis/perch-hoplite/results/tsne_context_3season.png --title 'Perch V2 Embeddings \u2014 30s Gaussian-weighted context, 3 seasons'"
     }
   },
-  "last_updated": "2026-07-12T19:31:00.574247",
-  "figure_count": 17
+  "last_updated": "2026-07-15T12:23:59.960594",
+  "figure_count": 18
 }

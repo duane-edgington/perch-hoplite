@@ -1,0 +1,10 @@
+{
+  "saved_filename": "tsne_context_3season.png",
+  "original_filename": "tsne_context_3season.png",
+  "capture_computer": "spark-ae0e",
+  "capture_timestamp": "unknown",
+  "date_registered": "2026-07-15T12:23:59.959987",
+  "figure_type": "tsne_plot",
+  "caption": "Perch V2 30s Gaussian-weighted context embeddings t-SNE \u2014 3 seasons. 770 labeled windows. Orca completely separated from humpback \u2014 zero overlap vs significant overlap in raw 5s embeddings. Humpback splits into 3 sub-clusters suggesting song type or seasonal variation. Context window \u00b115s, \u03c3=7.5s, center-weighted.",
+  "command": "python3 tools/plot_tsne_context.py --db-dir /mnt/PAM_Analysis/perch-hoplite/db/MARS_20180401_20180430_32kHz_norm /mnt/PAM_Analysis/perch-hoplite/db/MARS_20201001_20201031_32kHz_norm /mnt/PAM_Analysis/perch-hoplite/db/MARS_20260401_20260430_32kHz_norm --output /mnt/PAM_Analysis/perch-hoplite/results/tsne_context_3season.png --title 'Perch V2 Embeddings \u2014 30s Gaussian-weighted context, 3 seasons'"
+}
