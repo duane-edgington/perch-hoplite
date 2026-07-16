@@ -50,7 +50,6 @@ NVIDIA GB10 DGX — no TensorFlow, no Colab.
     2018/04/    — April 2018 (4,320 files, 518,400 windows)
     2018/05/    — May 2018   (4,464 files, 535,680 windows)
     2020/10/    — October 2020 (4,504 files, 535,278 windows)
-    2026/04/    — April 2026 (4,215 files, 505,630 windows)
 
 # Old location (read-only fallback — DO NOT write here)
 /mnt/PAM_Analysis/duane_scratch/perch_hoplite/
@@ -112,14 +111,15 @@ embeddings and are retired. New versioning starts at v0:
 | v2 | 0.9654 | 0.9438 | 0.8930 | April 2018 norm (expanded) | More dolphin/other labels |
 | v3 | 0.9467 | 0.9481 | 0.7370 | April 2018 + Oct 2020 + April 2026 norm | 3-season, 17 Apr2026 humpback |
 | v4 | 0.9590 | 0.9650 | 0.8297 | April 2018 + Oct 2020 + April 2026 norm | Best cross-season, 25 Apr2026 humpback |
+| v5 | 0.9303 | 0.9301 | 0.5945 | 3-season context DB (30s Gaussian avg) | Context embedding experiment — WORSE than v4 |
 
-**Best for October 2020 analysis:** v4 (144 orca, cleaner Oct 5-7 cluster)
+**Best for October 2020 analysis:** v1
 **Best for April/May 2018 analysis:** v2
 **Best for April 2026 / cross-season:** v4
 
 ---
 
-## Annotation State (July 12 2026)
+## Annotation State (July 9 2026)
 
 | DB | Annotations |
 |---|---|
@@ -200,13 +200,12 @@ python3 tools/plot_tsne.py \
 ## Known Issues / Pending Work
 
 1. **Mel spectrogram banding** — minor horizontal artifacts in mel/pcen/perch modes (partially fixed)
-2. **plot_monthly deduplication** — ✅ fixed July 12 2026: now deduplicates on `(idx, label)`
+2. **plot_monthly dedup** — should dedup on `(idx, label)` not just `idx`
 3. **Inference /tmp write speed** — 266K row CSV takes ~33 min to write
-4. **May 2018 expert review** — May 12 (181 orca v4) and May 14 (19) need John Ryan confirmation
-5. **Repo reorganization** — ✅ complete July 12 2026
+4. **May 2018 expert review** — May 12 (190 orca) and May 14 (45) need confirmation
+5. **Repo reorganization** — `reorganize_repo.sh` ready to run
 6. **April 2026 orca FPs** — Apr 14, 16 still show elevated humpback FPs; need 2026 orca examples to resolve
 7. **May 2026 embedding** — not yet done
-8. **Abstract update deadline** — July 26 2026; update if May 2018 orca confirmed by John Ryan
 
 ---
 
@@ -215,35 +214,16 @@ python3 tools/plot_tsne.py \
 | Month | Key finding |
 |---|---|
 | April 13 2018 | 289 orca detections — confirmed Bigg's orca hunting event ✅ |
-| May 12 2018 | 181 orca detections (v4) — probable event, expert review pending (John Ryan) |
-| May 14 2018 | 19 orca detections (v4) — secondary event, expert review pending |
-| October 2020 | Oct 5-7 cluster (v4: 26, 22, 6) — zero orca vocalizations confirmed (Bigg's orca silent during hunts) ✅ |
+| May 12 2018 | 190 orca detections — probable event, expert review pending |
+| May 14 2018 | 45 orca detections — secondary event, expert review pending |
+| October 2020 | Oct 5-12 cluster confirmed — zero orca vocalizations (Bigg's orca silent during hunts) ✅ |
 | April 2026 | Apr 21 dominant (101 v4 detections) — all reviewed clips are humpback FP; consistent with Bigg's orca acoustic silence. Apr 17-24 CA51A/CA50B event window shows 129 detections but no confirmed orca vocalizations. |
 
----
-
-## Figure Provenance System
-
-All figures in `figures/` have a matching `.json` sidecar file with full
-provenance: original filename, capture computer, timestamp, generation command,
-caption, and metadata. A master manifest is at `figures/manifest.json`.
-
-Register a new figure:
-```bash
-python3 tools/register_figure.py \
-    --saved-name <filename.png> \
-    --original-name "Screenshot_2026-07-12_at_9_04_41_AM.png" \
-    --computer DuaneEM1 \
-    --type gradio_screenshot \
-    --wav <source.wav> --offset <seconds> \
-    --spectrogram linear --colormap inferno \
-    --classifier orca_v4.pt --db <db_name> \
-    --score <score> --label <label> \
-    --caption "..." \
-    --command "nohup python3 phase2_classify.py review ..."
-```
-
-**17 figures registered as of July 12 2026** (9 active, 4 superseded, 4 plot figures).
+**Context embedding experiments (July 15 2026):**
+- 30s Gaussian-weighted t-SNE: orca completely separated from humpback (zero overlap) — colleague-suggested method ✅
+- Context DB (v5 classifier): ROC-AUC dropped 0.959→0.930, cmap 0.830→0.595 — context averaging hurts training
+- Context post-processing filter (orca/humpback ratio): suppressed April 13 2018 orca — filter fails because Bigg's orca calls are brief discrete bursts, not sustained bouts
+- **Conclusion:** Raw embeddings + v4 classifier remain best. Temporal sequence modeling is the right path for disambiguation.
 
 ---
 
@@ -265,14 +245,12 @@ perch-hoplite/
 │   ├── plot_monthly.py
 │   ├── plot_tsne.py
 │   ├── extract_example_clips.py
-│   ├── review_example_clips.py
-│   └── register_figure.py  — figure provenance tracking
+│   └── review_example_clips.py
 ├── docs/                   — documentation and analysis
 │   ├── pytorch_port_summary.md   — PyTorch Conference 2026 poster
 │   ├── october_2020_analysis.md
 │   ├── FINDINGS_2026-07-09_tf_parity_and_lowamp_fix.md
-│   ├── PROGRESS_2026-07-09.md
-│   └── PyTorch_abstract.md  — submitted PyTorch Conference 2026 abstract
+│   └── PROGRESS_2026-07-09.md
 ├── figures/                — plots and screenshots
 ├── phase2_classify.py      — main CLI
 ├── phase1_embed_torch.py   — embedding pipeline
