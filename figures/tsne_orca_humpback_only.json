@@ -1,0 +1,10 @@
+{
+  "saved_filename": "tsne_orca_humpback_only.png",
+  "original_filename": "tsne_orca_humpback_only.png",
+  "capture_computer": "spark-ae0e",
+  "capture_timestamp": "unknown",
+  "date_registered": "2026-07-17T10:39:05.243994",
+  "figure_type": "tsne_plot",
+  "caption": "Perch V2 t-SNE \u2014 orca events vs humpback only (739 embeddings). April 2018 orca (dark green), May 2018 orca (light green), humpback (amber). Isolates the core classification challenge: orca/humpback overlap in embedding space.",
+  "command": "python3 tools/plot_tsne_orca_events.py --db-dir .../MARS_20180401_20180430_32kHz_norm .../MARS_20180501_20180531_32kHz_norm .../MARS_20201001_20201031_32kHz_norm .../MARS_20260401_20260430_32kHz_norm --output .../tsne_orca_humpback_only.png --orca-only --title 'Perch V2 \u2014 Orca Events vs Humpback: April 2018 vs May 2018'"
+}
