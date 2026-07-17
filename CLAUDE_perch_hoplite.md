@@ -210,12 +210,18 @@ python3 tools/plot_tsne.py \
 ## Known Issues / Pending Work
 
 1. **Mel spectrogram banding** — minor horizontal artifacts in mel/pcen/perch modes (partially fixed)
-2. **plot_monthly dedup** — should dedup on `(idx, label)` not just `idx`
+2. **plot_monthly deduplication** — ✅ fixed July 12 2026: now deduplicates on `(idx, label)`
 3. **Inference /tmp write speed** — 266K row CSV takes ~33 min to write
-4. **May 2018 expert review** — May 12 (190 orca) and May 14 (45) need confirmation
-5. **Repo reorganization** — `reorganize_repo.sh` ready to run
-6. **April 2026 orca FPs** — Apr 14, 16 still show elevated humpback FPs; need 2026 orca examples to resolve
-7. **May 2026 embedding** — not yet done
+4. **May 2014 secondary event** — 19 (v4) / 58 (v6) detections, not yet reviewed
+5. **April 2026 orca FPs** — Apr 14, 16 still elevated humpback FPs; need 2026 orca examples to resolve
+6. **May 2026 embedding** — not yet done
+7. **Abstract update deadline** — July 26 2026; UPDATE NOW — May 12 2018 confirmed July 16 2026
+8. **Option A inference** — add `--output-format full` flag to output all 5 logits per window
+9. **Negative labels** — only April 2018 + May 2018 have negatives; October 2020 (6) and April 2026 (23) added July 16 2026
+10. **Per-class F1 scores** — not yet computed; need held-out test split
+11. **v6 ship_noise miscalibration** — 7,597 detections vs 1,113 v4; investigate before production use
+12. **v6 validation** — run on April 2018, October 2020, April 2026 to validate
+13. **Gray whale annotation review** — some `humpback_song` labels may be gray whale calls. Pull all humpback-labeled clips in Gradio and have J. Ryan re-annotate as `humpback_song`, `gray_whale_call` (new class), or `other`. Gray whales are seasonally present in Monterey Bay and can overlap spectrally with humpback at low frequencies. Then retrain with gray whale as a new species class.
 
 ---
 
