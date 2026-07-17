@@ -37,7 +37,7 @@ LABEL_COLORS = {
     "fin_whale_call":"#2563eb",   # blue
     "dolphin_call":  "#9333ea",   # purple
     "ship_noise":    "#0891b2",   # teal
-    "other":         "#c026d3",   # magenta
+    "other":         "#f43f5e",   # rose
     "negative":      "#6b7280",   # gray
     "background":    "#6b7280",   # gray
 }
