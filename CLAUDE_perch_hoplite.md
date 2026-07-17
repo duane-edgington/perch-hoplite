@@ -227,7 +227,26 @@ python3 tools/plot_tsne.py \
 
 ---
 
-## Scientific Results Summary
+## Label Class Definitions
+
+**`negative` (label_type=2, weak negative):**
+Background/ambient ocean noise — clips explicitly labeled as "not any target species."
+Used as weak negatives during training (`weak_neg_weight=0.050`). Does NOT appear
+as a detection class in inference output. Includes April 2018 genuine orca-negative
+clips (54) plus background clips from other months. These are windows where nothing
+biological is happening.
+
+**`other` (label_type=1, positive class):**
+A positive detection class — clips with real acoustic content that doesn't fit any
+of the four named species. Includes mixed signals (humpback + dolphin simultaneously),
+unusual sounds, ambiguous calls, and background clips relabeled from `negative`.
+DOES appear in inference output.
+
+**Key distinction:** `negative` = silence/background (weak negative for training only).
+`other` = real sound but unclassifiable (positive class, appears in inference).
+
+In t-SNE: gray (negative) forms a loose cluster in lower center.
+Orange-red (other) sits at the humpback/orca/negative boundary.
 
 | Month | Key finding |
 |---|---|
