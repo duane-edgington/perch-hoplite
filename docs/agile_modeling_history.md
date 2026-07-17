@@ -269,3 +269,51 @@ not computation. A new classifier took 30 seconds to train after each session.
 
 *Duane R. Edgington — MBARI — July 16 2026*
 *github.com/duane-edgington/perch-hoplite*
+
+---
+
+## v6, v7, v8 — Four-Season Experiments (July 16–17 2026)
+
+### Root cause of ship_noise inflation
+
+Adding May 2018 to the training set caused ship_noise to inflate from ~1,278 (v4)
+to ~4,500+ across all 4-season classifiers. Three fixes were attempted:
+
+| Fix | Result |
+|---|---|
+| v6: rename `negative` label string → `orca_call|2` | No change — same metrics |
+| v7: same as v6, SQL rename | Identical to v6 |
+| v8: background clips → `other|1` positive class | Still inflated |
+
+All three 4-season classifiers show identical April 2018 day distribution:
+Apr 25 dominant (365), Apr 18 second (335), Apr 13 third (303).
+**April 13 is no longer the dominant day** — the known event is buried by FPs.
+
+### Root cause hypothesis
+
+May 2018 and April 2018 orca calls are acoustically different enough (different
+pods, different call types) that training on both simultaneously degrades
+precision on each individually. The two spring events spread the orca embedding
+cluster (visible in the 4-season t-SNE) and shift the ship_noise decision boundary.
+
+### Classifier comparison
+
+| Classifier | ROC-AUC | Apr 13 rank | ship_noise | Status |
+|---|---|---|---|---|
+| v4 | **0.9590** | **1st (289)** | **1,278** | ✅ Production |
+| v6 | 0.9499 | 3rd (306) | 4,496 | ❌ DO NOT USE |
+| v7 | 0.9499 | 3rd (306) | 4,496 | ❌ DO NOT USE |
+| v8 | 0.9463 | 3rd (303) | 4,831 | ❌ DO NOT USE |
+
+### Final classifier strategy
+
+- **v4** — production classifier for all months ✅
+- **v2** — best for April 2018 specifically
+- **May 2018 orca** — use v4 inference (181 detections, all confirmed)
+- **4-season classifiers** — informative experiments, not production-ready
+
+### Pending investigation
+
+- Review April 2018 ship_noise labels (24 clips) in Gradio — confirm no errors
+- Long-term fix: separate per-season classifiers, or larger/more balanced training set
+- Gray whale annotation review (some humpback labels may be gray whale)

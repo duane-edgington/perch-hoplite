@@ -119,7 +119,9 @@ embeddings and are retired. New versioning starts at v0:
 | v3 | 0.9467 | 0.9481 | 0.7370 | April 2018 + Oct 2020 + April 2026 norm | 3-season, 17 Apr2026 humpback |
 | v4 | 0.9590 | 0.9650 | 0.8297 | April 2018 + Oct 2020 + April 2026 norm | Best cross-season, 25 Apr2026 humpback |
 | v5 | 0.9303 | 0.9301 | 0.5945 | 3-season context DB (30s Gaussian avg) | Context embedding experiment — WORSE than v4 |
-| v6 | 0.9499 | 0.9409 | 0.7763 | 4-season: Apr2018+May2018+Oct2020+Apr2026 | May 2018 specialist; ship_noise miscalibrated ⚠️ |
+| v6 | 0.9499 | 0.9409 | 0.7763 | 4-season combined | ship_noise inflated 1278→4496 ❌ |
+| v7 | 0.9499 | 0.9409 | 0.7763 | 4-season, negative→orca_call fix | Identical to v6 ❌ |
+| v8 | 0.9463 | 0.9347 | 0.6489 | 4-season, background→other fix | Still inflated ❌ |
 
 **Best for October 2020 analysis:** v1
 **Best for April/May 2018 analysis:** v2
@@ -219,8 +221,8 @@ python3 tools/plot_tsne.py \
 8. **Option A inference** — add `--output-format full` flag to output all 5 logits per window
 9. **Negative labels** — only April 2018 + May 2018 have negatives; October 2020 (6) and April 2026 (23) added July 16 2026
 10. **Per-class F1 scores** — not yet computed; need held-out test split
-11. **v6 ship_noise miscalibration** — 7,597 detections vs 1,113 v4; investigate before production use
-12. **v6 validation** — run on April 2018, October 2020, April 2026 to validate
+11. **4-season ship_noise inflation** — v6/v7/v8 all inflate ship_noise; root cause: May+April orca acoustically different enough to distort boundaries
+12. **Ship_noise label review** — review April 2018 ship_noise labels (24 clips) in Gradio to confirm no errors (low priority)
 13. **Gray whale annotation review** — some `humpback_song` labels may be gray whale calls. Pull all humpback-labeled clips in Gradio and have J. Ryan re-annotate as `humpback_song`, `gray_whale_call` (new class), or `other`. Gray whales are seasonally present in Monterey Bay and can overlap spectrally with humpback at low frequencies. Then retrain with gray whale as a new species class.
 
 ---
