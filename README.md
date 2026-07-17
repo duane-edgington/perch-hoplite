@@ -386,7 +386,7 @@ saved to the DB on every click — restarting is safe.
 
 ---
 
-## Current Status (as of July 12 2026)
+## Current Status (as of July 16 2026)
 
 | Item | Status |
 |---|---|
@@ -576,6 +576,16 @@ to 0.25, July 9 2026). Old v1_clean–v8_clean classifiers retired.
 | dolphin_call | 3,344 | Consistent daily presence |
 | ship_noise | 139 | Dramatically reduced — COVID lockdown |
 | other | 228 | Minimal |
+
+#### Full May 2018 — v6
+
+| Class | Detections | Notes |
+|---|---|---|
+| orca_call | **438** | May 12: 237 (+31% vs v4) · May 14: 58 (+205%) |
+| dolphin_call | 4,429 | Reduced vs v4 |
+| humpback_song | 444 | Reduced vs v4 |
+| ship_noise | 7,597 | ⚠️ Inflated — miscalibration under investigation |
+| other | 7,889 | Elevated |
 
 #### Full April 2026 — v4
 

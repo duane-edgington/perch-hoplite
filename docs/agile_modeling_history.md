@@ -204,8 +204,33 @@ Full review of 181 May 12 2018 orca detections — all confirmed.
 | negative | 88 (54+34) | April 2018 + May 2018 |
 
 **Metrics:** ROC-AUC 0.9499 · top1_acc 0.9409 · cmap 0.7763
-**Note:** Slight drop from v4 — expected with increased cross-season diversity.
-Real-world orca detection on May 2018 is the key validation test.
+**Note:** Slight drop from v4 on held-out eval — expected with increased cross-season diversity.
+
+**v6 Inference — May 2018:**
+
+| Class | v4 | v6 | Change |
+|---|---|---|---|
+| orca_call | 241 | **438** | +82% ↑ |
+| dolphin_call | 5,912 | 4,429 | −25% |
+| humpback_song | 511 | 444 | −13% |
+| ship_noise | 1,113 | 7,597 | +582% ↑ ⚠️ |
+| other | 5,638 | 7,889 | +40% ↑ |
+
+**May 12 orca detections: 181 (v4) → 237 (v6)** — classifier is more sensitive
+because it was trained on 181 confirmed May 12 calls. May 14 also grew 19→58.
+
+**⚠️ Ship noise issue:** 1,113→7,597 is a red flag. The `negative` label being
+treated as a 6th class during training likely miscalibrated the ship_noise boundary.
+Needs investigation before using v6 in production.
+
+**Status:** v6 is a May 2018 specialist. v4 remains production classifier for other months.
+
+**Pending investigation:**
+- Review v6 ship_noise detections — understand miscalibration
+- Run v6 on April 2018 — validate April 13 orca preserved, dolphins correct
+- Run v6 on April 2026 — check if known CA51A event window improves
+- Run v6 on October 2020 — validate Oct 5-7 orca cluster preserved
+- Consider retraining with `negative` as label_type=2 only (not a named class)
 
 ---
 

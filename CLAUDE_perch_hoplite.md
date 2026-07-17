@@ -119,6 +119,7 @@ embeddings and are retired. New versioning starts at v0:
 | v3 | 0.9467 | 0.9481 | 0.7370 | April 2018 + Oct 2020 + April 2026 norm | 3-season, 17 Apr2026 humpback |
 | v4 | 0.9590 | 0.9650 | 0.8297 | April 2018 + Oct 2020 + April 2026 norm | Best cross-season, 25 Apr2026 humpback |
 | v5 | 0.9303 | 0.9301 | 0.5945 | 3-season context DB (30s Gaussian avg) | Context embedding experiment — WORSE than v4 |
+| v6 | 0.9499 | 0.9409 | 0.7763 | 4-season: Apr2018+May2018+Oct2020+Apr2026 | May 2018 specialist; ship_noise miscalibrated ⚠️ |
 
 **Best for October 2020 analysis:** v1
 **Best for April/May 2018 analysis:** v2
@@ -132,7 +133,9 @@ embeddings and are retired. New versioning starts at v0:
 |---|---|
 | MARS_20180401_20180430_32kHz_norm | 219 orca + 195 dolphin + 41 humpback + 24 ship + 51 other + 54 neg |
 | MARS_20201001_20201031_32kHz_norm | 209 humpback + 5 dolphin |
-| MARS_20260401_20260430_32kHz_norm | 25 humpback (all high-scoring orca FPs — hard negatives) |
+| MARS_20260401_20260430_32kHz_norm | 25 humpback (hard negatives) + 23 negative + 39 humpback + 3 dolphin + 4 other + 5 ship |
+| MARS_20180501_20180531_32kHz_norm | **181 orca** (May 12 confirmed ✅) + 34 negative + 2 dolphin + 4 ship + 6 other |
+| MARS_20201001_20201031_32kHz_norm | 209+259=468 humpback + 6 negative + 7 dolphin + 39 other + 2 ship |
 
 ---
 
