@@ -27,6 +27,13 @@ NVIDIA GB10 DGX — no TensorFlow, no Colab.
 | **spark-0626** (134.89.11.174) | Spare DGX | |
 | **thalassa** | NFS server | thalassa.shore.mbari.org |
 
+**scp screenshots from Mac to spark** — macOS screenshot filenames contain spaces.
+Use backslash-escaped spaces with a wildcard, e.g.:
+```bash
+scp ~/Desktop/Screenshot\ 2026-07-16\ at\ 5*.png duane@134.89.11.107:~/perch-hoplite/figures/
+```
+Quoted versions and underscore wildcards do NOT work for macOS screenshot filenames.
+
 ---
 
 ## Key Paths
