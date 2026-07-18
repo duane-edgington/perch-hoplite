@@ -161,10 +161,18 @@ def torch_train_linear_classifier(
     rocs      = _metrics.roc_auc(logits=pred_logits, labels=true_labels, sample_threshold=1)
     cmaps     = _metrics.cmap(logits=pred_logits, labels=true_labels, sample_threshold=1)
 
+    # Per-class F1 on the SAME held-out eval split cmap/roc_auc use, so the numbers
+    # line up one-to-one with the cmap column. See src/f1_metrics.py.
+    from src.f1_metrics import per_class_f1
+    _f1 = per_class_f1(pred_logits, true_labels, target_labels)
+
     eval_scores = {
-        "top1_acc": float(top1),
-        "roc_auc":  float(rocs["macro"]),
-        "cmap":     float(cmaps["macro"]),
+        "top1_acc":     float(top1),
+        "roc_auc":      float(rocs["macro"]),
+        "cmap":         float(cmaps["macro"]),
+        "macro_f1":     _f1["macro_f1_at_0"],
+        "macro_f1_opt": _f1["macro_f1_opt"],
+        "per_class_f1": _f1,
     }
 
     _emb_cfg = _cd.ConfigDict()

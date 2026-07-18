@@ -463,6 +463,16 @@ def _torch_train_linear_classifier(
         "roc_auc":  float(rocs["macro"]),
         "cmap":     float(cmaps["macro"]),
     }
+    # Per-class F1 on the same held-out eval split (see src/f1_metrics.py). This is
+    # the fallback trainer; if src/ isn't importable, skip F1 rather than fail.
+    try:
+        from src.f1_metrics import per_class_f1
+        _f1 = per_class_f1(pred_logits, true_labels, target_labels)
+        eval_scores["macro_f1"]     = _f1["macro_f1_at_0"]
+        eval_scores["macro_f1_opt"] = _f1["macro_f1_opt"]
+        eval_scores["per_class_f1"] = _f1
+    except Exception as _f1_exc:
+        log.warning("Skipping per-class F1 (f1_metrics unavailable): %s", _f1_exc)
 
     # Build LinearClassifier object matching the saved format
     # embedding_model_config is stored in the .pt file for reproducibility
@@ -1354,6 +1364,14 @@ def cmd_search(args) -> int:
 # Sub-command: train
 # ---------------------------------------------------------------------------
 
+def _coerce_eval_score(v):
+    """Make an eval_scores value JSON-safe. Nested dicts (e.g. per_class_f1) pass
+    through unchanged; scalars / 0-d arrays are floatified as before."""
+    if isinstance(v, dict):
+        return v
+    return float(v.flat[0] if hasattr(v, "flat") else v)
+
+
 def cmd_train(args) -> int:
     (audio_loader_mod, classifier_mod, classifier_data_mod,
      *_rest) = _require_perch()
@@ -1393,6 +1411,7 @@ def cmd_train(args) -> int:
     log.info("  top1_acc : %.4f", eval_scores.get("top1_acc", float("nan")))
     log.info("  roc_auc  : %.4f", eval_scores.get("roc_auc", float("nan")))
     log.info("  cmap     : %.4f", eval_scores.get("cmap", float("nan")))
+    log.info("  macro_f1 : %.4f", eval_scores.get("macro_f1", float("nan")))
 
     out_path = Path(args.classifier_out)
     out_path.parent.mkdir(parents=True, exist_ok=True)
@@ -1405,7 +1424,7 @@ def cmd_train(args) -> int:
         json.dump(
             {
                 "labels": target_labels,
-                "eval_scores": {k: float(v.flat[0] if hasattr(v, "flat") else v) for k, v in eval_scores.items()},
+                "eval_scores": {k: _coerce_eval_score(v) for k, v in eval_scores.items()},
                 "train_args": {
                     "num_steps": args.num_steps,
                     "learning_rate": args.learning_rate,
@@ -1483,8 +1502,7 @@ def cmd_train(args) -> int:
             "train_ratio":     args.train_ratio,
             "seed":            args.seed,
         },
-        eval_scores={k: float(v.flat[0] if hasattr(v, "flat") else v)
-                     for k, v in eval_scores.items()},
+        eval_scores={k: _coerce_eval_score(v) for k, v in eval_scores.items()},
         annotation_counts=ann_counts,
         elapsed_s=elapsed,
         full_annotations=full_anns,
