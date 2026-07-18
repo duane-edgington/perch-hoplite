@@ -111,21 +111,91 @@ with data: URIs.
 Old classifiers (v1_clean through v8_clean) were trained on un-normalized
 embeddings and are retired. New versioning starts at v0:
 
-| Version | ROC-AUC | top1_acc | cmap | Training DB | Notes |
-|---|---|---|---|---|---|
-| v0 | 0.9773 | 0.9405 | 0.8810 | April 2018 norm | Baseline normalized |
-| v1 | 0.9533 | 0.9559 | 0.7999 | April + October 2020 norm | Cross-season |
-| v2 | 0.9654 | 0.9438 | 0.8930 | April 2018 norm (expanded) | More dolphin/other labels |
-| v3 | 0.9467 | 0.9481 | 0.7370 | April 2018 + Oct 2020 + April 2026 norm | 3-season, 17 Apr2026 humpback |
-| v4 | 0.9590 | 0.9650 | 0.8297 | April 2018 + Oct 2020 + April 2026 norm | Best cross-season, 25 Apr2026 humpback |
-| v5 | 0.9303 | 0.9301 | 0.5945 | 3-season context DB (30s Gaussian avg) | Context embedding experiment — WORSE than v4 |
-| v6 | 0.9499 | 0.9409 | 0.7763 | 4-season combined | ship_noise inflated 1278→4496 ❌ |
-| v7 | 0.9499 | 0.9409 | 0.7763 | 4-season, negative→orca_call fix | Identical to v6 ❌ |
-| v8 | 0.9463 | 0.9347 | 0.6489 | 4-season, background→other fix | Still inflated ❌ |
+| Version | ROC-AUC | top1_acc | cmap | F1† | Training DB | Notes |
+|---|---|---|---|---|---|---|
+| v0 | 0.9773 | 0.9405 | 0.8810 | — | April 2018 norm | Baseline normalized |
+| v1 | 0.9533 | 0.9559 | 0.7999 | 0.799 | April + October 2020 norm | Cross-season |
+| v2 | 0.9654 | 0.9438 | 0.8930 | 0.897 | April 2018 norm (expanded) | More dolphin/other labels |
+| v3 | 0.9467 | 0.9481 | 0.7370 | — | April 2018 + Oct 2020 + April 2026 norm | 3-season, 17 Apr2026 humpback |
+| v4 | 0.9590 | 0.9650 | 0.8297 | 0.830 | April 2018 + Oct 2020 + April 2026 norm | Best cross-season, 25 Apr2026 humpback |
+| v5 | 0.9303 | 0.9301 | 0.5945 | — | 3-season context DB (30s Gaussian avg) | Context embedding experiment — WORSE than v4 |
+| v6 | 0.9499 | 0.9409 | 0.7763 | — | 4-season combined | ship_noise inflated 1278→4496 ❌ |
+| v7 | 0.9499 | 0.9409 | 0.7763 | — | 4-season, negative→orca_call fix | Identical to v6 ❌ |
+| v8 | 0.9463 | 0.9347 | 0.6489 | — | 4-season, background→other fix | Still inflated ❌ |
+
+**† F1 = macro F1 at F1-optimal per-class thresholds**, computed on the same held-out
+eval split as cmap/ROC-AUC (`src/f1_metrics.py`, folded into `.metrics.json` every
+training run — July 17 2026). v1/v2/v4 measured (all reproduced their table cmap exactly);
+retrain v0/v3/v5–v8 to populate the rest. ⚠ **Macro F1 is inflated by low-support classes
+and eval sets differ across versions — do not compare it across rows or read it as clean
+skill. See the per-class note below.**
 
 **Best for October 2020 analysis:** v1
 **Best for April/May 2018 analysis:** v2
 **Best for April 2026 / cross-season:** v4
+
+### Per-class F1 — v1 / v2 / v4 (item #10, implemented July 17 2026)
+
+Per-class precision/recall/F1 on the same held-out eval split as cmap/ROC-AUC
+(`src/f1_metrics.py` → `.metrics.json`, every run). Reported at fixed logit ≥ 0.0
+(inference default) and the F1-optimal per-class threshold. All three reproduced their
+table cmap exactly (seed 42), so these attach to the exact rows.
+
+**v2** — April 2018 only, n_eval=190:
+
+| class | n | F1 @0.0 | F1 opt | opt thr |
+|---|---|---|---|---|
+| orca_call | 40 | 0.848 | 0.951 | +1.57 |
+| dolphin_call | 35 | 0.522 | 0.703 | +2.30 |
+| other | 7 | 0.364 | 0.833 | +2.47 |
+| humpback_song | 5 | 1.000 | 1.000 | +0.75 ⚠ |
+| ship_noise | 3 | 1.000 | 1.000 | +0.36 ⚠ |
+
+**v1** — April 2018 + Oct 2020, n_eval=283:
+
+| class | n | F1 @0.0 | F1 opt | opt thr |
+|---|---|---|---|---|
+| orca_call | 41 | 0.781 | 0.950 | +1.89 |
+| dolphin_call | 41 | 0.554 | 0.706 | +2.05 |
+| humpback_song | 40 | 0.444 | 0.559 | +1.08 |
+| other | 11 | 0.545 | 0.778 | +2.19 |
+| ship_noise | 3 | 1.000 | 1.000 | +1.10 ⚠ |
+
+**v4** — 3-season, n_eval=296:
+
+| class | n | F1 @0.0 | F1 opt | opt thr |
+|---|---|---|---|---|
+| orca_call | 45 | 0.841 | 0.947 | +1.16 |
+| dolphin_call | 38 | 0.531 | 0.765 | +2.05 |
+| humpback_song | 47 | 0.450 | 0.548 | +0.98 |
+| other | 10 | 0.645 | 0.889 | +1.99 |
+| ship_noise | 3 | 1.000 | 1.000 | +0.16 ⚠ |
+
+**Credible vs insufficient support.** ⚠ = too few held-out examples to trust.
+- **ship_noise is n=3 in *every* model** (only ~24 ship labels total, mostly April 2018).
+  Its 1.0 is an artifact across the board — needs more ship labels before F1 means anything.
+- **v2 humpback (n=5) = 1.0 was also an artifact** — confirmed now that v1/v4 give humpback
+  real support (n=40/47) and it drops to ~0.55.
+- Macro F1 (table column) is still nudged up by ship=1.0; don't compare it across versions
+  (different eval sets/DBs). Per-class is the honest view.
+
+**Findings.**
+- **orca_call — strong and stable:** F1 opt ≈ 0.95 in all three, but always needs a
+  *positive* threshold (+1.2 to +1.9); at 0.0, precision is only 0.75–0.84. Confirms
+  raising the orca inference threshold (#5, #8).
+- **humpback_song — weakest credible class (~0.55):** once it has real support it's the
+  problem child, not a star, and an optimal threshold near 0 doesn't rescue it — this is a
+  model/label-quality ceiling. **Direct evidence for the gray-whale-contamination
+  hypothesis (#13):** humpback labels likely mixed with gray whale calls, blurring the
+  class. Re-annotation + a `gray_whale_call` class is the most promising lever to lift it.
+- **dolphin_call — ceiling ~0.71–0.77:** consistent across models, high optimal threshold
+  (~+2.05). Model-quality limited, like humpback but less severe.
+- **other:** small support (n=7–11); F1 opt 0.78–0.89 but directional only.
+
+**Threshold takeaway (feeds #8).** Optimal thresholds span +0.16 to +2.47 across classes
+and models; the inference default 0.0 is uniformly too permissive (recall ≈ 1.0, precision
+poor). A single global threshold cannot serve all classes → per-class inference thresholds.
+For orca specifically, ~+1.5 buys precision 0.75→0.93 at unchanged recall (interim #5 lever).
 
 ---
 
@@ -215,15 +285,15 @@ python3 tools/plot_tsne.py \
 2. **plot_monthly deduplication** — ✅ fixed July 12 2026: now deduplicates on `(idx, label)`
 3. **Inference /tmp write speed** — 266K row CSV takes ~33 min to write
 4. **May 2014 secondary event** — 19 (v4) / 58 (v6) detections, not yet reviewed
-5. **April 2026 orca FPs** — Apr 14, 16 still elevated humpback FPs; need 2026 orca examples to resolve
+5. **April 2026 orca FPs** — Apr 14, 16 still elevated humpback FPs; need 2026 orca examples to resolve. Interim mitigation: raise orca inference threshold to ~+1.5 (v2 held-out: precision 0.75→0.93 at unchanged recall 0.975).
 6. **May 2026 embedding** — not yet done
 7. **Abstract update deadline** — July 26 2026; UPDATE NOW — May 12 2018 confirmed July 16 2026
-8. **Option A inference** — add `--output-format full` flag to output all 5 logits per window
+8. **Option A inference** — add `--output-format full` flag to output all 5 logits per window. Now also motivated by per-class F1: optimal thresholds span +0.36 to +2.47, so a single global 0.0 is too permissive — per-class inference thresholds needed.
 9. **Negative labels** — only April 2018 + May 2018 have negatives; October 2020 (6) and April 2026 (23) added July 16 2026
-10. **Per-class F1 scores** — not yet computed; need held-out test split
+10. **Per-class F1 scores** — ✅ implemented July 17 2026: `src/f1_metrics.py` computes per-class precision/recall/F1 (fixed-0 + F1-optimal thresholds) on the same held-out split as cmap/ROC-AUC, folded into `eval_scores` → `.metrics.json` every training run. v1/v2/v4 measured (all reproduced their cmap exactly). See "Per-class F1 — v1/v2/v4" note under the classifier table. Remaining: retrain v0/v3/v5–v8 to populate; ship_noise (n=3 everywhere) needs more labels and small classes need per-class stratification before their F1 is trustworthy.
 11. **4-season ship_noise inflation** — v6/v7/v8 all inflate ship_noise; root cause: May+April orca acoustically different enough to distort boundaries
 12. **Ship_noise label review** — review April 2018 ship_noise labels (24 clips) in Gradio to confirm no errors (low priority)
-13. **Gray whale annotation review** — some `humpback_song` labels may be gray whale calls. Pull all humpback-labeled clips in Gradio and have J. Ryan re-annotate as `humpback_song`, `gray_whale_call` (new class), or `other`. Gray whales are seasonally present in Monterey Bay and can overlap spectrally with humpback at low frequencies. Then retrain with gray whale as a new species class.
+13. **Gray whale annotation review** — some `humpback_song` labels may be gray whale calls. Pull all humpback-labeled clips in Gradio and have J. Ryan re-annotate as `humpback_song`, `gray_whale_call` (new class), or `other`. Gray whales are seasonally present in Monterey Bay and can overlap spectrally with humpback at low frequencies. Then retrain with gray whale as a new species class. **Now supported by evidence:** with real held-out support (n=40/47 in v1/v4), humpback_song is the weakest credible class (F1 opt ~0.55) — consistent with label contamination blurring the class. Highest-priority lever for lifting overall model quality.
 
 ---
 
