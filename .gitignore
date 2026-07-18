@@ -6,3 +6,4 @@ __pycache__/
 *.pyo
 nvml-unified-shim/
 __pycache__/
+__pycache__/
