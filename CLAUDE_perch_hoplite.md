@@ -203,7 +203,7 @@ For orca specifically, ~+1.5 buys precision 0.75→0.93 at unchanged recall (int
 
 | DB | Annotations |
 |---|---|
-| MARS_20180401_20180430_32kHz_norm | 219 orca + 195 dolphin + 41 humpback + 24 ship + 51 other + 54 neg |
+| MARS_20180401_20180430_32kHz_norm | 294 orca (219 + 75 extended-April review Jul 19) + 195 dolphin + 41 humpback + 24 ship + 51 other + 54 neg |
 | MARS_20201001_20201031_32kHz_norm | 209 humpback + 5 dolphin |
 | MARS_20260401_20260430_32kHz_norm | 25 humpback (hard negatives) + 23 negative + 39 humpback + 3 dolphin + 4 other + 5 ship |
 | MARS_20180501_20180531_32kHz_norm | **181 orca** (May 12 confirmed ✅) + 34 negative + 2 dolphin + 4 ship + 6 other |
@@ -327,9 +327,15 @@ HIS expert call, recorded as expert-confirmed, never "pending review." Loop in J
 (PI) only for flagged QA sessions, chiefly humpback-vs-gray-whale (#13). Caption confirmed
 orca clips as "Expert-confirmed orca (D. Edgington)".
 
-**Registered so far (examples):** `gradio_30s_context_orca2` (Apr 13 2018, v2, linear),
-`gradio_apr18_2018_orca_195s_wid202720` + `_405s_wid202762` (Apr 18 2018, v4, mel/viridis,
-expert-confirmed — finding #14).
+**Pre-click screenshot quirk:** a Gradio screenshot may show `unlabeled` (or a stale
+selection) if grabbed a beat before the label click registers. The displayed radio button
+is NOT proof of the final label — the DB is the source of truth. Confirm the intended
+label with Duane before captioning; note it in `--notes` if the screenshot shows pre-click state.
+
+**Registered so far (examples):** `gradio_30s_context_orca2` (Apr 13 2018, v2, linear);
+`gradio_apr18_2018_orca_195s_wid202720` + `_405s_wid202762` (Apr 18 2018, v4, mel/viridis);
+five `gradio_apr25_2018_orca_*` clips (Apr 25 2018, v4, mel/viridis, scores 1.33–1.82) —
+all expert-confirmed, finding #14.
 
 ---
 
@@ -348,7 +354,7 @@ expert-confirmed — finding #14).
 11. **4-season ship_noise inflation** — v6/v7/v8 all inflate ship_noise; root cause: May+April orca acoustically different enough to distort boundaries
 12. **Ship_noise label review** — review April 2018 ship_noise labels (24 clips) in Gradio to confirm no errors (low priority)
 13. **Gray whale annotation review** — some `humpback_song` labels may be gray whale calls. Pull all humpback-labeled clips in Gradio and have J. Ryan re-annotate as `humpback_song`, `gray_whale_call` (new class), or `other`. Gray whales are seasonally present in Monterey Bay and can overlap spectrally with humpback at low frequencies. Then retrain with gray whale as a new species class. **Now supported by evidence:** with real held-out support (n=40/47 in v1/v4), humpback_song is the weakest credible class (F1 opt ~0.55) — consistent with label contamination blurring the class. Highest-priority lever for lifting overall model quality.
-14. **Extended April 2018 orca activity** — v4 cross-month validation (threshold sweep, `tools/score_orca_regions.py`, July 19 2026) surfaced strong, threshold-robust orca detections across **Apr 13–25 2018**, not just the confirmed Apr 13 event. At logit ≥ 1.16: **Apr 18 = 173** (rivals Apr 13's 251; still 105 at +2.0 — behaves like a real event, not an FP mode), Apr 23–25 cluster = 118, full Apr 13–25 window ≈ 569. Pending Gradio review by J. Ryan — **Apr 18 first** (most event-like), then Apr 25, then Apr 23/24. If confirmed, reframes April 2018 from a one-day event into sustained ~2-week presence. Counter-example: May 14 reads FP-like (19→1 across the sweep), so not every cluster survives — let the acoustics decide.
+14. **Extended April 2018 orca activity — CONFIRMED (D. Edgington, July 19 2026).** v4 cross-month validation (threshold sweep, `tools/score_orca_regions.py`) surfaced strong, threshold-robust orca detections across **Apr 13–25 2018**, not just the confirmed Apr 13 event. At logit ≥ 1.16: Apr 18 = 173 (rivals Apr 13's 251; 105 survive +2.0), Apr 23–25 cluster = 118, full Apr 13–25 window ≈ 569. **Expert review complete for Apr 18 + Apr 25: 75 detections labeled (25 Apr 18 + 50 Apr 25), 100% orca, 0 false positives at ≥1.16** — orca_call annotations 219→294. April 2018 is now established as a **sustained ~2-week orca presence**, not a one-day event. Still to review: Apr 18 mid-logit band CSV exists (69 windows, port 7863, unreviewed), Apr 23/24. Counter-example that held up: May 14 reads FP-like (19→1 across the sweep) — not every cluster is real. Confirmed-orca example figures registered: `gradio_apr18_2018_orca_195s_wid202720`, `_405s_wid202762`, and five Apr 25 clips (`gradio_apr25_2018_orca_*`).
 
 ---
 
@@ -376,8 +382,8 @@ Orange-red (other) sits at the humpback/orca/negative boundary.
 | Month | Key finding |
 |---|---|
 | April 13 2018 | 289 orca detections — confirmed Bigg's orca hunting event ✅ |
-| April 18 2018 | 173 orca detections @≥1.16 (v4) — SUSPECTED major bout, survives +2.0 (105); review pending (#14) |
-| April 23–25 2018 | 118 orca detections @≥1.16 (v4) — SUSPECTED cluster; review pending (#14) |
+| April 18 2018 | 173 orca @≥1.16 (v4); 25 reviewed = 100% orca — CONFIRMED bout (D. Edgington) ✅ |
+| April 23–25 2018 | 118 orca @≥1.16 (v4); Apr 25: 50 reviewed = 100% orca — CONFIRMED (D. Edgington) ✅; Apr 23/24 pending |
 | May 12 2018 | 190 orca detections — probable event, expert review pending |
 | May 14 2018 | 45 orca detections — secondary event, expert review pending |
 | October 2020 | Oct 5-12 cluster confirmed — zero orca vocalizations (Bigg's orca silent during hunts) ✅ |
@@ -389,6 +395,11 @@ Orange-red (other) sits at the humpback/orca/negative boundary.
 - False positives collapse under thresholding: Oct 2020 144→1, April 2026 323→6 (T=0.0→+2.0). Confirmed events retain: Apr 13 99%→74%, May 12 95%→40%.
 - **Operating threshold: +1.16 (v4 F1-optimal) primary, +1.5 conservative.** At +1.16 FPs are ~90% gone and Apr 13 still holds 87%; the default 0.0 is unusable (144 / 323 FPs). Residual FPs never quite reach 0 (single digits at +2.0) — pull those specific windows in Gradio to characterize.
 - Surfaced the extended-April-2018 finding (#14).
+
+**Expert observations from the extended-April review (D. Edgington, July 19 2026):**
+- **Ship noise co-occurs with orca on event days** — whale-watch / California Killer Whale Project boats arrive to view orcas once spotted and record them, so `ship_noise` and `orca_call` are positively correlated in time during events. Consequence: `ship_noise` is NOT an orca-absent cue here — any future FP-suppression logic keying on ship noise would be exactly wrong for event days.
+- **Call variation across days** — Apr 13 / 18 / 25 calls sound somewhat different (possibly different pods, individuals, or call types/meaning). Consistent with the extended window being multiple encounters rather than one continuous event. Future refinement: acoustic pod/individual ID.
+- **Clean orca ⇒ quiet background** — confirmed orca calls, even faint ones near the +1.16 threshold, tend to occur in acoustically sparse windows (little humpback/other-animal energy). Testable hypothesis: orca/humpback confusion is driven by the classifier firing on humpback energy in *busy* windows, not by orca acoustics — which would mean the FPs cluster where humpback is present (links to #13) and score lower (why the higher threshold works). Possible future feature: background energy / co-occurrence as a disambiguator.
 
 **Context embedding experiments (July 15 2026):**
 - 30s Gaussian-weighted t-SNE: orca completely separated from humpback (zero overlap) — colleague-suggested method ✅

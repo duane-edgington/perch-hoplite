@@ -1,0 +1,19 @@
+{
+  "saved_filename": "gradio_apr25_2018_orca_80s_wid205697.png",
+  "original_filename": "Screenshot 2026-07-19 at 5.20.38 AM.png",
+  "capture_computer": "DuaneEM1",
+  "capture_timestamp": "2026-07-19 05:20:38",
+  "date_registered": "2026-07-19T06:05:43.327601",
+  "figure_type": "gradio_screenshot",
+  "caption": "Orca call confirmed (April 25 2018, MARS_20180425_222913, 80-85s, score=1.685): mel spectrogram (viridis), strong orca harmonic stack at 0-1s (500 Hz-10 kHz) plus rising calls at 3-4s. Expert-confirmed orca (D. Edgington). Finding #14. Classifier: orca_v4.",
+  "command": "phase2_classify.py review --detections-csv review_apr25_2018_orca_ge116.csv --num-results 50 --spectrogram-type mel --colormap viridis --serve --port 7864 (v4, MARS_20180401_20180430_32kHz_norm)",
+  "source_wav": "MARS_20180425_222913_resampled_32kHz.wav",
+  "wav_offset_s": 80.0,
+  "spectrogram_type": "mel",
+  "colormap": "viridis",
+  "classifier": "orca_v4.pt",
+  "db": "MARS_20180401_20180430_32kHz_norm",
+  "score": 1.685,
+  "label_selected": "orca_call",
+  "notes": "Apr 25 2018 mid-logit review (port 7864). Same recording as wid205695, ~10s later. Expert reviewer: D. Edgington. Supports finding #14."
+}

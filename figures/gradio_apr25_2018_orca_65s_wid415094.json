@@ -1,0 +1,19 @@
+{
+  "saved_filename": "gradio_apr25_2018_orca_65s_wid415094.png",
+  "original_filename": "Screenshot 2026-07-19 at 5.25.03 AM.png",
+  "capture_computer": "DuaneEM1",
+  "capture_timestamp": "2026-07-19 05:25:03",
+  "date_registered": "2026-07-19T06:04:12.858850",
+  "figure_type": "gradio_screenshot",
+  "caption": "Orca call confirmed (April 25 2018, MARS_20180425_200913, 65-70s, score=1.332): mel spectrogram (viridis), faint low-frequency orca banding ~1-2 kHz in a quiet background. Expert-confirmed orca (D. Edgington). Lowest-score clip of the batch (near the +1.16 operating threshold) documenting clean faint orca. Finding #14. Classifier: orca_v4.",
+  "command": "nohup python3 phase2_classify.py review --db-dir /mnt/PAM_Analysis/perch-hoplite/db/MARS_20180401_20180430_32kHz_norm --classifier /mnt/PAM_Analysis/perch-hoplite/models/orca_v4.pt --target-label orca_call --detections-csv /mnt/PAM_Analysis/perch-hoplite/results/review_apr25_2018_orca_ge116.csv --detections-offset 0 --num-results 50 --classes orca_call,humpback_song,dolphin_call,ship_noise,other,unlabeled --audio-dir /mnt/PAM_Analysis/GoogleMultiSpeciesWhaleModel2/resampled_32kHz/2018/04 --spectrogram-type mel --colormap viridis --serve --port 7864",
+  "source_wav": "MARS_20180425_200913_resampled_32kHz.wav",
+  "wav_offset_s": 65.0,
+  "spectrogram_type": "mel",
+  "colormap": "viridis",
+  "classifier": "orca_v4.pt",
+  "db": "MARS_20180401_20180430_32kHz_norm",
+  "score": 1.332,
+  "label_selected": "orca_call",
+  "notes": "Apr 25 2018 mid-logit review (port 7864). Near-threshold clean faint orca; supports the quiet-background observation and the +1.16 operating point. Expert reviewer: D. Edgington. Supports finding #14."
+}

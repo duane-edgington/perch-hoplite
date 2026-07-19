@@ -1,0 +1,19 @@
+{
+  "saved_filename": "gradio_apr25_2018_orca_165s_wid418474.png",
+  "original_filename": "Screenshot 2026-07-19 at 5.14.39 AM.png",
+  "capture_computer": "DuaneEM1",
+  "capture_timestamp": "2026-07-19 05:14:39",
+  "date_registered": "2026-07-19T06:05:30.474096",
+  "figure_type": "gradio_screenshot",
+  "caption": "Orca call confirmed (April 25 2018, MARS_20180425_221913, 165-170s, score=1.823): mel spectrogram (viridis), rising orca whistle/harmonic stack from ~2.3s, 500 Hz-8 kHz. Expert-confirmed orca (D. Edgington). Apr 25 mid-logit review batch, finding #14. Classifier: orca_v4.",
+  "command": "phase2_classify.py review --detections-csv review_apr25_2018_orca_ge116.csv --num-results 50 --spectrogram-type mel --colormap viridis --serve --port 7864 (v4, MARS_20180401_20180430_32kHz_norm)",
+  "source_wav": "MARS_20180425_221913_resampled_32kHz.wav",
+  "wav_offset_s": 165.0,
+  "spectrogram_type": "mel",
+  "colormap": "viridis",
+  "classifier": "orca_v4.pt",
+  "db": "MARS_20180401_20180430_32kHz_norm",
+  "score": 1.823,
+  "label_selected": "orca_call",
+  "notes": "Apr 25 2018 mid-logit review (logit>=1.16, port 7864); batch 50/50 confirmed orca, 0 FP. Ship noise co-occurs on event days (whale-watch/CKWP boats), NOT an orca-absent cue. Expert reviewer: D. Edgington. Supports finding #14."
+}

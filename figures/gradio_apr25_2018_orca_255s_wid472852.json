@@ -1,0 +1,19 @@
+{
+  "saved_filename": "gradio_apr25_2018_orca_255s_wid472852.png",
+  "original_filename": "Screenshot 2026-07-19 at 5.18.40 AM.png",
+  "capture_computer": "DuaneEM1",
+  "capture_timestamp": "2026-07-19 05:18:40",
+  "date_registered": "2026-07-19T05:59:09.787767",
+  "figure_type": "gradio_screenshot",
+  "caption": "Orca call confirmed (April 25 2018, MARS_20180425_205913, 255-260s, score=1.620): mel spectrogram (viridis), faint orca energy building 3-4s (500 Hz-4 kHz) in a quiet background. Expert-confirmed orca (D. Edgington). Apr 25 mid-logit review batch \u2014 finding #14. Classifier: orca_v4.",
+  "command": "nohup python3 phase2_classify.py review --db-dir /mnt/PAM_Analysis/perch-hoplite/db/MARS_20180401_20180430_32kHz_norm --classifier /mnt/PAM_Analysis/perch-hoplite/models/orca_v4.pt --target-label orca_call --detections-csv /mnt/PAM_Analysis/perch-hoplite/results/review_apr25_2018_orca_ge116.csv --detections-offset 0 --num-results 50 --classes orca_call,humpback_song,dolphin_call,ship_noise,other,unlabeled --audio-dir /mnt/PAM_Analysis/GoogleMultiSpeciesWhaleModel2/resampled_32kHz/2018/04 --spectrogram-type mel --colormap viridis --serve --port 7864",
+  "source_wav": "MARS_20180425_205913_resampled_32kHz.wav",
+  "wav_offset_s": 255.0,
+  "spectrogram_type": "mel",
+  "colormap": "viridis",
+  "classifier": "orca_v4.pt",
+  "db": "MARS_20180401_20180430_32kHz_norm",
+  "score": 1.62,
+  "label_selected": "orca_call",
+  "notes": "Apr 25 2018 mid-logit review (port 7864). Screenshot caught pre-click showing 'unlabeled'; final expert label is orca_call (DB is source of truth). Expert reviewer: D. Edgington. Supports finding #14."
+}
