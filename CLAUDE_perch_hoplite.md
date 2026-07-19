@@ -279,6 +279,60 @@ python3 tools/plot_tsne.py \
 
 ---
 
+## Figure Provenance (IMPORTANT — Duane's standing workflow)
+
+**Every figure Duane captures (Gradio screenshots, plots) MUST be archived with full
+provenance. This matters a lot to Duane and is a long-term project requirement — do not
+skip it, and do not invent a parallel format. Always use the existing system below.**
+
+**The system:** `tools/register_figure.py` writes a per-figure JSON sidecar
+(`figures/<saved-name>.json`) and updates the master `figures/manifest.json`. Inspect
+`figures/manifest.json` for the schema and prior examples before writing captions.
+
+**Naming convention** (match existing entries, no spaces):
+`gradio_<event>_<label>_<detail>.png`, e.g. `gradio_apr18_2018_orca_195s_wid202720.png`.
+Plots: `tsne_*`, `<Month>_MARS_Hydrophone_v*_*` (monthly/heatmap).
+
+**Standard registration command (Gradio screenshot):**
+```bash
+python3 tools/register_figure.py \
+    --saved-name gradio_apr18_2018_orca_195s_wid202720.png \
+    --original-name "Screenshot 2026-07-19 at 4.40.17 AM.png" \
+    --computer DuaneEM1 \
+    --type gradio_screenshot \
+    --wav MARS_20180418_113912_resampled_32kHz.wav --offset 195 \
+    --spectrogram mel --colormap viridis \
+    --classifier orca_v4.pt --db MARS_20180401_20180430_32kHz_norm \
+    --score 3.724 --label orca_call \
+    --caption "..." --notes "..." --command "<full review command used>"
+```
+`--type` ∈ {gradio_screenshot, tsne_plot, monthly_plot, heatmap_plot, matplotlib_plot, other}.
+`--computer` ∈ {ICEFISH, DuaneEM1, spark-ae0e, spark-0626, other}.
+Then `git add` the .png + its .json + manifest.json, and commit together.
+
+**macOS screenshot filename gotcha (both scp AND mv):** screenshot names contain spaces
+(and sometimes non-ASCII space characters that will NOT byte-match a retyped quoted
+string). ALWAYS glob on the unique timestamp instead of quoting the name:
+```bash
+# scp from Mac:
+scp ~/Desktop/Screenshot\ 2026-07-19\ at\ 4*.png duane@134.89.11.107:~/perch-hoplite/figures/
+# rename on spark (glob, don't retype the spaces):
+mv ~/perch-hoplite/figures/Screenshot*4.40.17*.png ~/perch-hoplite/figures/gradio_apr18_2018_orca_195s_wid202720.png
+```
+`--original-name` is just a metadata string, so a quoted approximation there is fine — the
+glob only matters when a command touches the actual file.
+
+**Attribution rule:** Duane (D. Edgington) is the orca annotator/reviewer — orca IDs are
+HIS expert call, recorded as expert-confirmed, never "pending review." Loop in J. Ryan
+(PI) only for flagged QA sessions, chiefly humpback-vs-gray-whale (#13). Caption confirmed
+orca clips as "Expert-confirmed orca (D. Edgington)".
+
+**Registered so far (examples):** `gradio_30s_context_orca2` (Apr 13 2018, v2, linear),
+`gradio_apr18_2018_orca_195s_wid202720` + `_405s_wid202762` (Apr 18 2018, v4, mel/viridis,
+expert-confirmed — finding #14).
+
+---
+
 ## Known Issues / Pending Work
 
 1. **Mel spectrogram banding** — minor horizontal artifacts in mel/pcen/perch modes (partially fixed)
