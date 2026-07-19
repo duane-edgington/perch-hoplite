@@ -403,29 +403,139 @@
       "label_selected": "orca_call",
       "notes": "Apr 25 2018 mid-logit review (port 7864). Documents observation: clean orca calls, even faint, occur in quiet windows with little other-animal/background energy. Expert reviewer: D. Edgington. Supports finding #14."
     },
-    "tsne_orca_by_day_april2018_v4.png": {
-      "saved_filename": "tsne_orca_by_day_april2018_v4.png",
-      "original_filename": "tsne_orca_by_day_april2018.png",
+    "tsne_orca_by_day_4days_px10.png": {
+      "saved_filename": "tsne_orca_by_day_4days_px10.png",
+      "original_filename": "tsne_orca_by_day_4days_px10.png",
       "capture_computer": "spark-ae0e",
       "capture_timestamp": "unknown",
-      "date_registered": "2026-07-19T08:02:36.239393",
+      "date_registered": "2026-07-19T10:07:57.932589",
       "figure_type": "tsne_plot",
-      "caption": "t-SNE of 292 confirmed orca_call embeddings (Perch V2, cosine) from April 2018, colored by confirmed day: Apr 13 (n=214), Apr 18 (n=28), Apr 25 (n=50). Apr 25 forms a distinct cluster separated from the Apr 13 event WITHIN the same month (background/SNR confound controlled); Apr 18 shows partial/arc structure; Apr 13 is the diffuse bulk. Exploratory (t-SNE distances not meaningful); suggests Apr 25 may be a different pod/individual/call-type. Finding #14 follow-up.",
-      "command": "python3 tools/plot_tsne_orca_by_day.py --april-db MARS_20180401_20180430_32kHz_norm --may-db MARS_20180501_20180531_32kHz_norm (perplexity 30, seed 42)",
-      "notes": "Confirmed-orca days only (filename-date filter). Caveat: same-month separation still needs within-day confound ruled out (ship-noise/single-recording). Pending perplexity sweep + distinct-recording check. Expert: D. Edgington."
+      "caption": "t-SNE of confirmed orca_call embeddings (Perch V2, cosine) \u2014 4 confirmed days (Apr 13/18/25 + May 12 2018), perplexity=10, analysis (light theme). Apr 25 (evening encounter) forms a distinct cluster separated from the Apr 13 morning Bigg's event WITHIN the same month; separation is ROBUST across perplexity 10/30/50 and spans 10 recordings over ~3.5h (not a single-recording/boat artifact). Apr 18 is partially distinct. Exploratory \u2014 t-SNE distances/sizes are not meaningful. Finding #14 (extended April 2018 orca presence).",
+      "command": "python3 tools/plot_tsne_orca_by_day.py --april-db MARS_20180401_20180430_32kHz_norm --may-db MARS_20180501_20180531_32kHz_norm --perplexity 10 --style analysis --out-dir figures",
+      "notes": "Confirmed-orca windows only (filename-date filter). Apr 25 within-month separation survives perplexity + multi-recording confounds; remaining question (pod vs individual vs call-type vs evening acoustic context) pending direct listening. Expert reviewer: D. Edgington."
     },
-    "tsne_orca_by_day_4days_v4.png": {
-      "saved_filename": "tsne_orca_by_day_4days_v4.png",
-      "original_filename": "tsne_orca_by_day_4days.png",
+    "tsne_orca_by_day_4days_px10_pres.png": {
+      "saved_filename": "tsne_orca_by_day_4days_px10_pres.png",
+      "original_filename": "tsne_orca_by_day_4days_px10_pres.png",
       "capture_computer": "spark-ae0e",
       "capture_timestamp": "unknown",
-      "date_registered": "2026-07-19T08:03:38.675180",
+      "date_registered": "2026-07-19T10:07:57.968570",
       "figure_type": "tsne_plot",
-      "caption": "t-SNE of 473 confirmed orca_call embeddings (Perch V2, cosine), 4 confirmed days: Apr 13 (214), Apr 18 (28), Apr 25 (50), May 12 (181, triangles). Apr 25 again holds a distinct corner; May 12 forms a large separate territory BUT cross-month separation is confounded by background/SNR/recording conditions and must not be read as biological. Apr 13/18 structure matches the April-only plot. Exploratory. Finding #14 follow-up.",
-      "command": "python3 tools/plot_tsne_orca_by_day.py --april-db MARS_20180401_20180430_32kHz_norm --may-db MARS_20180501_20180531_32kHz_norm (perplexity 30, seed 42)",
-      "notes": "May shown as triangle marker (month confound). Apr 25 within-month separation is the interpretable signal; May 12 separation is not. Expert: D. Edgington."
+      "caption": "t-SNE of confirmed orca_call embeddings (Perch V2, cosine) \u2014 4 confirmed days (Apr 13/18/25 + May 12 2018), perplexity=10, presentation (dark theme). Apr 25 (evening encounter) forms a distinct cluster separated from the Apr 13 morning Bigg's event WITHIN the same month; separation is ROBUST across perplexity 10/30/50 and spans 10 recordings over ~3.5h (not a single-recording/boat artifact). Apr 18 is partially distinct. Exploratory \u2014 t-SNE distances/sizes are not meaningful. Finding #14 (extended April 2018 orca presence).",
+      "command": "python3 tools/plot_tsne_orca_by_day.py --april-db MARS_20180401_20180430_32kHz_norm --may-db MARS_20180501_20180531_32kHz_norm --perplexity 10 --style presentation --out-dir figures",
+      "notes": "Confirmed-orca windows only (filename-date filter). Apr 25 within-month separation survives perplexity + multi-recording confounds; remaining question (pod vs individual vs call-type vs evening acoustic context) pending direct listening. Expert reviewer: D. Edgington."
+    },
+    "tsne_orca_by_day_4days_px30.png": {
+      "saved_filename": "tsne_orca_by_day_4days_px30.png",
+      "original_filename": "tsne_orca_by_day_4days_px30.png",
+      "capture_computer": "spark-ae0e",
+      "capture_timestamp": "unknown",
+      "date_registered": "2026-07-19T10:07:57.989644",
+      "figure_type": "tsne_plot",
+      "caption": "t-SNE of confirmed orca_call embeddings (Perch V2, cosine) \u2014 4 confirmed days (Apr 13/18/25 + May 12 2018), perplexity=30, analysis (light theme). Apr 25 (evening encounter) forms a distinct cluster separated from the Apr 13 morning Bigg's event WITHIN the same month; separation is ROBUST across perplexity 10/30/50 and spans 10 recordings over ~3.5h (not a single-recording/boat artifact). Apr 18 is partially distinct. Exploratory \u2014 t-SNE distances/sizes are not meaningful. Finding #14 (extended April 2018 orca presence).",
+      "command": "python3 tools/plot_tsne_orca_by_day.py --april-db MARS_20180401_20180430_32kHz_norm --may-db MARS_20180501_20180531_32kHz_norm --perplexity 30 --style analysis --out-dir figures",
+      "notes": "Confirmed-orca windows only (filename-date filter). Apr 25 within-month separation survives perplexity + multi-recording confounds; remaining question (pod vs individual vs call-type vs evening acoustic context) pending direct listening. Expert reviewer: D. Edgington."
+    },
+    "tsne_orca_by_day_4days_px30_pres.png": {
+      "saved_filename": "tsne_orca_by_day_4days_px30_pres.png",
+      "original_filename": "tsne_orca_by_day_4days_px30_pres.png",
+      "capture_computer": "spark-ae0e",
+      "capture_timestamp": "unknown",
+      "date_registered": "2026-07-19T10:07:58.025094",
+      "figure_type": "tsne_plot",
+      "caption": "t-SNE of confirmed orca_call embeddings (Perch V2, cosine) \u2014 4 confirmed days (Apr 13/18/25 + May 12 2018), perplexity=30, presentation (dark theme). Apr 25 (evening encounter) forms a distinct cluster separated from the Apr 13 morning Bigg's event WITHIN the same month; separation is ROBUST across perplexity 10/30/50 and spans 10 recordings over ~3.5h (not a single-recording/boat artifact). Apr 18 is partially distinct. Exploratory \u2014 t-SNE distances/sizes are not meaningful. Finding #14 (extended April 2018 orca presence).",
+      "command": "python3 tools/plot_tsne_orca_by_day.py --april-db MARS_20180401_20180430_32kHz_norm --may-db MARS_20180501_20180531_32kHz_norm --perplexity 30 --style presentation --out-dir figures",
+      "notes": "Confirmed-orca windows only (filename-date filter). Apr 25 within-month separation survives perplexity + multi-recording confounds; remaining question (pod vs individual vs call-type vs evening acoustic context) pending direct listening. Expert reviewer: D. Edgington."
+    },
+    "tsne_orca_by_day_4days_px50.png": {
+      "saved_filename": "tsne_orca_by_day_4days_px50.png",
+      "original_filename": "tsne_orca_by_day_4days_px50.png",
+      "capture_computer": "spark-ae0e",
+      "capture_timestamp": "unknown",
+      "date_registered": "2026-07-19T10:07:58.062028",
+      "figure_type": "tsne_plot",
+      "caption": "t-SNE of confirmed orca_call embeddings (Perch V2, cosine) \u2014 4 confirmed days (Apr 13/18/25 + May 12 2018), perplexity=50, analysis (light theme). Apr 25 (evening encounter) forms a distinct cluster separated from the Apr 13 morning Bigg's event WITHIN the same month; separation is ROBUST across perplexity 10/30/50 and spans 10 recordings over ~3.5h (not a single-recording/boat artifact). Apr 18 is partially distinct. Exploratory \u2014 t-SNE distances/sizes are not meaningful. Finding #14 (extended April 2018 orca presence).",
+      "command": "python3 tools/plot_tsne_orca_by_day.py --april-db MARS_20180401_20180430_32kHz_norm --may-db MARS_20180501_20180531_32kHz_norm --perplexity 50 --style analysis --out-dir figures",
+      "notes": "Confirmed-orca windows only (filename-date filter). Apr 25 within-month separation survives perplexity + multi-recording confounds; remaining question (pod vs individual vs call-type vs evening acoustic context) pending direct listening. Expert reviewer: D. Edgington."
+    },
+    "tsne_orca_by_day_4days_px50_pres.png": {
+      "saved_filename": "tsne_orca_by_day_4days_px50_pres.png",
+      "original_filename": "tsne_orca_by_day_4days_px50_pres.png",
+      "capture_computer": "spark-ae0e",
+      "capture_timestamp": "unknown",
+      "date_registered": "2026-07-19T10:07:58.102529",
+      "figure_type": "tsne_plot",
+      "caption": "t-SNE of confirmed orca_call embeddings (Perch V2, cosine) \u2014 4 confirmed days (Apr 13/18/25 + May 12 2018), perplexity=50, presentation (dark theme). Apr 25 (evening encounter) forms a distinct cluster separated from the Apr 13 morning Bigg's event WITHIN the same month; separation is ROBUST across perplexity 10/30/50 and spans 10 recordings over ~3.5h (not a single-recording/boat artifact). Apr 18 is partially distinct. Exploratory \u2014 t-SNE distances/sizes are not meaningful. Finding #14 (extended April 2018 orca presence).",
+      "command": "python3 tools/plot_tsne_orca_by_day.py --april-db MARS_20180401_20180430_32kHz_norm --may-db MARS_20180501_20180531_32kHz_norm --perplexity 50 --style presentation --out-dir figures",
+      "notes": "Confirmed-orca windows only (filename-date filter). Apr 25 within-month separation survives perplexity + multi-recording confounds; remaining question (pod vs individual vs call-type vs evening acoustic context) pending direct listening. Expert reviewer: D. Edgington."
+    },
+    "tsne_orca_by_day_april2018_px10.png": {
+      "saved_filename": "tsne_orca_by_day_april2018_px10.png",
+      "original_filename": "tsne_orca_by_day_april2018_px10.png",
+      "capture_computer": "spark-ae0e",
+      "capture_timestamp": "unknown",
+      "date_registered": "2026-07-19T10:07:58.126071",
+      "figure_type": "tsne_plot",
+      "caption": "t-SNE of confirmed orca_call embeddings (Perch V2, cosine) \u2014 April 2018 by confirmed day (Apr 13/18/25), perplexity=10, analysis (light theme). Apr 25 (evening encounter) forms a distinct cluster separated from the Apr 13 morning Bigg's event WITHIN the same month; separation is ROBUST across perplexity 10/30/50 and spans 10 recordings over ~3.5h (not a single-recording/boat artifact). Apr 18 is partially distinct. Exploratory \u2014 t-SNE distances/sizes are not meaningful. Finding #14 (extended April 2018 orca presence).",
+      "command": "python3 tools/plot_tsne_orca_by_day.py --april-db MARS_20180401_20180430_32kHz_norm --may-db MARS_20180501_20180531_32kHz_norm --perplexity 10 --style analysis --out-dir figures",
+      "notes": "Confirmed-orca windows only (filename-date filter). Apr 25 within-month separation survives perplexity + multi-recording confounds; remaining question (pod vs individual vs call-type vs evening acoustic context) pending direct listening. Expert reviewer: D. Edgington."
+    },
+    "tsne_orca_by_day_april2018_px10_pres.png": {
+      "saved_filename": "tsne_orca_by_day_april2018_px10_pres.png",
+      "original_filename": "tsne_orca_by_day_april2018_px10_pres.png",
+      "capture_computer": "spark-ae0e",
+      "capture_timestamp": "unknown",
+      "date_registered": "2026-07-19T10:07:58.146289",
+      "figure_type": "tsne_plot",
+      "caption": "t-SNE of confirmed orca_call embeddings (Perch V2, cosine) \u2014 April 2018 by confirmed day (Apr 13/18/25), perplexity=10, presentation (dark theme). Apr 25 (evening encounter) forms a distinct cluster separated from the Apr 13 morning Bigg's event WITHIN the same month; separation is ROBUST across perplexity 10/30/50 and spans 10 recordings over ~3.5h (not a single-recording/boat artifact). Apr 18 is partially distinct. Exploratory \u2014 t-SNE distances/sizes are not meaningful. Finding #14 (extended April 2018 orca presence).",
+      "command": "python3 tools/plot_tsne_orca_by_day.py --april-db MARS_20180401_20180430_32kHz_norm --may-db MARS_20180501_20180531_32kHz_norm --perplexity 10 --style presentation --out-dir figures",
+      "notes": "Confirmed-orca windows only (filename-date filter). Apr 25 within-month separation survives perplexity + multi-recording confounds; remaining question (pod vs individual vs call-type vs evening acoustic context) pending direct listening. Expert reviewer: D. Edgington."
+    },
+    "tsne_orca_by_day_april2018_px30.png": {
+      "saved_filename": "tsne_orca_by_day_april2018_px30.png",
+      "original_filename": "tsne_orca_by_day_april2018_px30.png",
+      "capture_computer": "spark-ae0e",
+      "capture_timestamp": "unknown",
+      "date_registered": "2026-07-19T10:07:58.166290",
+      "figure_type": "tsne_plot",
+      "caption": "t-SNE of confirmed orca_call embeddings (Perch V2, cosine) \u2014 April 2018 by confirmed day (Apr 13/18/25), perplexity=30, analysis (light theme). Apr 25 (evening encounter) forms a distinct cluster separated from the Apr 13 morning Bigg's event WITHIN the same month; separation is ROBUST across perplexity 10/30/50 and spans 10 recordings over ~3.5h (not a single-recording/boat artifact). Apr 18 is partially distinct. Exploratory \u2014 t-SNE distances/sizes are not meaningful. Finding #14 (extended April 2018 orca presence).",
+      "command": "python3 tools/plot_tsne_orca_by_day.py --april-db MARS_20180401_20180430_32kHz_norm --may-db MARS_20180501_20180531_32kHz_norm --perplexity 30 --style analysis --out-dir figures",
+      "notes": "Confirmed-orca windows only (filename-date filter). Apr 25 within-month separation survives perplexity + multi-recording confounds; remaining question (pod vs individual vs call-type vs evening acoustic context) pending direct listening. Expert reviewer: D. Edgington."
+    },
+    "tsne_orca_by_day_april2018_px30_pres.png": {
+      "saved_filename": "tsne_orca_by_day_april2018_px30_pres.png",
+      "original_filename": "tsne_orca_by_day_april2018_px30_pres.png",
+      "capture_computer": "spark-ae0e",
+      "capture_timestamp": "unknown",
+      "date_registered": "2026-07-19T10:07:58.186990",
+      "figure_type": "tsne_plot",
+      "caption": "t-SNE of confirmed orca_call embeddings (Perch V2, cosine) \u2014 April 2018 by confirmed day (Apr 13/18/25), perplexity=30, presentation (dark theme). Apr 25 (evening encounter) forms a distinct cluster separated from the Apr 13 morning Bigg's event WITHIN the same month; separation is ROBUST across perplexity 10/30/50 and spans 10 recordings over ~3.5h (not a single-recording/boat artifact). Apr 18 is partially distinct. Exploratory \u2014 t-SNE distances/sizes are not meaningful. Finding #14 (extended April 2018 orca presence).",
+      "command": "python3 tools/plot_tsne_orca_by_day.py --april-db MARS_20180401_20180430_32kHz_norm --may-db MARS_20180501_20180531_32kHz_norm --perplexity 30 --style presentation --out-dir figures",
+      "notes": "Confirmed-orca windows only (filename-date filter). Apr 25 within-month separation survives perplexity + multi-recording confounds; remaining question (pod vs individual vs call-type vs evening acoustic context) pending direct listening. Expert reviewer: D. Edgington."
+    },
+    "tsne_orca_by_day_april2018_px50.png": {
+      "saved_filename": "tsne_orca_by_day_april2018_px50.png",
+      "original_filename": "tsne_orca_by_day_april2018_px50.png",
+      "capture_computer": "spark-ae0e",
+      "capture_timestamp": "unknown",
+      "date_registered": "2026-07-19T10:07:58.207789",
+      "figure_type": "tsne_plot",
+      "caption": "t-SNE of confirmed orca_call embeddings (Perch V2, cosine) \u2014 April 2018 by confirmed day (Apr 13/18/25), perplexity=50, analysis (light theme). Apr 25 (evening encounter) forms a distinct cluster separated from the Apr 13 morning Bigg's event WITHIN the same month; separation is ROBUST across perplexity 10/30/50 and spans 10 recordings over ~3.5h (not a single-recording/boat artifact). Apr 18 is partially distinct. Exploratory \u2014 t-SNE distances/sizes are not meaningful. Finding #14 (extended April 2018 orca presence).",
+      "command": "python3 tools/plot_tsne_orca_by_day.py --april-db MARS_20180401_20180430_32kHz_norm --may-db MARS_20180501_20180531_32kHz_norm --perplexity 50 --style analysis --out-dir figures",
+      "notes": "Confirmed-orca windows only (filename-date filter). Apr 25 within-month separation survives perplexity + multi-recording confounds; remaining question (pod vs individual vs call-type vs evening acoustic context) pending direct listening. Expert reviewer: D. Edgington."
+    },
+    "tsne_orca_by_day_april2018_px50_pres.png": {
+      "saved_filename": "tsne_orca_by_day_april2018_px50_pres.png",
+      "original_filename": "tsne_orca_by_day_april2018_px50_pres.png",
+      "capture_computer": "spark-ae0e",
+      "capture_timestamp": "unknown",
+      "date_registered": "2026-07-19T10:07:58.244389",
+      "figure_type": "tsne_plot",
+      "caption": "t-SNE of confirmed orca_call embeddings (Perch V2, cosine) \u2014 April 2018 by confirmed day (Apr 13/18/25), perplexity=50, presentation (dark theme). Apr 25 (evening encounter) forms a distinct cluster separated from the Apr 13 morning Bigg's event WITHIN the same month; separation is ROBUST across perplexity 10/30/50 and spans 10 recordings over ~3.5h (not a single-recording/boat artifact). Apr 18 is partially distinct. Exploratory \u2014 t-SNE distances/sizes are not meaningful. Finding #14 (extended April 2018 orca presence).",
+      "command": "python3 tools/plot_tsne_orca_by_day.py --april-db MARS_20180401_20180430_32kHz_norm --may-db MARS_20180501_20180531_32kHz_norm --perplexity 50 --style presentation --out-dir figures",
+      "notes": "Confirmed-orca windows only (filename-date filter). Apr 25 within-month separation survives perplexity + multi-recording confounds; remaining question (pod vs individual vs call-type vs evening acoustic context) pending direct listening. Expert reviewer: D. Edgington."
     }
   },
-  "last_updated": "2026-07-19T08:03:38.675598",
-  "figure_count": 30
+  "last_updated": "2026-07-19T10:07:58.244918",
+  "figure_count": 42
 }

@@ -55,6 +55,15 @@ DAY_COLORS = {
     date(2018, 4, 25): "#7570b3",   # confirmed cluster
     date(2018, 5, 12): "#e7298a",   # confirmed May event
 }
+# Brighter day palette for the dark presentation theme (matches plot_tsne_orca_events.py
+# slate background #1e293b). Distinct-by-day rather than the species green, since every
+# point here is orca.
+PRES_DAY_COLORS = {
+    date(2018, 4, 13): "#38bdf8",   # sky
+    date(2018, 4, 18): "#fbbf24",   # amber
+    date(2018, 4, 25): "#c084fc",   # bright purple
+    date(2018, 5, 12): "#fb7185",   # rose
+}
 _DATE_RE = re.compile(r"(20\d{2})(\d{2})(\d{2})")
 
 
@@ -140,18 +149,46 @@ def run_tsne(emb, perplexity=None, seed=42):
     return tsne.fit_transform(emb_norm), perplexity
 
 
-def plot_by_day(coords, days, title, out_png, month_marker=False):
+def plot_by_day(coords, days, title, out_png, month_marker=False, style="analysis"):
     import matplotlib
     matplotlib.use("Agg")
     import matplotlib.pyplot as plt
 
-    fig, ax = plt.subplots(figsize=(8, 7))
     uniq = sorted(set(days))
+    if style == "presentation":
+        # Dark theme matching tools/plot_tsne_orca_events.py
+        fig, ax = plt.subplots(figsize=(12, 8))
+        fig.patch.set_facecolor("#0f172a")
+        ax.set_facecolor("#1e293b")
+        colors = PRES_DAY_COLORS
+        for d in uniq:
+            mask = np.array([x == d for x in days])
+            marker = ("^" if d.month == 5 else "o") if month_marker else "o"
+            ax.scatter(coords[mask, 0], coords[mask, 1],
+                       s=55, alpha=0.9, edgecolors="none",
+                       c=colors.get(d, "#94a3b8"), marker=marker,
+                       label=f"{d.isoformat()} (n={int(mask.sum())})")
+        ax.set_title(title, color="#e2e8f0", fontsize=13, pad=12)
+        ax.set_xlabel("t-SNE dim 1", color="#94a3b8", fontsize=9)
+        ax.set_ylabel("t-SNE dim 2", color="#94a3b8", fontsize=9)
+        ax.tick_params(colors="#94a3b8", labelsize=8)
+        for spine in ax.spines.values():
+            spine.set_edgecolor("#334155")
+        ax.legend(framealpha=0.15, facecolor="#0f172a", edgecolor="#334155",
+                  labelcolor="#e2e8f0", fontsize=9, loc="best")
+        ax.text(0.01, 0.01,
+                f"n={len(days)} confirmed orca windows  |  Perch V2 1536-dim → t-SNE 2D  |  exploratory",
+                transform=ax.transAxes, fontsize=7, color="#475569", va="bottom")
+        fig.tight_layout()
+        fig.savefig(out_png, dpi=150, bbox_inches="tight", facecolor="#0f172a")
+        plt.close(fig)
+        return out_png
+
+    # Default: light analysis theme (readable while iterating, with full caveat)
+    fig, ax = plt.subplots(figsize=(8, 7))
     for d in uniq:
         mask = np.array([x == d for x in days])
-        marker = "o"
-        if month_marker:
-            marker = "^" if d.month == 5 else "o"   # May = triangle, April = circle
+        marker = ("^" if d.month == 5 else "o") if month_marker else "o"
         ax.scatter(coords[mask, 0], coords[mask, 1],
                    s=42, alpha=0.75, edgecolors="white", linewidths=0.4,
                    c=DAY_COLORS.get(d, "#888888"), marker=marker,
@@ -171,15 +208,18 @@ def plot_by_day(coords, days, title, out_png, month_marker=False):
 
 def make_plots(april_emb, april_days, april_wids,
                may_emb, may_days, may_wids,
-               out_dir, perplexity, seed):
+               out_dir, perplexity, seed, style="analysis"):
     os.makedirs(out_dir, exist_ok=True)
     written = []
+    sfx = "_pres" if style == "presentation" else ""
+    px_tag = f"px{int(perplexity)}" if perplexity else "pxauto"
 
     # Plot 1 — April only
     coords_a, px_a = run_tsne(april_emb, perplexity, seed)
     p1 = plot_by_day(coords_a, april_days,
                      f"Confirmed orca calls — April 2018 by day (t-SNE, perplexity={px_a}, n={len(april_days)})",
-                     os.path.join(out_dir, "tsne_orca_by_day_april2018.png"))
+                     os.path.join(out_dir, f"tsne_orca_by_day_april2018_{px_tag}{sfx}.png"),
+                     style=style)
     written.append(p1)
 
     # Plot 2 — all four days (April + May 12); May as triangle
@@ -188,8 +228,8 @@ def make_plots(april_emb, april_days, april_wids,
     coords_all, px_all = run_tsne(all_emb, perplexity, seed)
     p2 = plot_by_day(coords_all, all_days,
                      f"Confirmed orca calls — 4 days Apr+May 2018 (t-SNE, perplexity={px_all}, n={len(all_days)})",
-                     os.path.join(out_dir, "tsne_orca_by_day_4days.png"),
-                     month_marker=True)
+                     os.path.join(out_dir, f"tsne_orca_by_day_4days_{px_tag}{sfx}.png"),
+                     month_marker=True, style=style)
     written.append(p2)
     return written
 
@@ -220,8 +260,10 @@ def selftest():
 
     import tempfile
     out = tempfile.mkdtemp()
-    written = make_plots(april_emb, april_days, april_wids,
-                         may_emb, may_days, may_wids, out, perplexity=None, seed=1)
+    written = []
+    for st in ('analysis', 'presentation'):
+        written += make_plots(april_emb, april_days, april_wids,
+                              may_emb, may_days, may_wids, out, perplexity=None, seed=1, style=st)
 
     ok = True
     for p in written:
@@ -250,6 +292,8 @@ def main():
     ap.add_argument("--perplexity", type=float, default=None,
                     help="t-SNE perplexity (default auto ~min(30,(n-1)/3)); try a few")
     ap.add_argument("--seed", type=int, default=42)
+    ap.add_argument("--style", choices=["analysis", "presentation"], default="analysis",
+                    help="analysis=light readable (default); presentation=dark theme for slides")
     ap.add_argument("--selftest", action="store_true")
     args = ap.parse_args()
 
@@ -271,7 +315,7 @@ def main():
 
     written = make_plots(april_emb, april_days, april_wids,
                          may_emb, may_days, may_wids,
-                         args.out_dir, args.perplexity, args.seed)
+                         args.out_dir, args.perplexity, args.seed, style=args.style)
     print("Wrote:")
     for p in written:
         print(" ", p)
