@@ -125,6 +125,8 @@ Known harmless warnings at startup (not errors):
 | `phase2_classify.py` | **spark-ae0e** | Active learning: search, label, train, review, infer |
 | `tools/plot_monthly.py` | **spark-ae0e** | Monthly detection timeline and heatmap plots |
 | `tools/plot_tsne.py` | **spark-ae0e** | t-SNE visualization of labeled embeddings |
+| `tools/run_orca_validation.sh` | **spark-ae0e** | Multi-month v4 orca inference for cross-month validation |
+| `tools/score_orca_regions.py` | **spark-ae0e** | Threshold-swept orca detection counts vs known ground-truth regions |
 
 ---
 
@@ -145,6 +147,36 @@ Known harmless warnings at startup (not errors):
 | `tools/merge_annotations.py` | **spark-ae0e** | Copy annotations between DBs |
 | `tools/extract_example_clips.py` | **spark-ae0e** | Extract and peak-normalize 10 example clips |
 | `tools/review_example_clips.py` | **spark-ae0e** | Launch Gradio review for example clips |
+
+---
+
+## Orca Cross-Month Validation
+
+Validate a classifier's orca detector against months with known ground truth
+(confirmed events, confirmed-silent periods) and pick an operating threshold.
+
+```bash
+# 1. Run v4 inference over the four ground-truth months (walk away; ~30 min/month).
+#    Writes per-month detection CSVs to results/ at a low floor (0.0) so the scorer
+#    can sweep thresholds without re-running inference.
+nohup bash tools/run_orca_validation.sh \
+    > /mnt/PAM_Analysis/perch-hoplite/logs/orca_validation.log 2>&1 &
+
+# 2. Score detections against known regions across a threshold ladder.
+python3 tools/score_orca_regions.py \
+    --results-dir /mnt/PAM_Analysis/perch-hoplite/results \
+    --by-day \
+    --out-summary /mnt/PAM_Analysis/perch-hoplite/results/orca_region_scores_v4.csv
+```
+
+The scorer reports, per known region and per threshold, the orca detection count:
+PRESENT regions (confirmed events, e.g. Apr 13 / May 12 2018) should retain
+detections as the threshold rises; ABSENT regions (confirmed silent, e.g. Oct 2020,
+April 2026) are all false positives and should collapse toward 0. Edit `REGIONS` in
+the script as expert review firms up. Note the inference CSV is per-label (one row per
+window per class), so read ABSENT regions at higher thresholds — the 0.0 column is
+inflated by also-ran windows. Current operating threshold: **+1.16** (v4 F1-optimal),
+**+1.5** conservative.
 
 ---
 
