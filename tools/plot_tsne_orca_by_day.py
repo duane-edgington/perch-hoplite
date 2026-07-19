@@ -1,0 +1,283 @@
+#!/usr/bin/env python3
+"""
+plot_tsne_orca_by_day.py — t-SNE of CONFIRMED orca_call embeddings, colored by day.
+
+Purpose: explore Duane's ear-observation that orca calls sound different across the
+confirmed April 2018 days (Apr 13 / 18 / 25) and May 12 2018. Produces two plots:
+  1. April-only  (Apr 13, 18, 25)          — one month, cleaner acoustic environment
+  2. All four days (adds May 12 2018)       — May shown with a different marker shape
+
+READ THIS BEFORE INTERPRETING (t-SNE caveats):
+  - t-SNE is EXPLORATORY, not a test. Distances between clusters and cluster sizes are
+    NOT meaningful; structure can appear/vanish with perplexity. Try a few --perplexity.
+  - Perch V2 embeds SPECIES and deliberately collapses within-orca variation. If the days
+    OVERLAP, that does NOT disprove the ear — it more likely means the embedding doesn't
+    resolve pod/individual/call-type. A null result here is inconclusive, not negative.
+  - CONFOUND: days differ in background/SNR/ship noise (whale-watch + CKWP boats co-occur
+    with orca on event days). If days DO separate, rule out that it's environmental before
+    calling it biological. Marker shape encodes month; consider a follow-up that encodes
+    ship-noise co-occurrence per window.
+  Real confirmation of call-type differences needs direct call analysis (Duane's domain),
+  not this plot.
+
+--------------------------------------------------------------------------------------
+ADAPTER (>>> VERIFY — reuse tools/plot_tsne.py's loader)
+    load_confirmed_orca() must return, for orca_call-labeled windows across the given DBs:
+        emb   : float32 [N, D]   Perch V2 embeddings
+        days  : [N] datetime.date  parsed from each window's source filename
+        wids  : [N] int          window ids (for provenance)
+    plot_tsne.py already loads labeled embeddings from these DBs — copy that exact loader
+    and add the window->filename lookup (hoplite sqlite: recordings.filename joined to
+    windows.recording_id; filename embeds YYYYMMDD). --selftest bypasses this entirely.
+--------------------------------------------------------------------------------------
+
+Examples
+    python3 tools/plot_tsne_orca_by_day.py --selftest      # validate viz core, no DB
+    python3 tools/plot_tsne_orca_by_day.py \
+        --april-db /mnt/PAM_Analysis/perch-hoplite/db/MARS_20180401_20180430_32kHz_norm \
+        --may-db   /mnt/PAM_Analysis/perch-hoplite/db/MARS_20180501_20180531_32kHz_norm \
+        --out-dir  /mnt/PAM_Analysis/perch-hoplite/results \
+        --perplexity 20
+"""
+import argparse
+import os
+import re
+import sys
+from datetime import date
+
+import numpy as np
+
+APRIL_DAYS = [date(2018, 4, 13), date(2018, 4, 18), date(2018, 4, 25)]
+MAY_DAYS = [date(2018, 5, 12)]
+DAY_COLORS = {
+    date(2018, 4, 13): "#1b9e77",   # confirmed Bigg's event
+    date(2018, 4, 18): "#d95f02",   # confirmed bout
+    date(2018, 4, 25): "#7570b3",   # confirmed cluster
+    date(2018, 5, 12): "#e7298a",   # confirmed May event
+}
+_DATE_RE = re.compile(r"(20\d{2})(\d{2})(\d{2})")
+
+
+# ======================================================================================
+# ADAPTER — >>> VERIFY against tools/plot_tsne.py. --selftest bypasses this.
+# ======================================================================================
+
+def _day_from_filename(fname):
+    m = _DATE_RE.search(fname or "")
+    if not m:
+        return None
+    try:
+        return date(int(m.group(1)), int(m.group(2)), int(m.group(3)))
+    except ValueError:
+        return None
+
+
+def load_confirmed_orca(db_dir, keep_days):
+    """Return (emb[N,D], days[N], wids[N]) for orca_call windows whose filename-day is in
+    keep_days. Loader mirrors tools/plot_tsne.py exactly (same annotations join + usearch
+    index), then filters to label=='orca_call' (label_type != 2) on the requested days.
+    """
+    import sqlite3
+    db_path = os.path.join(db_dir, "hoplite.sqlite")
+    index_path = os.path.join(db_dir, "usearch.index")
+    if not os.path.exists(db_path):
+        raise FileNotFoundError(f"hoplite.sqlite not found in {db_dir}")
+    if not os.path.exists(index_path):
+        raise FileNotFoundError(f"usearch.index not found in {db_dir}")
+
+    con = sqlite3.connect(db_path)
+    rows = con.execute("""
+        SELECT a.label, a.label_type, w.id, r.filename
+        FROM annotations a
+        JOIN recordings r ON r.id = a.recording_id
+        JOIN windows w ON w.recording_id = a.recording_id
+            AND w.offsets = a.offsets
+        ORDER BY w.id
+    """).fetchall()
+    con.close()
+
+    keep = set(keep_days)
+    sel = []   # (window_id, day)
+    for label, label_type, wid, fname in rows:
+        if label_type == 2:        # weak negative — never an orca positive
+            continue
+        if label != "orca_call":
+            continue
+        d = _day_from_filename(fname)
+        if d in keep:
+            sel.append((wid, d))
+    if not sel:
+        return np.empty((0, 0), np.float32), np.array([], object), np.array([])
+
+    from usearch.index import Index
+    index = Index.restore(index_path, view=True)
+    emb, days, wids = [], [], []
+    for wid, d in sel:
+        try:
+            vec = index[wid]
+        except Exception:
+            continue
+        emb.append(np.array(vec, dtype=np.float32)); days.append(d); wids.append(wid)
+    return np.stack(emb, axis=0), np.array(days, object), np.array(wids)
+
+
+# ======================================================================================
+# VIZ CORE — validated by --selftest
+# ======================================================================================
+
+def run_tsne(emb, perplexity=None, seed=42):
+    """t-SNE with the same geometry as tools/plot_tsne.py: unit-normalize + cosine metric,
+    so this plot is comparable to the repo's other t-SNEs."""
+    from sklearn.manifold import TSNE
+    n = emb.shape[0]
+    if perplexity is None:
+        perplexity = max(5, min(30, (n - 1) // 3))
+    perplexity = min(perplexity, n - 1)
+    norms = np.linalg.norm(emb, axis=1, keepdims=True)
+    emb_norm = emb / np.maximum(norms, 1e-8)
+    tsne = TSNE(n_components=2, perplexity=perplexity, init="pca",
+                learning_rate="auto", random_state=seed, metric="cosine")
+    return tsne.fit_transform(emb_norm), perplexity
+
+
+def plot_by_day(coords, days, title, out_png, month_marker=False):
+    import matplotlib
+    matplotlib.use("Agg")
+    import matplotlib.pyplot as plt
+
+    fig, ax = plt.subplots(figsize=(8, 7))
+    uniq = sorted(set(days))
+    for d in uniq:
+        mask = np.array([x == d for x in days])
+        marker = "o"
+        if month_marker:
+            marker = "^" if d.month == 5 else "o"   # May = triangle, April = circle
+        ax.scatter(coords[mask, 0], coords[mask, 1],
+                   s=42, alpha=0.75, edgecolors="white", linewidths=0.4,
+                   c=DAY_COLORS.get(d, "#888888"), marker=marker,
+                   label=f"{d.isoformat()} (n={int(mask.sum())})")
+    ax.set_title(title, fontsize=12)
+    ax.set_xlabel("t-SNE 1"); ax.set_ylabel("t-SNE 2")
+    ax.legend(loc="best", fontsize=9, framealpha=0.9)
+    ax.text(0.5, -0.09,
+            "Exploratory — t-SNE distances/sizes are not meaningful; overlap is inconclusive, "
+            "not a null result.",
+            transform=ax.transAxes, ha="center", va="top", fontsize=7, color="#666")
+    fig.tight_layout()
+    fig.savefig(out_png, dpi=150, bbox_inches="tight")
+    plt.close(fig)
+    return out_png
+
+
+def make_plots(april_emb, april_days, april_wids,
+               may_emb, may_days, may_wids,
+               out_dir, perplexity, seed):
+    os.makedirs(out_dir, exist_ok=True)
+    written = []
+
+    # Plot 1 — April only
+    coords_a, px_a = run_tsne(april_emb, perplexity, seed)
+    p1 = plot_by_day(coords_a, april_days,
+                     f"Confirmed orca calls — April 2018 by day (t-SNE, perplexity={px_a}, n={len(april_days)})",
+                     os.path.join(out_dir, "tsne_orca_by_day_april2018.png"))
+    written.append(p1)
+
+    # Plot 2 — all four days (April + May 12); May as triangle
+    all_emb = np.concatenate([april_emb, may_emb], axis=0)
+    all_days = np.concatenate([april_days, may_days])
+    coords_all, px_all = run_tsne(all_emb, perplexity, seed)
+    p2 = plot_by_day(coords_all, all_days,
+                     f"Confirmed orca calls — 4 days Apr+May 2018 (t-SNE, perplexity={px_all}, n={len(all_days)})",
+                     os.path.join(out_dir, "tsne_orca_by_day_4days.png"),
+                     month_marker=True)
+    written.append(p2)
+    return written
+
+
+# ======================================================================================
+# SELFTEST — synthetic 1536-dim embeddings, exercises t-SNE + both plots
+# ======================================================================================
+
+def selftest():
+    rng = np.random.default_rng(0)
+    D = 1536
+
+    def cluster(center_seed, n, spread=1.0):
+        base = rng.normal(0, 1, D)
+        base = base / np.linalg.norm(base) * center_seed
+        return base + rng.normal(0, spread, (n, D)).astype(np.float32)
+
+    # three April "days" with modest separation, plus a more distinct May day
+    a13 = cluster(6.0, 60); a18 = cluster(6.2, 45); a25 = cluster(6.4, 50)
+    m12 = cluster(9.0, 40)
+    april_emb = np.concatenate([a13, a18, a25]).astype(np.float32)
+    april_days = np.array([date(2018, 4, 13)] * 60 + [date(2018, 4, 18)] * 45
+                          + [date(2018, 4, 25)] * 50, dtype=object)
+    april_wids = np.arange(len(april_days))
+    may_emb = m12.astype(np.float32)
+    may_days = np.array([date(2018, 5, 12)] * 40, dtype=object)
+    may_wids = np.arange(len(may_days)) + 1000
+
+    import tempfile
+    out = tempfile.mkdtemp()
+    written = make_plots(april_emb, april_days, april_wids,
+                         may_emb, may_days, may_wids, out, perplexity=None, seed=1)
+
+    ok = True
+    for p in written:
+        if not (os.path.exists(p) and os.path.getsize(p) > 5000):
+            print(f"FAIL: plot not written or too small: {p}"); ok = False
+    # day-grouping sanity: filename parser round-trips
+    if _day_from_filename("MARS_20180418_113912_resampled_32kHz.wav") != date(2018, 4, 18):
+        print("FAIL: filename->day parse"); ok = False
+    if _day_from_filename("no_date_here.wav") is not None:
+        print("FAIL: bad filename should give None"); ok = False
+    print("Wrote:", *[os.path.basename(p) for p in written])
+    print("SELFTEST:", "PASS" if ok else "FAIL")
+    return 0 if ok else 1
+
+
+# ======================================================================================
+# CLI
+# ======================================================================================
+
+def main():
+    ap = argparse.ArgumentParser(description=__doc__,
+                                 formatter_class=argparse.RawDescriptionHelpFormatter)
+    ap.add_argument("--april-db", help="April 2018 norm DB dir")
+    ap.add_argument("--may-db", help="May 2018 norm DB dir")
+    ap.add_argument("--out-dir", default="/mnt/PAM_Analysis/perch-hoplite/results")
+    ap.add_argument("--perplexity", type=float, default=None,
+                    help="t-SNE perplexity (default auto ~min(30,(n-1)/3)); try a few")
+    ap.add_argument("--seed", type=int, default=42)
+    ap.add_argument("--selftest", action="store_true")
+    args = ap.parse_args()
+
+    if args.selftest:
+        sys.exit(selftest())
+    if not args.april_db:
+        ap.error("--april-db required (or --selftest)")
+
+    print("Loading confirmed orca embeddings...")
+    april_emb, april_days, april_wids = load_confirmed_orca(args.april_db, APRIL_DAYS)
+    print(f"  April: {len(april_days)} orca windows across "
+          f"{sorted(set(d.isoformat() for d in april_days))}")
+    if args.may_db:
+        may_emb, may_days, may_wids = load_confirmed_orca(args.may_db, MAY_DAYS)
+        print(f"  May:   {len(may_days)} orca windows")
+    else:
+        may_emb = np.empty((0, april_emb.shape[1]), np.float32)
+        may_days = np.array([], dtype=object); may_wids = np.array([])
+
+    written = make_plots(april_emb, april_days, april_wids,
+                         may_emb, may_days, may_wids,
+                         args.out_dir, args.perplexity, args.seed)
+    print("Wrote:")
+    for p in written:
+        print(" ", p)
+    print("\nRegister each with tools/register_figure.py (--type tsne_plot) per the "
+          "Figure Provenance workflow before committing.")
+
+
+if __name__ == "__main__":
+    main()
