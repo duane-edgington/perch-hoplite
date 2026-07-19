@@ -269,8 +269,46 @@
       "figure_type": "tsne_plot",
       "caption": "Perch V2 t-SNE \u2014 orca events vs humpback only (739 embeddings). April 2018 orca (dark green), May 2018 orca (light green), humpback (amber). Isolates the core classification challenge: orca/humpback overlap in embedding space.",
       "command": "python3 tools/plot_tsne_orca_events.py --db-dir .../MARS_20180401_20180430_32kHz_norm .../MARS_20180501_20180531_32kHz_norm .../MARS_20201001_20201031_32kHz_norm .../MARS_20260401_20260430_32kHz_norm --output .../tsne_orca_humpback_only.png --orca-only --title 'Perch V2 \u2014 Orca Events vs Humpback: April 2018 vs May 2018'"
+    },
+    "gradio_apr18_2018_orca_195s_wid202720.png": {
+      "saved_filename": "gradio_apr18_2018_orca_195s_wid202720.png",
+      "original_filename": "Screenshot 2026-07-19 at 4.40.17 AM.png",
+      "capture_computer": "DuaneEM1",
+      "capture_timestamp": "2026-07-19 04:40:17",
+      "date_registered": "2026-07-19T05:03:28.465260",
+      "figure_type": "gradio_screenshot",
+      "caption": "Orca call confirmed (April 18 2018, MARS_20180418_113912, 195-200s, score=3.724): mel spectrogram (viridis, 10 Hz floor) showing structured broadband orca energy 500 Hz-4 kHz. Expert-confirmed orca (D. Edgington). High-logit Apr 18 detection surviving beyond +2.0 \u2014 evidence for extended April 2018 orca presence (finding #14). Classifier: orca_v4.",
+      "command": "nohup python3 phase2_classify.py review --db-dir /mnt/PAM_Analysis/perch-hoplite/db/MARS_20180401_20180430_32kHz_norm --classifier /mnt/PAM_Analysis/perch-hoplite/models/orca_v4.pt --target-label orca_call --detections-csv /mnt/PAM_Analysis/perch-hoplite/results/review_apr18_2018_orca_ge116.csv --detections-offset 0 --num-results 25 --classes orca_call,humpback_song,dolphin_call,ship_noise,other,unlabeled --audio-dir /mnt/PAM_Analysis/GoogleMultiSpeciesWhaleModel2/resampled_32kHz/2018/04 --spectrogram-type mel --colormap viridis --serve --port 7862",
+      "source_wav": "MARS_20180418_113912_resampled_32kHz.wav",
+      "wav_offset_s": 195.0,
+      "spectrogram_type": "mel",
+      "colormap": "viridis",
+      "classifier": "orca_v4.pt",
+      "db": "MARS_20180401_20180430_32kHz_norm",
+      "score": 3.724,
+      "label_selected": "orca_call",
+      "notes": "Apr 18 2018 top-batch review (logit>=1.16, port 7862). Expert reviewer: D. Edgington. Supports finding #14 (extended Apr 13-25 2018 orca activity)."
+    },
+    "gradio_apr18_2018_orca_405s_wid202762.png": {
+      "saved_filename": "gradio_apr18_2018_orca_405s_wid202762.png",
+      "original_filename": "Screenshot 2026-07-19 at 4.43.19 AM.png",
+      "capture_computer": "DuaneEM1",
+      "capture_timestamp": "2026-07-19 04:43:19",
+      "date_registered": "2026-07-19T05:03:45.713178",
+      "figure_type": "gradio_screenshot",
+      "caption": "Orca call confirmed (April 18 2018, MARS_20180418_113912, 405-410s, score=3.335): mel spectrogram (viridis, 10 Hz floor), structured orca energy 500 Hz-4 kHz. Expert-confirmed orca (D. Edgington). Second strong orca window in the same recording ~3.5 min after the 195s clip \u2014 reinforces sustained Apr 18 activity. Classifier: orca_v4.",
+      "command": "nohup python3 phase2_classify.py review --db-dir /mnt/PAM_Analysis/perch-hoplite/db/MARS_20180401_20180430_32kHz_norm --classifier /mnt/PAM_Analysis/perch-hoplite/models/orca_v4.pt --target-label orca_call --detections-csv /mnt/PAM_Analysis/perch-hoplite/results/review_apr18_2018_orca_ge116.csv --detections-offset 0 --num-results 25 --classes orca_call,humpback_song,dolphin_call,ship_noise,other,unlabeled --audio-dir /mnt/PAM_Analysis/GoogleMultiSpeciesWhaleModel2/resampled_32kHz/2018/04 --spectrogram-type mel --colormap viridis --serve --port 7862",
+      "source_wav": "MARS_20180418_113912_resampled_32kHz.wav",
+      "wav_offset_s": 405.0,
+      "spectrogram_type": "mel",
+      "colormap": "viridis",
+      "classifier": "orca_v4.pt",
+      "db": "MARS_20180401_20180430_32kHz_norm",
+      "score": 3.335,
+      "label_selected": "orca_call",
+      "notes": "Apr 18 2018 top-batch review (logit>=1.16, port 7862). Expert reviewer: D. Edgington. Same WAV as wid202720; two independent strong orca windows. Supports finding #14."
     }
   },
-  "last_updated": "2026-07-17T10:39:05.244220",
-  "figure_count": 21
+  "last_updated": "2026-07-19T05:03:45.713415",
+  "figure_count": 23
 }
