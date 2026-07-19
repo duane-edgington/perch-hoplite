@@ -196,7 +196,7 @@ Full review of 181 May 12 2018 orca detections — all confirmed.
 
 | Class | Total positive | Months |
 |---|---|---|
-| orca_call | 395 (219+176) | April 2018 + May 2018 |
+| orca_call | 400 (219+181) | April 2018 + May 2018 |
 | humpback_song | 275 | April 2018 + Oct 2020 + Apr 2026 |
 | dolphin_call | 193 | All months |
 | other | 51 | April 2018 |
@@ -259,7 +259,9 @@ not computation. A new classifier took 30 seconds to train after each session.
 
 | Date | Detections | Review | Conclusion |
 |---|---|---|---|
-| April 13 2018 | 289 (v2) | Gradio + J. Ryan | Confirmed Bigg's orca hunting event ✅ |
+| April 13 2018 | 289 (v2) | Gradio + J. Ryan | Confirmed Bigg's orca hunting event (morning) ✅ |
+| April 18 2018 | 173 @≥1.16 (v4) | Gradio 25/25 (D. Edgington) | Confirmed orca bout (late morning) ✅ |
+| April 25 2018 | 118 @≥1.16 (v4) | Gradio 50/50 (D. Edgington) | Confirmed orca (evening); separates from Apr 13 in embedding space ✅ |
 | May 12 2018 | 181 (v4) | Full Gradio review, 181/181 | Confirmed Bigg's orca event ✅ |
 | May 14 2018 | 19 (v4) | Not yet reviewed | Probable secondary event |
 | October 2020 | 144 (v4) | Gradio review | Confirmed zero orca vocalizations — Bigg's orca acoustic silence during documented hunt ✅ |
@@ -285,9 +287,15 @@ to ~4,500+ across all 4-season classifiers. Three fixes were attempted:
 | v7: same as v6, SQL rename | Identical to v6 |
 | v8: background clips → `other|1` positive class | Still inflated |
 
-All three 4-season classifiers show identical April 2018 day distribution:
-Apr 25 dominant (365), Apr 18 second (335), Apr 13 third (303).
-**April 13 is no longer the dominant day** — the known event is buried by FPs.
+All three 4-season classifiers rank the April days as:
+Apr 25 (365), Apr 18 (335), Apr 13 (303).
+This was originally read as "April 13 buried by false positives." **Corrected July 19
+2026:** expert review (D. Edgington) confirmed Apr 18 (25/25 reviewed) and Apr 25 (50/50
+reviewed) as **genuine orca**, not FPs — April 2018 held a multi-day Bigg's presence, not a
+one-day event (orca labels 219 → 294; see finding #14). The 4-season models do over-*rank*
+the later days relative to a calibrated threshold (at v4 logit ≥ 1.16, Apr 13 is still first:
+251, vs Apr 18 173, Apr 25 ~118), but they were surfacing real activity, not fabricating it.
+The earlier "buried by FPs" wording was speculation and is superseded.
 
 ### Root cause hypothesis
 
@@ -295,6 +303,13 @@ May 2018 and April 2018 orca calls are acoustically different enough (different
 pods, different call types) that training on both simultaneously degrades
 precision on each individually. The two spring events spread the orca embedding
 cluster (visible in the 4-season t-SNE) and shift the ship_noise decision boundary.
+
+**Refined July 19 2026:** the by-day t-SNE (`tools/plot_tsne_orca_by_day.py`) shows this
+heterogeneity is finer than per-season — even *within April 2018*, the Apr 25 evening
+encounter separates cleanly from the Apr 13 morning event in embedding space (robust across
+perplexity 10/30/50, 10 recordings over ~3.5 h, confound-checked via
+`tools/orca_day_recording_spread.py`). So the cluster-spreading that hurts multi-event
+training is **per-encounter**, not merely per-season — a stronger version of this hypothesis.
 
 ### Classifier comparison
 
@@ -317,3 +332,111 @@ cluster (visible in the 4-season t-SNE) and shift the ship_noise decision bounda
 - Review April 2018 ship_noise labels (24 clips) in Gradio — confirm no errors
 - Long-term fix: separate per-season classifiers, or larger/more balanced training set
 - Gray whale annotation review (some humpback labels may be gray whale)
+
+---
+
+## July 17–19 2026 — Diagnosis & Validation Era
+
+After v6/v7/v8 exhausted the "add more data" approach, the work shifted from
+*training* classifiers to *diagnosing and validating* the best one (v4). Three
+threads, all on normalized embeddings, all reproducible.
+
+### Per-class F1 (July 17 2026)
+
+Added `src/f1_metrics.py` — per-class precision/recall/F1 on the same held-out split
+as cmap/ROC-AUC, folded into `eval_scores` → `.metrics.json` on every training run.
+Measured for v1/v2/v4 (each reproduced its table cmap exactly):
+
+| Class | F1 (v1/v2/v4, F1-optimal threshold) | Read |
+|---|---|---|
+| orca_call | ≈ 0.95 | Strong — but needs a **positive** threshold (+1.16 to +1.9); at logit 0.0 precision is only 0.75–0.84 |
+| dolphin_call | ≈ 0.71–0.77 | Model-quality ceiling |
+| humpback_song | **≈ 0.55** | **Weakest credible class** |
+| ship_noise | (n=3 held-out) | Insufficient support — its 1.0 is an artifact |
+
+**Key diagnosis:** once humpback had real held-out support (n=40/47 in v1/v4, vs n=5 in
+v2), it emerged as the weakest class — consistent with gray-whale contamination of
+humpback labels blurring the class. This makes the gray-whale re-annotation (below) the
+highest-value model-quality lever, replacing the earlier assumption that dolphin was the
+problem.
+
+### Cross-month orca validation + operating threshold (July 19 2026)
+
+`tools/run_orca_validation.sh` (v4 inference, 4 ground-truth months at logit floor 0.0)
++ `tools/score_orca_regions.py` (threshold sweep vs known regions). Result:
+
+- False positives collapse under thresholding: Oct 2020 (confirmed silent) 144 → 1,
+  April 2026 (confirmed silent) 323 → 6, across logit 0.0 → +2.0.
+- Confirmed events retain: Apr 13 99% → 74%, May 12 95% → 40%.
+- **Operating threshold = +1.16** (v4 F1-optimal) primary, +1.5 conservative. The default
+  0.0 is unusable (144 / 323 FPs on silent months).
+
+### Extended April 2018 — finding #14 (July 19 2026)
+
+The by-day sweep surfaced strong, threshold-robust orca beyond Apr 13. Expert review
+(D. Edgington) confirmed **Apr 18 (25/25) and Apr 25 (50/50) as genuine orca, 0 FP at
+≥1.16** — orca labels 219 → 294. April 2018 was a **sustained ~2-week Bigg's presence**,
+not a one-day event.
+
+### By-day / per-encounter t-SNE (July 19 2026)
+
+`tools/plot_tsne_orca_by_day.py` (+ `archive_tsne_by_day.sh`, `orca_day_recording_spread.py`):
+Apr 25 (evening) separates from Apr 13 (morning) in Perch V2 embedding space **within the
+same month** — robust across perplexity 10/30/50, spanning 10 recordings over ~3.5 h (not a
+single-recording artifact). Interpretation (pod / individual / call-type / evening-vs-morning
+context) is **pending direct expert listening** — Perch embeds species and collapses
+within-orca variation, so this is a lead, not proof. Confound-clearing template established:
+(1) same-month, (2) distinct-recording spread, (3) perplexity sweep.
+
+### Updated pending work
+
+- **Gray-whale re-annotation (#13, highest priority):** re-review humpback-labeled clips with
+  J. Ryan, adding `gray_whale_call`; retrain and check whether humpback F1 lifts from ~0.55.
+- Per-class inference thresholds (from the F1 sweep): orca ~+1.5 vs ship ~+0.4 — one global
+  threshold can't serve both.
+- Re-score example spectrogram clips under v4 for current README caption numbers.
+
+---
+
+## Addendum — Poster Narrative Arc (IEEE OCEANS, October 2026)
+
+The agile-modeling story as a sequence of deliberate expansions, each cheap because
+embeddings are computed once and every train/infer cycle takes minutes:
+
+1. **Binary bootstrap (June 2026).** Seed labels from the Google Multispecies Whale
+   (Kaggle) model scores — effectively *orca_call vs. other*. No manual review yet.
+
+2. **Enabling fix — low-amplitude normalization (July 9).** Per-window peak-normalize to
+   0.25; without it the PyTorch Perch V2 port diverged from TF on quiet MARS audio
+   (cosine 0.43–0.94). This unlocked everything downstream and retired the un-normalized
+   `_clean` era.
+
+3. **First true multi-class — v0.** Five classes (orca, dolphin, humpback, ship, other)
+   on April 2018; April 13 Bigg's event identified.
+
+4. **Expand in waves (the agile core):**
+   - **+ season →** v1 (add October 2020 humpback/dolphin).
+   - **+ balance →** v2 (more dolphin/other; best April/May 2018).
+   - **+ hard-negative mining →** v3/v4: April 2026's top orca detections were all humpback
+     FPs → relabeled as hard negatives → **95% April-2026 FP reduction**. v4 = best
+     cross-season.
+   - **+ event/season →** v6: full review of May 12 2018 (181/181 confirmed orca).
+
+5. **Hit the ceiling, then diagnose it (July 17–19) — the research payoff.** Adding a
+   4th season (v6–v8) inflated ship_noise and reshuffled April day-rankings, so the method
+   pivoted from *more data* to *measurement*: per-class F1 exposed **humpback (~0.55) as the
+   real weak point** (gray-whale contamination); cross-month validation set a defensible
+   operating threshold (+1.16); and embedding visualization revealed the model surfacing
+   **biology** — a multi-day April Bigg's presence (finding #14) and per-encounter acoustic
+   structure (Apr 25 evening vs Apr 13 morning) — while honestly bounding what it cannot yet
+   resolve (pod/individual/call-type).
+
+**Poster thesis:** agile modeling on frozen Perch V2 embeddings let one expert, in ~8–10
+hours of labeling over weeks, build a cross-season Bigg's-orca detector *and* use it as an
+instrument that surfaces testable marine-mammal biology — with its limits measured, not
+hidden.
+
+---
+
+*Duane R. Edgington — MBARI — updated July 19 2026*
+*github.com/duane-edgington/perch-hoplite*
