@@ -401,6 +401,12 @@ Orange-red (other) sits at the humpback/orca/negative boundary.
 - **Call variation across days** — Apr 13 / 18 / 25 calls sound somewhat different (possibly different pods, individuals, or call types/meaning). Consistent with the extended window being multiple encounters rather than one continuous event. Future refinement: acoustic pod/individual ID.
 - **Clean orca ⇒ quiet background** — confirmed orca calls, even faint ones near the +1.16 threshold, tend to occur in acoustically sparse windows (little humpback/other-animal energy). Testable hypothesis: orca/humpback confusion is driven by the classifier firing on humpback energy in *busy* windows, not by orca acoustics — which would mean the FPs cluster where humpback is present (links to #13) and score lower (why the higher threshold works). Possible future feature: background energy / co-occurrence as a disambiguator.
 
+**By-day orca t-SNE — Apr 25 within-month separation (July 19 2026):**
+- Tool: `tools/plot_tsne_orca_by_day.py` (confirmed orca_call embeddings, colored by day; `--style analysis` light / `presentation` dark). `tools/archive_tsne_by_day.sh` archives the full perplexity(10/30/50) × style × {April, 4-day} matrix (12 figs) with provenance.
+- **Apr 25 2018 orca separates from the Apr 13 Bigg's event in embedding space, within the same month.** Robust across perplexity 10/30/50; not a single-recording artifact (`tools/orca_day_recording_spread.py`: Apr 25 = 50 windows across 10 recordings spanning ~3.5 h, an **evening** encounter vs Apr 13's morning event). Apr 18 partially distinct. May 12 separates too but cross-month → confounded, not interpreted.
+- **Confound-clearing template (reusable for any "calls look different" claim):** (1) same-month comparison (kills season/background), (2) distinct-recording spread (kills single-recording/boat artifact), (3) perplexity sweep 10/30/50 (kills t-SNE artifact). Apr 25 clears all three. This corroborates the "call variation across days" expert observation above.
+- **Limit:** Perch V2 embeds species and collapses within-orca variation, so this is a strong lead, not proof. Interpretation (pod / individual / call-type / evening-vs-morning acoustic context) is **pending D. Edgington's direct listening** — the model can't resolve it. Figures: `tsne_orca_by_day_{april2018,4days}_px{10,30,50}[_pres]`.
+
 **Context embedding experiments (July 15 2026):**
 - 30s Gaussian-weighted t-SNE: orca completely separated from humpback (zero overlap) — colleague-suggested method ✅
 - Context DB (v5 classifier): ROC-AUC dropped 0.959→0.930, cmap 0.830→0.595 — context averaging hurts training
@@ -426,6 +432,11 @@ perch-hoplite/
 │   ├── merge_dbs.py
 │   ├── plot_monthly.py
 │   ├── plot_tsne.py
+│   ├── plot_tsne_orca_by_day.py    — confirmed orca t-SNE by day (--style analysis/presentation)
+│   ├── archive_tsne_by_day.sh      — generate+register perplexity×style t-SNE matrix (12 figs)
+│   ├── orca_day_recording_spread.py — per-day distinct-recording confound check
+│   ├── run_orca_validation.sh      — multi-month v4 orca inference (validation)
+│   ├── score_orca_regions.py       — threshold sweep vs known ground-truth regions
 │   ├── extract_example_clips.py
 │   └── review_example_clips.py
 ├── docs/                   — documentation and analysis

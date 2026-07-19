@@ -127,6 +127,9 @@ Known harmless warnings at startup (not errors):
 | `tools/plot_tsne.py` | **spark-ae0e** | t-SNE visualization of labeled embeddings |
 | `tools/run_orca_validation.sh` | **spark-ae0e** | Multi-month v4 orca inference for cross-month validation |
 | `tools/score_orca_regions.py` | **spark-ae0e** | Threshold-swept orca detection counts vs known ground-truth regions |
+| `tools/plot_tsne_orca_by_day.py` | **spark-ae0e** | t-SNE of confirmed orca colored by day (`--style analysis`/`presentation`) |
+| `tools/orca_day_recording_spread.py` | **spark-ae0e** | Per-day distinct-recording confound check for by-day clusters |
+| `tools/archive_tsne_by_day.sh` | **spark-ae0e** | Generate + register the perplexity × style t-SNE matrix (12 figures) |
 
 ---
 
@@ -143,6 +146,18 @@ Known harmless warnings at startup (not errors):
 ![Perch V2 embeddings t-SNE — 3 seasons normalized](figures/tsne_apr2018_oct2020_apr2026_norm.png)
 
 *823 labeled embeddings from three seasons (July 2026). Orca (green) forms a tight cohesive cluster consistent across all three seasons. The 25 April 2026 humpback hard-negatives (orange) land within the main humpback cluster — confirming correct labels. Ship noise (cyan) and background (gray) are tightly isolated. The humpback/orca overlap in the upper-center region explains the persistent false positive challenge.*
+### By-Day Orca t-SNE — Extended April 2018 Activity (July 19 2026)
+
+![Confirmed orca calls, April 2018 by day](figures/tsne_orca_by_day_april2018_px30_pres.png)
+
+*292 confirmed orca_call embeddings from April 2018, colored by confirmed day (Apr 13 / 18 / 25). **Apr 25 (n=50) forms a distinct cluster separated from the Apr 13 Bigg's event (n=214) within the same month** — robust across t-SNE perplexity 10/30/50, spanning 10 recordings over a ~3.5 h evening encounter (not a single-recording artifact). Consistent with a different pod / individual / call-type. Apr 18 (n=28) is partially distinct.*
+
+![Confirmed orca calls, 4 days April+May 2018](figures/tsne_orca_by_day_4days_px30_pres.png)
+
+*473 confirmed orca_call embeddings across four confirmed days incl. May 12 2018 (pink triangles, n=181). May's separation is real but cross-month — confounded by recording conditions, so not interpreted biologically. Apr 25 again holds a distinct corner. Exploratory: t-SNE distances/sizes are not meaningful.*
+
+**Why the Apr 25 separation is trusted (confound checks):** it is same-month (rules out season/background); its windows span many recordings across the day (`tools/orca_day_recording_spread.py` — Apr 13: 214 windows / 13 files, morning · Apr 18: 28 / 5, late-morning · Apr 25: 50 / 10, **evening** · May 12: 181 / 15, morning); and it is stable across perplexity 10/30/50 (all three settings × both styles archived by `tools/archive_tsne_by_day.sh`). Interpretation (pod vs individual vs call-type vs an evening-vs-morning acoustic context) is pending direct expert listening — Perch V2 embeds *species* and collapses within-orca variation, so this is a strong lead, not proof.
+
 | `tools/merge_dbs.py` | **spark-ae0e** | Merge two Hoplite DBs (SQLite + USearch index) |
 | `tools/merge_annotations.py` | **spark-ae0e** | Copy annotations between DBs |
 | `tools/extract_example_clips.py` | **spark-ae0e** | Extract and peak-normalize 10 example clips |
@@ -332,11 +347,11 @@ tail -f /mnt/PAM_Analysis/perch-hoplite/logs/train_orca_v2.log
 ```bash
 nohup python3 phase2_classify.py train \
     --db-dir /mnt/PAM_Analysis/perch-hoplite/db/MARS_20180413_20180413_32kHz \
-    --classifier-out /mnt/PAM_Analysis/perch-hoplite/models/orca_v3_clean.pt \
+    --classifier-out /mnt/PAM_Analysis/perch-hoplite/models/orca_v9.pt \
     --num-steps 256 \
     --train-ratio 0.8 \
-    > /mnt/PAM_Analysis/perch-hoplite/logs/train_orca_v3_clean.log 2>&1 &
-sleep 5 && tail -f /mnt/PAM_Analysis/perch-hoplite/logs/train_orca_v3_clean.log
+    > /mnt/PAM_Analysis/perch-hoplite/logs/train_orca_v9.log 2>&1 &
+sleep 5 && tail -f /mnt/PAM_Analysis/perch-hoplite/logs/train_orca_v9.log
 ```
 
 
@@ -378,7 +393,7 @@ python3 phase2_classify.py infer \
 ### Step 8 - Review detections produced by perch-hoplite system
 
 ```bash
-nohup python3 phase2_classify.py review     --db-dir /mnt/PAM_Analysis/perch-hoplite/db/MARS_20180413_20180413_32kHz     --classifier /mnt/PAM_Analysis/perch-hoplite/models/orca_v1_clean.pt     --target-label orca_call     --detections-csv /mnt/PAM_Analysis/perch-hoplite/results/MARS_20180413_orca_v1_clean_detections.csv     --num-results 25     --detections-offset 1     --classes orca_call,dolphin_call,other,unlabeled     --audio-dir /mnt/PAM_Analysis/GoogleMultiSpeciesWhaleModel2/resampled_32kHz/2018/04     --serve --port 7860     > /mnt/PAM_Analysis/perch-hoplite/logs/review_7860.log 2>&1 &
+nohup python3 phase2_classify.py review     --db-dir /mnt/PAM_Analysis/perch-hoplite/db/MARS_20180413_20180413_32kHz     --classifier /mnt/PAM_Analysis/perch-hoplite/models/orca_v9.pt     --target-label orca_call     --detections-csv /mnt/PAM_Analysis/perch-hoplite/results/MARS_20180413_orca_v9_detections.csv     --num-results 25     --detections-offset 1     --classes orca_call,dolphin_call,other,unlabeled     --audio-dir /mnt/PAM_Analysis/GoogleMultiSpeciesWhaleModel2/resampled_32kHz/2018/04     --serve --port 7860     > /mnt/PAM_Analysis/perch-hoplite/logs/review_7860.log 2>&1 &
 ```
 
 ### optional Step 8 — Review detections with mel spectrogram and colormap options
@@ -418,7 +433,7 @@ saved to the DB on every click — restarting is safe.
 
 ---
 
-## Current Status (as of July 16 2026)
+## Current Status (as of July 19 2026)
 
 | Item | Status |
 |---|---|
@@ -429,10 +444,6 @@ saved to the DB on every click — restarting is safe.
 | DB: MARS May 2 2018 | ✅ 17,280 embeddings |
 | DB: MARS April 2018 (full month) | ✅ **518,400 embeddings** — all 30 days, 37 min on GB10 |
 | PyTorch embedding pipeline | ✅ `phase1_embed_torch.py` — no Colab, 231 windows/sec |
-| orca_v1_clean.pt | ✅ ROC-AUC 0.982 — 100 labels, single-class |
-| orca_v2_clean.pt | ✅ ROC-AUC 0.919 — 110 labels, single-class |
-| orca_v3_clean.pt | ✅ ROC-AUC 0.990 — multi-class: orca + dolphin |
-| orca_v4_clean.pt | ✅ ROC-AUC 0.974 — multi-class: orca + dolphin + other |
 | **Normalization fix (July 2026)** | ✅ per-window peak-norm to 0.25 — cos 1.0 vs live TF on MARS audio |
 | orca_v0.pt | ✅ **ROC-AUC 0.9773** — April 2018 normalized, 5 classes |
 | orca_v1.pt | ✅ **ROC-AUC 0.9533** — April + October 2020 normalized, cross-season |
@@ -445,7 +456,7 @@ saved to the DB on every click — restarting is safe.
 | Inference October 2020 v1 | ✅ **204 orca** (Oct 5-12 cluster) + 223,214 humpback |
 | Inference October 2020 v4 | ✅ **144 orca** (Oct 5-7 cluster, cleaner) + 254,546 humpback |
 | Inference April 2026 v4 | ✅ **323 orca** — Apr 21 dominant, all reviewed = humpback FP |
-| Figure provenance system | ✅ 17 figures registered with JSON sidecar + master manifest |
+| Figure provenance system | ✅ figures registered with JSON sidecar + master manifest (see CLAUDE.md → Figure Provenance) |
 | PyTorch Conference 2026 | ✅ Abstract submitted July 12 2026 — see `docs/PyTorch_abstract.md` |
 | TF-free pipeline | ✅ zero TF imports — single venv `~/perch-hoplite/venv` |
 | Expert annotation | ✅ 41 humpback (April, J. Ryan) + 209 humpback + 5 dolphin (October) |
@@ -453,6 +464,10 @@ saved to the DB on every click — restarting is safe.
 | DB: MARS October 2020 normalized | ✅ 535,278 embeddings — 31 days, 40 min on GB10 |
 | DB: MARS May 2018 normalized | ✅ 535,680 embeddings — 31 days, 38 min on GB10 |
 | October 2020 orca event Oct 5-12 | ✅ confirmed cluster — CA140B, CA51A pods documented |
+| **Extended April 2018 orca (#14)** | ✅ **294 orca** (219→294): Apr 13/18/25 confirmed events; 75 windows reviewed = 100% orca, 0 FP @≥1.16 (D. Edgington) |
+| Per-class F1 (v1/v2/v4) | ✅ orca ≈0.95 · dolphin ≈0.73 · **humpback ≈0.55** (weakest — gray-whale contamination) — `src/f1_metrics.py` |
+| Orca operating threshold | ✅ **+1.16** (v4 F1-optimal) primary, +1.5 conservative — default 0.0 unusable (144/323 FP on silent months) |
+| By-day orca t-SNE | ✅ Apr 25 separates from Apr 13 **within-month**, robust perplexity 10/30/50, evening encounter — confound-checked |
 
 ### Orca event timing on April 13 2018 (UTC)
 
@@ -533,7 +548,7 @@ The output should show no `logit_slope` or `logit_intercept` fields.
 - **Multi-class:** use `--classes orca_call,dolphin_call,other,unlabeled` when
   reviewing inference detections to separate species in one pass
 - **Train ratio:** 0.8 for reliable eval signal
-- **Target ROC-AUC:** > 0.90 before full inference ✅ achieved (v3_clean: 0.990)
+- **Target ROC-AUC:** > 0.90 before full inference ✅ achieved (v4: 0.959)
 
 **Guidelines**
 Use **unlabeled** (skip it) when:
@@ -563,13 +578,19 @@ to 0.25, July 9 2026). Old v1_clean–v8_clean classifiers retired.
 
 #### Classifier Trajectory
 
-| Model | ROC-AUC | top1_acc | cmap | Training DB | Notes |
-|---|---|---|---|---|---|
-| v0 | 0.9773 | 0.9405 | 0.8810 | April 2018 | Baseline normalized |
-| v1 | 0.9533 | 0.9559 | 0.7999 | April 2018 + Oct 2020 | Cross-season |
-| v2 | 0.9654 | 0.9438 | 0.8930 | April 2018 (expanded) | More dolphin/other |
-| v3 | 0.9467 | 0.9481 | 0.7370 | Apr2018 + Oct2020 + Apr2026 | 3-season |
-| v4 | **0.9590** | **0.9650** | **0.8297** | Apr2018 + Oct2020 + Apr2026 | Best cross-season ✅ |
+| Model | ROC-AUC | top1_acc | cmap | F1† | Training DB | Notes |
+|---|---|---|---|---|---|---|
+| v0 | 0.9773 | 0.9405 | 0.8810 | — | April 2018 | Baseline normalized |
+| v1 | 0.9533 | 0.9559 | 0.7999 | 0.799 | April 2018 + Oct 2020 | Cross-season |
+| v2 | 0.9654 | 0.9438 | 0.8930 | 0.897 | April 2018 (expanded) | More dolphin/other |
+| v3 | 0.9467 | 0.9481 | 0.7370 | — | Apr2018 + Oct2020 + Apr2026 | 3-season |
+| v4 | **0.9590** | **0.9650** | **0.8297** | 0.830 | Apr2018 + Oct2020 + Apr2026 | Best cross-season ✅ |
+
+†macro F1 at F1-optimal per-class thresholds (`src/f1_metrics.py`), computed on the same
+held-out split as cmap/ROC-AUC. Per-class (v1/v2/v4): orca ≈ 0.95 (but needs a +1.16–1.9
+threshold), dolphin ≈ 0.71–0.77, **humpback ≈ 0.55 — the weakest credible class**, consistent
+with gray-whale contamination of humpback labels (see gray-whale review). Macro is inflated by
+low-support ship_noise (n=3 held-out); read per-class, not macro.
 
 #### April 13 2018 — Confirmed Bigg's Orca Event
 
@@ -608,16 +629,6 @@ to 0.25, July 9 2026). Old v1_clean–v8_clean classifiers retired.
 | dolphin_call | 3,344 | Consistent daily presence |
 | ship_noise | 139 | Dramatically reduced — COVID lockdown |
 | other | 228 | Minimal |
-
-#### Full May 2018 — v6
-
-| Class | Detections | Notes |
-|---|---|---|
-| orca_call | **438** | May 12: 237 (+31% vs v4) · May 14: 58 (+205%) |
-| dolphin_call | 4,429 | Reduced vs v4 |
-| humpback_song | 444 | Reduced vs v4 |
-| ship_noise | 7,597 | ⚠️ Inflated — miscalibration under investigation |
-| other | 7,889 | Elevated |
 
 #### Full April 2026 — v4
 
@@ -796,7 +807,7 @@ Dense vertical striping across 2–14 kHz — the characteristic signature of
 Pacific white-sided dolphin burst pulse calls (Henderson et al. 2011, JASA).
 Unlike the tonal upsweeping whistles in the previous example, burst pulses
 appear as rapid broadband click trains producing continuous vertical streaks
-across a wide frequency range. The score is very low (0.020) — the v3_clean
+across a wide frequency range. The score is very low (0.020) — an early orca
 multi-class classifier correctly assigns this to `dolphin_call` rather than
 `orca_call`. UTC 17:29 = PDT 10:29 — within the known afternoon dolphin
 activity window. In the multi-class Gradio interface, label these as
@@ -811,7 +822,7 @@ activity window. In the multi-class Gradio interface, label these as
 
 Faint low-frequency energy near the bottom of the spectrogram — consistent
 with humpback whale song units whose dominant energy is in the 100 Hz–4 kHz
-range. The score is moderate (1.082) — the v4_clean orca classifier has no
+range. The score is moderate (1.082) — an early orca-only classifier had no
 humpback training examples, so these score above threshold as false positives.
 UTC 12:39 PDT 05:39 — early morning, April 30 2018. Expert confirmation
 pending. In the multi-class Gradio interface, label these as `humpback_song`
