@@ -1,0 +1,11 @@
+{
+  "saved_filename": "ksbw_news8_orca_invasion_monterey_spring2018.png",
+  "original_filename": "Screenshot 2026-07-20 at 2.06.50 PM.png",
+  "capture_computer": "DuaneEM1",
+  "capture_timestamp": "2026-07-20 14:06:50",
+  "date_registered": "2026-07-20T14:57:01.104120",
+  "figure_type": "other",
+  "caption": "KSBW Action News 8 (Monterey California) Reported an extraordinarily high number of orca sightings in April and May of 2018. One tour group reported seeing as many as 50 orcas in one day. April and May are when killer whales typically come to Monterey. The pods are drawn to area in search of gray whales. Biologists with the outfitters have been able to identify two of the pods in the bay this spring, one is from Alaska the other is from California. The California pod is known as Emma's pod, named for the group's matriarch. Emma's pod is called CA140s.",
+  "command": "external news screenshot \u2014 no pipeline command; captured from KSBW broadcast",
+  "notes": "Third-party news image, (c) KSBW; recorded as external corroboration only. Independent (non-acoustic) corroboration of finding #14 \u2014 sustained April-May 2018 Bigg's orca presence. Two-pod observation (one Alaskan + one Californian, the CA140s / Emma's pod, matriarch CA140 'Emma') is a CANDIDATE explanation for the by-day t-SNE separation (Apr 25 evening vs Apr 13 morning) \u2014 consistent with, NOT proof of; detections not yet assigned to pods. Emma's pod hunts gray-whale calves, so their spring presence implies gray whales in the acoustic environment \u2014 ties to #13. '~50 in one day' is as-reported by KSBW (secondary source). Type=other (no news_screenshot type in register_figure)."
+}
