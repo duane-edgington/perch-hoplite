@@ -1,0 +1,19 @@
+{
+  "saved_filename": "gradio_may16_2018_orca_205s_wid9642.png",
+  "original_filename": "Screenshot 2026-07-21 at 3.41.25 PM.png",
+  "capture_computer": "DuaneEM1",
+  "capture_timestamp": "2026-07-21 15:41:25",
+  "date_registered": "2026-07-21T15:59:36.002407",
+  "figure_type": "gradio_screenshot",
+  "caption": "Orca call confirmed (May 16 2018, MARS_20180516_150913, 205-210s, score=1.290): mel spectrogram (viridis), harmonic call from ~2.2s, ~500 Hz-8 kHz. Expert-confirmed orca by ear (D. Edgington). May 16 is a confirmed May orca day beyond May 12. Classifier: orca_v4.",
+  "command": "phase2_classify.py review --detections-csv review_may2018_orca_ge116_nonmay12.csv --serve --port 7867 (v4, MARS_20180501_20180531_32kHz_norm)",
+  "source_wav": "MARS_20180516_150913_resampled_32kHz.wav",
+  "wav_offset_s": 205.0,
+  "spectrogram_type": "mel",
+  "colormap": "viridis",
+  "classifier": "orca_v4.pt",
+  "db": "MARS_20180501_20180531_32kHz_norm",
+  "score": 1.29,
+  "label_selected": "orca_call",
+  "notes": "May 2018 non-May-12 orca review (v4 >=1.16, port 7867). Expert reviewer: D. Edgington."
+}

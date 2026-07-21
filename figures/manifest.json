@@ -545,8 +545,46 @@
       "caption": "KSBW Action News 8 (Monterey California) Reported an extraordinarily high number of orca sightings in April and May of 2018. One tour group reported seeing as many as 50 orcas in one day. April and May are when killer whales typically come to Monterey. The pods are drawn to area in search of gray whales. Biologists with the outfitters have been able to identify two of the pods in the bay this spring, one is from Alaska the other is from California. The California pod is known as Emma's pod, named for the group's matriarch. Emma's pod is called CA140s.",
       "command": "external news screenshot \u2014 no pipeline command; captured from KSBW broadcast",
       "notes": "Third-party news image, (c) KSBW; recorded as external corroboration only. Independent (non-acoustic) corroboration of finding #14 \u2014 sustained April-May 2018 Bigg's orca presence. Two-pod observation (one Alaskan + one Californian, the CA140s / Emma's pod, matriarch CA140 'Emma') is a CANDIDATE explanation for the by-day t-SNE separation (Apr 25 evening vs Apr 13 morning) \u2014 consistent with, NOT proof of; detections not yet assigned to pods. Emma's pod hunts gray-whale calves, so their spring presence implies gray whales in the acoustic environment \u2014 ties to #13. '~50 in one day' is as-reported by KSBW (secondary source). Type=other (no news_screenshot type in register_figure)."
+    },
+    "gradio_may16_2018_orca_205s_wid9642.png": {
+      "saved_filename": "gradio_may16_2018_orca_205s_wid9642.png",
+      "original_filename": "Screenshot 2026-07-21 at 3.41.25 PM.png",
+      "capture_computer": "DuaneEM1",
+      "capture_timestamp": "2026-07-21 15:41:25",
+      "date_registered": "2026-07-21T15:59:36.002407",
+      "figure_type": "gradio_screenshot",
+      "caption": "Orca call confirmed (May 16 2018, MARS_20180516_150913, 205-210s, score=1.290): mel spectrogram (viridis), harmonic call from ~2.2s, ~500 Hz-8 kHz. Expert-confirmed orca by ear (D. Edgington). May 16 is a confirmed May orca day beyond May 12. Classifier: orca_v4.",
+      "command": "phase2_classify.py review --detections-csv review_may2018_orca_ge116_nonmay12.csv --serve --port 7867 (v4, MARS_20180501_20180531_32kHz_norm)",
+      "source_wav": "MARS_20180516_150913_resampled_32kHz.wav",
+      "wav_offset_s": 205.0,
+      "spectrogram_type": "mel",
+      "colormap": "viridis",
+      "classifier": "orca_v4.pt",
+      "db": "MARS_20180501_20180531_32kHz_norm",
+      "score": 1.29,
+      "label_selected": "orca_call",
+      "notes": "May 2018 non-May-12 orca review (v4 >=1.16, port 7867). Expert reviewer: D. Edgington."
+    },
+    "gradio_may16_2018_orca_230s_wid9647.png": {
+      "saved_filename": "gradio_may16_2018_orca_230s_wid9647.png",
+      "original_filename": "Screenshot 2026-07-21 at 3.46.27 PM.png",
+      "capture_computer": "DuaneEM1",
+      "capture_timestamp": "2026-07-21 15:46:27",
+      "date_registered": "2026-07-21T15:59:51.425293",
+      "figure_type": "gradio_screenshot",
+      "caption": "Orca call confirmed (May 16 2018, MARS_20180516_150913, 230-235s, score=1.795): mel spectrogram (viridis), brief broadband/downswept call near 0-0.5s. Expert-confirmed orca by ear (D. Edgington), 'sounds a bit different, but clearly orca' vs the 205s call in the same recording. Classifier: orca_v4.",
+      "command": "phase2_classify.py review --detections-csv review_may2018_orca_ge116_nonmay12.csv --serve --port 7867 (v4, MARS_20180501_20180531_32kHz_norm)",
+      "source_wav": "MARS_20180516_150913_resampled_32kHz.wav",
+      "wav_offset_s": 230.0,
+      "spectrogram_type": "mel",
+      "colormap": "viridis",
+      "classifier": "orca_v4.pt",
+      "db": "MARS_20180501_20180531_32kHz_norm",
+      "score": 1.795,
+      "label_selected": "orca_call",
+      "notes": "May 2018 non-May-12 orca review (port 7867). Same recording as wid9642, 25s later; audible call-type difference \u2014 within-encounter variation. Expert reviewer: D. Edgington."
     }
   },
-  "last_updated": "2026-07-20T14:57:01.104624",
-  "figure_count": 41
+  "last_updated": "2026-07-21T15:59:51.425595",
+  "figure_count": 43
 }
