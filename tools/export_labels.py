@@ -19,6 +19,12 @@ DATABASES = [
         "month_label": "April 2018",
     },
     {
+        "db_path":   "/mnt/PAM_Analysis/perch-hoplite/db/MARS_20180501_20180531_32kHz_norm",
+        "audio_dir": PAM_AUDIO / "2018/05",
+        "month_key": "2018_05",
+        "month_label": "May 2018",
+    },
+    {
         "db_path":   "/mnt/PAM_Analysis/perch-hoplite/db/MARS_20201001_20201031_32kHz_norm",
         "audio_dir": PAM_AUDIO / "2020/10",
         "month_key": "2020_10",
