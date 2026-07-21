@@ -357,6 +357,7 @@ all expert-confirmed, finding #14.
     - **Class name:** `gray_whale_moan` — gray whales don't "song"; moans (S3, low-freq, migration context) are the sound most likely to overlap humpback and be mislabeled. If John flags knocks (S1) / croaks (S4) instead, may need a broader `gray_whale` or a second class. Renaming later is a trivial SQL `UPDATE annotations SET label=…` (no re-embedding), so `gray_whale_moan` is safe to commit to now. **John's ear makes the reclassification — not the model side (attribution rule).**
     - **Where to hunt:** April, not October. Gray whales migrate past central CA in winter/spring (northbound Feb–May); October is peak humpback / near-zero gray whale. Humpback label counts: **April 2018 = 41, April 2026 = 39, Oct 2020 = 259**. Start with the 80 April clips (higher contamination yield); the 259 Oct labels are likely clean.
     - **Workflow (no-GPU prep, then one review):** `tools/export_labels.py` writes per-(month,species) JSON to `json_labels/labels_{month}_{species}.json` → `tools/labels_json_to_review_csv.py --month 2018_04 --species humpback_song` converts it to a review CSV (7-col `idx,project,filename,window_start,window_end,label,logits`; review locates clips by filename+window_start+`--audio-dir`, `idx` is cosmetic; `--window-len` default 5.0) → `phase2_classify.py review --target-label humpback_song --detections-csv … --classes humpback_song,gray_whale_moan,other,unlabeled`. One `--audio-dir` per session, so April 2018 and April 2026 run separately. (Apr 2018 CSV built July 20: `results/review_apr2018_humpback_graywhale.csv`, 41 clips.)
+    - **Status (July 20 2026):** April 2018 41-clip review is **prepped and paused** — CSV built, launch command staged (port 7866), waiting on J. Ryan's availability; will launch when he has time. April 2026 (39 clips) is a one-command repeat afterward. Separately, the Oct 2020 orca-*survivor* review (10 clips ≥1.16) is **complete** — all humpback, 0 orca (see Label Class Definitions table); that was orca-FP characterization, not the gray-whale humpback review, which is still to come.
 14. **Extended April 2018 orca activity — CONFIRMED (D. Edgington, July 19 2026).** v4 cross-month validation (threshold sweep, `tools/score_orca_regions.py`) surfaced strong, threshold-robust orca detections across **Apr 13–25 2018**, not just the confirmed Apr 13 event. At logit ≥ 1.16: Apr 18 = 173 (rivals Apr 13's 251; 105 survive +2.0), Apr 23–25 cluster = 118, full Apr 13–25 window ≈ 569. **Expert review complete for Apr 18 + Apr 25: 75 detections labeled (25 Apr 18 + 50 Apr 25), 100% orca, 0 false positives at ≥1.16** — orca_call annotations 219→294. April 2018 is now established as a **sustained ~2-week orca presence**, not a one-day event. Still to review: Apr 18 mid-logit band CSV exists (69 windows, port 7863, unreviewed), Apr 23/24. Counter-example that held up: May 14 reads FP-like (19→1 across the sweep) — not every cluster is real. Confirmed-orca example figures registered: `gradio_apr18_2018_orca_195s_wid202720`, `_405s_wid202762`, and five Apr 25 clips (`gradio_apr25_2018_orca_*`). **External corroboration (non-acoustic):** KSBW Action News 8 (Monterey) reported "record orca sightings" in April–May 2018 (one tour group ~50 orcas in a day), orcas drawn to hunt gray whales, and biologists identified **two pods that spring — one Alaskan, one Californian ("Emma's pod", the CA140s — matriarch CA140 "Emma", a Bigg's/transient matriline known for hunting gray-whale calves)**. Figure: `ksbw_news8_orca_invasion_monterey_spring2018` (© KSBW, reference only). Two independent methods (hydrophone + visual sightings) agreeing on a sustained spring-2018 presence.
 
 ---
@@ -379,6 +380,14 @@ DOES appear in inference output.
 **Key distinction:** `negative` = silence/background (weak negative for training only).
 `other` = real sound but unclassifiable (positive class, appears in inference).
 
+**`humpback_song` (label_type=1, positive class):**
+Despite the name, this denotes **humpback vocalization generally, not strictly full complex
+song** (J. Ryan, July 20 2026): "there are periods when non-song social humpback sounds will
+be present, so we don't always need full complex song as a humpback identifier." A 5 s focal
+window counts as humpback if it is part of a humpback sequence. Relevant to the gray-whale
+review (#13): the class is "humpback vocalization," and gray-whale moans are the expected
+contaminant to separate out.
+
 In t-SNE: gray (negative) forms a loose cluster in lower center.
 Orange-red (other) sits at the humpback/orca/negative boundary.
 
@@ -389,7 +398,7 @@ Orange-red (other) sits at the humpback/orca/negative boundary.
 | April 23–25 2018 | 118 orca @≥1.16 (v4); Apr 25: 50 reviewed = 100% orca — CONFIRMED (D. Edgington) ✅; Apr 23/24 pending |
 | May 12 2018 | 190 orca detections — probable event, expert review pending |
 | May 14 2018 | 45 orca detections — secondary event, expert review pending |
-| October 2020 | Oct 5-12 cluster confirmed — zero orca vocalizations (Bigg's orca silent during hunts) ✅ |
+| October 2020 | Oct 5-12 cluster confirmed — zero orca vocalizations (Bigg's orca silent during hunts) ✅. **Threshold-review July 20 2026 (J. Ryan):** the 10 detections surviving ≥1.16 are all humpback (4 newly labeled, 6 already-known humpback → 263; 1 left unknown on ambiguous 30 s context), **0 orca labels in the month**. Even at the operating threshold the residual "orca" hits are windows already known to be humpback — Oct 2020 confirmed orca-silent (true-negative / specificity result). |
 | April 2026 | Apr 21 dominant (101 v4 detections) — all reviewed clips are humpback FP; consistent with Bigg's orca acoustic silence. Apr 17-24 CA51A/CA50B event window shows 129 detections but no confirmed orca vocalizations. |
 
 **Orca cross-month threshold validation (July 19 2026):**
