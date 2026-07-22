@@ -158,6 +158,8 @@ Known harmless warnings at startup (not errors):
 
 **Why the Apr 25 separation is trusted (confound checks):** it is same-month (rules out season/background); its windows span many recordings across the day (`tools/orca_day_recording_spread.py` — Apr 13: 214 windows / 13 files, morning · Apr 18: 28 / 5, late-morning · Apr 25: 50 / 10, **evening** · May 12: 181 / 15, morning); and it is stable across perplexity 10/30/50 (all three settings × both styles archived by `tools/archive_tsne_by_day.sh`). Interpretation (pod vs individual vs call-type vs an evening-vs-morning acoustic context) is pending direct expert listening — Perch V2 embeds *species* and collapses within-orca variation, so this is a strong lead, not proof.
 
+**Candidate biological explanation:** KSBW news reported two distinct pods in Monterey Bay spring 2018 — one Alaskan, one Californian (the CA140s, "Emma's pod"). Different pods carry different call repertoires, a plausible reason the days separate in embedding space. Consistent with, not proof of, the separation (detections aren't yet assigned to pods; morning-vs-evening context remains a confound). It reframes "the calls look different" into a testable question: do the separating clusters correspond to the two known pods?
+
 | `tools/merge_dbs.py` | **spark-ae0e** | Merge two Hoplite DBs (SQLite + USearch index) |
 | `tools/merge_annotations.py` | **spark-ae0e** | Copy annotations between DBs |
 | `tools/extract_example_clips.py` | **spark-ae0e** | Extract and peak-normalize 10 example clips |
@@ -452,9 +454,9 @@ saved to the DB on every click — restarting is safe.
 | orca_v4.pt | ✅ **ROC-AUC 0.9590** — best cross-season, top1_acc 0.9650 |
 | Inference April 2018 v2 | ✅ **289 orca Apr 13** + 16,868 dolphin + 1,293 humpback |
 | Inference May 2018 v2 | ✅ **190 orca May 12** + 45 May 14 + 8,240 dolphin |
-| Inference May 2018 v4 | ✅ **181 orca May 12** + 19 May 14 — expert review pending |
-| Inference October 2020 v1 | ✅ **204 orca** (Oct 5-12 cluster) + 223,214 humpback |
-| Inference October 2020 v4 | ✅ **144 orca** (Oct 5-7 cluster, cleaner) + 254,546 humpback |
+| Inference May 2018 v4 | ✅ **181 orca May 12** (181/181 confirmed) + **May 13/14/16 confirmed orca** (D. Edgington, Jul 21 2026; +8 labels → 189) — multi-day event |
+| Inference October 2020 v1 | **204 orca detections** (Oct 5-12) — FALSE POSITIVES (acoustically silent month; reviewed as humpback) + 223,214 humpback |
+| Inference October 2020 v4 | **144 orca detections** (Oct 5-7) — FALSE POSITIVES; at ≥1.16 → 10 survivors, all humpback (J. Ryan, 0 orca) + 254,546 humpback |
 | Inference April 2026 v4 | ✅ **323 orca** — Apr 21 dominant, all reviewed = humpback FP |
 | Figure provenance system | ✅ figures registered with JSON sidecar + master manifest (see CLAUDE.md → Figure Provenance) |
 | PyTorch Conference 2026 | ✅ Abstract submitted July 12 2026 — see `docs/PyTorch_abstract.md` |
@@ -463,8 +465,10 @@ saved to the DB on every click — restarting is safe.
 | DB: MARS April 2018 normalized | ✅ 518,400 embeddings — 30 days, 37 min on GB10 |
 | DB: MARS October 2020 normalized | ✅ 535,278 embeddings — 31 days, 40 min on GB10 |
 | DB: MARS May 2018 normalized | ✅ 535,680 embeddings — 31 days, 38 min on GB10 |
-| October 2020 orca event Oct 5-12 | ✅ confirmed cluster — CA140B, CA51A pods documented |
+| October 2020 orca event Oct 5-12 | Orcas **visually** documented (whale-watch: CA140B, CA51A pods) but **acoustically SILENT** — 0 orca vocalizations confirmed; acoustic detections are humpback FPs (true-negative/specificity result) ✅ |
 | **Extended April 2018 orca (#14)** | ✅ **294 orca** (219→294): Apr 13/18/25 confirmed events; 75 windows reviewed = 100% orca, 0 FP @≥1.16 (D. Edgington) |
+| **Extended May 2018 orca (#14)** | ✅ **189 orca** (181→189): May 12 confirmed 181/181; May 13/14/16 confirmed on review (+8), 2 too-faint unlabeled (D. Edgington, Jul 21 2026) — spring 2018 multi-day across BOTH months |
+| **External corroboration** | ✅ KSBW Action News 8: "record orca sightings" April–May 2018 (~50 in a day); two pods identified — Alaskan + Californian CA140s ("Emma's pod"), drawn to hunt gray whales. Fig: `ksbw_news8_orca_invasion_monterey_spring2018` (© KSBW, reference) |
 | Per-class F1 (v1/v2/v4) | ✅ orca ≈0.95 · dolphin ≈0.73 · **humpback ≈0.55** (weakest — gray-whale contamination) — `src/f1_metrics.py` |
 | Orca operating threshold | ✅ **+1.16** (v4 F1-optimal) primary, +1.5 conservative — default 0.0 unusable (144/323 FP on silent months) |
 | By-day orca t-SNE | ✅ Apr 25 separates from Apr 13 **within-month**, robust perplexity 10/30/50, evening encounter — confound-checked |
@@ -615,7 +619,7 @@ low-support ship_noise (n=3 held-out); read per-class, not macro.
 | Class | Detections | Notes |
 |---|---|---|
 | dolphin_call | 8,240 | Resident throughout month |
-| orca_call | 377 | **May 12: 190** (probable event); May 14: 45 |
+| orca_call | 377 | **May 12: 190** (confirmed event); May 14: 45 (May 13/14/16 later confirmed orca on review) |
 | humpback_song | 748 | Present throughout |
 | ship_noise | 930 | Vessel passages |
 | other | 6,798 | Unclassified |
@@ -625,7 +629,7 @@ low-support ship_noise (n=3 held-out); read per-class, not macro.
 | Class | Detections | Notes |
 |---|---|---|
 | humpback_song | 223,214 | Dominant — peak fall season |
-| orca_call | **204** | Oct 5-12 cluster — CA140B, CA51A pods ✅ |
+| orca_call | **204** | Oct 5-12 detections — FALSE POSITIVES (reviewed as humpback); orcas present visually but acoustically silent |
 | dolphin_call | 3,344 | Consistent daily presence |
 | ship_noise | 139 | Dramatically reduced — COVID lockdown |
 | other | 228 | Minimal |
@@ -641,9 +645,15 @@ low-support ship_noise (n=3 held-out); read per-class, not macro.
 | other | 3 | Minimal |
 
 October 2020 orca detections cluster strongly October 5–12, matching independent
-whale watch reports of CA140B (matriarch "Louise") and CA51A pods. Cross-validated
-detection — classifier trained on April 2018, tested on October 2020 and April
-2026 — demonstrates Perch V2 embeddings generalize across seasons and years.
+Although orcas were **visually** documented Oct 5–12 (independent whale-watch reports of
+CA140B "Louise" — daughter of matriarch CA140 "Emma", i.e. part of the same "Emma's pod"
+matriline seen in spring 2018 — and CA51A pods), expert review found **zero orca vocalizations** —
+the acoustic orca detections are false positives (reviewed as humpback). October 2020 is thus a
+confirmed **acoustically-silent** case: Bigg's orcas present but hunting silently. This is a
+true-negative / specificity result — the value is that v4's detections there collapse under
+thresholding and the residuals are humpback, not that orca calls were cross-validated. The
+cross-season generalization claim still holds via the *confirmed* events (April & May 2018);
+October 2020 demonstrates specificity, not sensitivity.
 Source: California Killer Whale Project, https://www.californiakillerwhaleproject.org/orcas
 
 ## Multi-class Classification
