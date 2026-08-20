@@ -1,11 +1,11 @@
-region,confirmation_status_corrected,det_T0.00,det_T1.00,det_T1.16,det_T1.50,det_T2.00,retain_pct_T1.16,notes
-"Apr 13 2018 - Bigg's event",CONFIRMED,285,258,251,237,213,86.9,original known event
-"Apr 13-25 2018 - extended window",CONFIRMED (contains 3 confirmed days + 2 unreviewed),1010,622,569,472,358,,3-day+ span; not all days individually reviewed
-"Apr 18 2018 - strong day",CONFIRMED,251,182,173,143,105,,corrected from stale SUSPECTED label - 25/25 reviewed
-"Apr 23-25 2018 - cluster",CONFIRMED for Apr25; Apr23/24 unreviewed,415,151,118,69,24,,cluster TOTAL across 3 days - do not read as single-day count
-"May 12 2018 - event",CONFIRMED,181,122,111,96,76,58.4,full review 181/181
-"May 14 2018 - secondary",CONFIRMED,19,5,4,2,1,8.9,corrected from stale "probable" label - all 4 confirmed by ear
-"Oct 05-12 2020 - hunt cluster",SILENT (confirmed no orca),79,8,7,3,1,,residual = humpback FP
-"October 2020 - full month",SILENT (confirmed no orca),144,13,10,4,1,,10/10 threshold-survivors reviewed = humpback by J. Ryan
-"Apr 17-24 2026 - CA51A/CA50B window",no vocalization,131,21,12,10,5,,orcas visually documented but acoustically silent
-"April 2026 - full month",no vocalization (humpback FP),323,37,23,14,6,,acoustically silent month
+region,confirmation_status_corrected,ref,det_T0.00,det_T1.00,det_T1.16,det_T1.50,det_T2.00,retain_pct_T1.16,notes
+"Apr 13 2018 - Bigg's event",CONFIRMED,289,285,258,251,237,213,86.9,retain_pct = det_T1.16/ref (ref=original expert-labeled count, not det_T0.00)
+"Apr 13-25 2018 - extended window",CONFIRMED (contains 3 confirmed days + 2 unreviewed),,1010,622,569,472,358,,no ref value in source; 3-day+ span; not all days individually reviewed
+"Apr 18 2018 - strong day",CONFIRMED,,251,182,173,143,105,,no ref value in source; corrected from stale SUSPECTED label - 25/25 reviewed
+"Apr 23-25 2018 - cluster",CONFIRMED for Apr25; Apr23/24 unreviewed,,415,151,118,69,24,,no ref value in source; cluster TOTAL across 3 days - do not read as single-day count
+"May 12 2018 - event",CONFIRMED,190,181,122,111,96,76,58.4,retain_pct = det_T1.16/ref; full review 181/181
+"May 14 2018 - secondary",CONFIRMED,45,19,5,4,2,1,8.9,retain_pct = det_T1.16/ref; corrected from stale "probable" label - all 4 confirmed by ear
+"Oct 05-12 2020 - hunt cluster",SILENT (confirmed no orca),0,79,8,7,3,1,,residual = humpback FP
+"October 2020 - full month",SILENT (confirmed no orca),0,144,13,10,4,1,,10/10 threshold-survivors reviewed = humpback by J. Ryan
+"Apr 17-24 2026 - CA51A/CA50B window",no vocalization,0,131,21,12,10,5,,orcas visually documented but acoustically silent
+"April 2026 - full month",no vocalization (humpback FP),0,323,37,23,14,6,,acoustically silent month
