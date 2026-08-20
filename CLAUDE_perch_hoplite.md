@@ -22,9 +22,10 @@ NVIDIA GB10 DGX — no TensorFlow, no Colab.
 
 | Machine | Role | Notes |
 |---|---|---|
-| **ICEFISH** (Mac M1 Max) | Dev workstation, scp gateway | 134.89.114.25 / VPN 134.89.74.134 |
+| **ICEFISH** (Mac M1 Max) | **RETIRED Aug 2026** — backed up to portable SSD, held through PyTorch Conf (Oct) per IT agreement, then returned | 134.89.114.25 / VPN 134.89.74.134 |
+| **PERCH** (MacBook Pro M5 Max, 128GB, Tahoe 26.6.1) | **Current dev workstation, scp gateway** — replaces ICEFISH | LAN (en9, wired/dock — same subnet as sparks): **134.89.11.172** · Wi-Fi (en0): 134.89.112.169. Get via `ifconfig | grep "inet " | grep -v 127.0.0.1` (macOS `hostname -I` does NOT work, unlike Linux). |
 | **spark-ae0e** (134.89.11.107) | Primary compute — NVIDIA GB10 DGX | Working dir `~/perch-hoplite/` |
-| **spark-0626** (134.89.11.174) | Spare DGX | |
+| **spark-0626** (134.89.11.174) | **Validated second compute host (Aug 20 2026)** — NVIDIA GB10 DGX, same clone/setup via `scripts/clean_install.sh`. Confirmed: Gradio review renders identically to spark-ae0e (spectrograms + audio) against the same DBs. Package versions differ slightly (torch 2.13.0 vs 2.12.1, numpy 2.5.2 vs 2.4.4, usearch 2.26.0 vs 2.25.3, gradio 6.25.0 vs 6.15.1) — perch-hoplite's own pins kept librosa/scipy/pandas identical; the differences are believed low-risk (see clean_install.sh output Aug 20) but haven't been stress-tested beyond one review session. Good for a second parallel review (e.g. John on one host, Duane on the other) or as overflow when ae0e's GPU is busy with training. |
 | **thalassa** | NFS server | thalassa.shore.mbari.org |
 
 **scp screenshots from Mac to spark** — macOS screenshot filenames contain spaces.
@@ -100,9 +101,18 @@ source ~/perch-hoplite/venv/bin/activate
 # soundfile, perch-hoplite (core, no TF extras)
 ```
 
-**Gradio version must be 6.15.1** — other versions have audio playback issues.
-**Browser for Gradio: Chrome (incognito)** — Safari has audio playback issues
-with data: URIs.
+**Gradio version 6.15.1 was the original validated version; 6.25.0 also confirmed working**
+(spark-0626, Aug 20 2026 — identical rendering/audio against the same DBs). Not known to be
+version-sensitive within this range; if a NEW version misbehaves, incognito (below) is still
+the first thing to try before suspecting the package.
+
+**Browser for Gradio: Chrome (incognito) — ALWAYS, not just for Safari's audio issue.**
+Symptom if you forget: the page loads but shows spinning wheels / never renders, even though
+the server is fine — normal (non-incognito) Chrome windows can serve stale/cached state. **This
+has bitten us before** (rediscovered painfully Aug 20 2026 after a month away from the
+project) — if a Gradio session looks broken, try incognito FIRST, before debugging the server,
+the DB, or the classifier. Safari has a separate, additional problem: audio playback fails
+with data: URIs, so Safari is out regardless.
 
 ---
 
