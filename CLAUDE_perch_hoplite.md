@@ -327,6 +327,12 @@ HIS expert call, recorded as expert-confirmed, never "pending review." Loop in J
 (PI) only for flagged QA sessions, chiefly humpback-vs-gray-whale (#13). Caption confirmed
 orca clips as "Expert-confirmed orca (D. Edgington)".
 
+**Co-authorship note (July 2026):** J. Ryan is a **co-author** on the IEEE OCEANS 2026 poster
+submission (accepted — `docs/oceans_2026_acceptance_record.md`), not merely a reviewer credited
+in figure captions. Distinguish the two roles: attribution-rule captions credit his QA review
+of specific clips; the OCEANS poster's author line/acknowledgements must credit him as
+co-author. The PyTorch Conference poster is Duane solo (per `docs/PyTorch_poster.md`).
+
 **Pre-click screenshot quirk:** a Gradio screenshot may show `unlabeled` (or a stale
 selection) if grabbed a beat before the label click registers. The displayed radio button
 is NOT proof of the final label — the DB is the source of truth. Confirm the intended
@@ -397,7 +403,8 @@ Orange-red (other) sits at the humpback/orca/negative boundary.
 |---|---|
 | April 13 2018 | 289 orca detections — confirmed Bigg's orca hunting event ✅ |
 | April 18 2018 | 173 orca @≥1.16 (v4); 25 reviewed = 100% orca — CONFIRMED bout (D. Edgington) ✅ |
-| April 23–25 2018 | 118 orca @≥1.16 (v4); Apr 25: 50 reviewed = 100% orca — CONFIRMED (D. Edgington) ✅; Apr 23/24 pending |
+| **April 21 2018** | **40 total, 25 @≥1.16 (v4) — ⚠️ ACTION ITEM: real signal, NOT YET REVIEWED.** Found Aug 19 2026 building poster FIG 4 data; never named in `orca_region_scores_v4.csv`, no Gradio session run. Do not present as confirmed or dismissed. |
+| April 23–25 2018 (cluster total) | 118 orca @≥1.16 (v4) — cluster total, NOT a single-day count. Per-day breakdown: Apr 23 = 39 @≥1.16, Apr 24 = 19 @≥1.16, **Apr 25 = 211 total / 60 @≥1.16** (Apr 25: 50 reviewed = 100% orca — CONFIRMED, D. Edgington) ✅; Apr 23/24 individually pending |
 | May 12 2018 | 181 orca labels — full review 181/181 confirmed, Bigg's orca event ✅ |
 | May 13 2018 | 1 orca @≥1.16 (v4) — confirmed orca by ear (D. Edgington) ✅ (single clip) |
 | May 14 2018 | 4 orca @≥1.16 (v4) — all 4 confirmed orca (D. Edgington), ~06–07h morning cluster ✅ (real secondary event) |
@@ -407,7 +414,7 @@ Orange-red (other) sits at the humpback/orca/negative boundary.
 | April 2026 | Apr 21 dominant (101 v4 detections) — all reviewed clips are humpback FP; consistent with Bigg's orca acoustic silence. Apr 17-24 CA51A/CA50B event window shows 129 detections but no confirmed orca vocalizations. |
 
 **Orca cross-month threshold validation (July 19 2026):**
-- Tools: `tools/run_orca_validation.sh` (v4 inference over Apr/May 2018, Oct 2020, Apr 2026 @ floor 0.0) + `tools/score_orca_regions.py` (threshold sweep vs known regions). Summary: `results/orca_region_scores_v4.csv`.
+- Tools: `tools/run_orca_validation.sh` (v4 inference over Apr/May 2018, Oct 2020, Apr 2026 @ floor 0.0) + `tools/score_orca_regions.py` (threshold sweep vs known regions). Summary: `results/orca_region_scores_v4.csv`. **CAUTION (Aug 19 2026):** this file's `region`/`truth` labels ("SUSPECTED", "probable") are a snapshot from the original hypothesis-generating sweep and are now STALE — Apr 18/23-25/May 14 have since been expert-confirmed, and May 13/16 aren't in the file at all (discovered in a later review). Trust this file's raw `det_T*` count columns; do NOT trust its status labels — cross-check confirmation status against the Validated Events table above. Also: some rows are multi-day CLUSTERS (e.g. "Apr 23–25... = 118 @1.16"), not single days — don't misread a cluster total as one day's count (this happened once, corrected in `agile_modeling_history.md` Aug 19 2026).
 - Inference CSV is **per-label** (one row per window per class), so T=0.0 counts are inflated by also-ran windows — read the NEGATIVE regions at higher thresholds, not at 0.0.
 - False positives collapse under thresholding: Oct 2020 144→1, April 2026 323→6 (T=0.0→+2.0). Confirmed events retain: Apr 13 99%→74%, May 12 95%→40%.
 - **Operating threshold: +1.16 (v4 F1-optimal) primary, +1.5 conservative.** At +1.16 FPs are ~90% gone and Apr 13 still holds 87%; the default 0.0 is unusable (144 / 323 FPs). Residual FPs never quite reach 0 (single digits at +2.0) — pull those specific windows in Gradio to characterize.
@@ -460,6 +467,9 @@ perch-hoplite/
 │   └── review_example_clips.py
 ├── docs/                   — documentation and analysis
 │   ├── pytorch_port_summary.md   — PyTorch Conference 2026 poster
+│   ├── PyTorch_poster.md   — CURRENT PyTorch Conf abstract (updated Jul 17; supersedes PyTorch_abstract.md — real throughput ~635 clips/s w/ torch.compile, 2.5x vs ONNX; ~2.1M embeddings; update deadline Jul 26)
+│   ├── PyTorch_abstract.md   — original Jul 12 submission, superseded by PyTorch_poster.md (kept for history)
+│   ├── oceans_2026_acceptance_record.md   — IEEE OCEANS 2026 poster ACCEPTED; authors D. Edgington + J. Ryan (co-author, not just reviewer); poster-only, no manuscript
 │   ├── october_2020_analysis.md
 │   ├── FINDINGS_2026-07-09_tf_parity_and_lowamp_fix.md
 │   └── PROGRESS_2026-07-09.md

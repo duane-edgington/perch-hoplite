@@ -261,10 +261,13 @@ not computation. A new classifier took 30 seconds to train after each session.
 |---|---|---|---|
 | April 13 2018 | 289 (v2) | Gradio + J. Ryan | Confirmed Bigg's orca hunting event (morning) ✅ |
 | April 18 2018 | 173 @≥1.16 (v4) | Gradio 25/25 (D. Edgington) | Confirmed orca bout (late morning) ✅ |
-| April 25 2018 | 118 @≥1.16 (v4) | Gradio 50/50 (D. Edgington) | Confirmed orca (evening); separates from Apr 13 in embedding space ✅ |
+| **April 21 2018** | **40 total, 25 @≥1.16 (v4)** | **NOT YET REVIEWED** | **⚠️ ACTION ITEM — real signal (comparable to confirmed days), never named in `orca_region_scores_v4.csv`, never Gradio-reviewed. Found Aug 19 2026 while building poster FIG 4 calendar data. Do not present as confirmed OR dismissed until reviewed.** |
+| April 25 2018 | **211 total, 60 @≥1.16 (v4)** | Gradio 50/50 clips reviewed (D. Edgington) | Confirmed orca (evening); separates from Apr 13 in embedding space ✅. **CORRECTED Aug 19 2026** — was mislabeled "118," which was actually the Apr 23–25 3-day cluster total (see `orca_region_scores_v4.csv`), not Apr 25 alone. 60 is the per-day ≥1.16 detection count; 50 is the number of clips actually reviewed/confirmed by ear — these are two different (correlated, not identical) numbers, don't conflate them. |
 | May 12 2018 | 181 (v4) | Full Gradio review, 181/181 | Confirmed Bigg's orca event ✅ |
-| May 14 2018 | 19 (v4) | Not yet reviewed | Probable secondary event |
-| October 2020 | 144 (v4) | Gradio review | Confirmed zero orca vocalizations — Bigg's orca acoustic silence during documented hunt ✅ |
+| May 13 2018 | 1 @≥1.16 (v4) | Confirmed by ear (D. Edgington) | Confirmed orca — single clip, weakest evidence ✅ |
+| May 14 2018 | 4 @≥1.16 (v4) | Confirmed by ear (D. Edgington) | **CORRECTED July 21 2026** — all 4 confirmed orca, ~06:00-07:00 morning cluster; real secondary event, not merely "probable" ✅ |
+| May 16 2018 | 3 confirmed + 1 unlabeled @≥1.16 (v4) | Confirmed by ear (D. Edgington) | Confirmed orca, ~15:09 cluster; 2 clips from the same recording sound audibly different (repertoire variation) ✅ |
+| October 2020 | 144 (v4) @0.0 floor; 10 survivors @≥1.16 | J. Ryan: all 10 = humpback | Confirmed zero orca vocalizations — Bigg's orca acoustic silence during documented hunt; specificity confirmed even at operating threshold ✅ |
 | April 2026 | 323 (v4) | Gradio review top-25 | All humpback false positives — acoustic silence consistent with documented CA51A/CA50B visits |
 
 ---
@@ -294,7 +297,8 @@ This was originally read as "April 13 buried by false positives." **Corrected Ju
 reviewed) as **genuine orca**, not FPs — April 2018 held a multi-day Bigg's presence, not a
 one-day event (orca labels 219 → 294; see finding #14). The 4-season models do over-*rank*
 the later days relative to a calibrated threshold (at v4 logit ≥ 1.16, Apr 13 is still first:
-251, vs Apr 18 173, Apr 25 ~118), but they were surfacing real activity, not fabricating it.
+251, vs Apr 18 173, Apr 25 60 [corrected Aug 19 2026 — was miscited as "~118," the Apr 23–25
+3-day cluster total, not Apr 25 alone]), but they were surfacing real activity, not fabricating it.
 The earlier "buried by FPs" wording was speculation and is superseded.
 
 ### Root cause hypothesis

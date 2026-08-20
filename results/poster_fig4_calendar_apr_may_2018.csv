@@ -1,0 +1,34 @@
+date,total_detections,detections_ge116,confirmation_status,notes
+2018-04-03,1,0,unreviewed_noise,
+2018-04-04,5,0,unreviewed_noise,
+2018-04-05,12,1,unreviewed_noise,
+2018-04-06,21,2,unreviewed_noise,
+2018-04-13,285,251,CONFIRMED,Biggs event - morning - original known event
+2018-04-14,4,0,unreviewed_noise,
+2018-04-17,1,0,unreviewed_noise,
+2018-04-18,251,173,CONFIRMED,25/25 Gradio-reviewed by D. Edgington - late morning
+2018-04-19,7,0,unreviewed_noise,
+2018-04-20,7,2,unreviewed_noise,
+2018-04-21,40,25,UNREVIEWED_ACTION_ITEM,Real signal comparable to confirmed days - never reviewed - flagged Aug 19 2026
+2018-04-23,144,39,unreviewed,part of Apr23-25 cluster but not individually reviewed
+2018-04-24,60,19,unreviewed,part of Apr23-25 cluster but not individually reviewed
+2018-04-25,211,60,CONFIRMED,50/50 Gradio-reviewed by D. Edgington - evening - separates from Apr13 in t-SNE
+2018-04-26,4,0,unreviewed_noise,
+2018-04-27,1,0,unreviewed_noise,
+2018-04-28,4,1,unreviewed_noise,
+2018-04-29,23,2,unreviewed_noise,
+2018-04-30,3,0,unreviewed_noise,
+2018-05-02,2,0,unreviewed_noise,
+2018-05-03,1,0,unreviewed_noise,
+2018-05-07,2,1,too_faint_unlabeled,left unlabeled by D. Edgington - ambiguous
+2018-05-09,1,0,unreviewed_noise,
+2018-05-12,181,111,CONFIRMED,Full review 181/181 - Biggs event - morning
+2018-05-13,11,1,CONFIRMED,Confirmed by ear D. Edgington - single clip - weakest evidence
+2018-05-14,19,4,CONFIRMED,All 4 confirmed by ear D. Edgington - real secondary event - morning cluster
+2018-05-16,15,4,CONFIRMED,3 confirmed + 1 too faint unlabeled - D. Edgington - afternoon - 2 clips audibly different call types
+2018-05-22,1,0,unreviewed_noise,
+2018-05-23,1,0,unreviewed_noise,
+2018-05-24,1,0,unreviewed_noise,
+2018-05-25,1,0,unreviewed_noise,
+2018-05-28,1,0,unreviewed_noise,
+2018-05-29,4,0,unreviewed_noise,
