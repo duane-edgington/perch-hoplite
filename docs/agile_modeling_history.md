@@ -40,6 +40,31 @@ All v*_clean classifiers were retired. They are not comparable to v0–v6.
 
 ---
 
+## IMPORTANT — Seed Source Transition: Google CSV scores → Perch V2 agile detections
+
+**This is the single most important thing to understand about how candidates were selected
+for review, and it changed very early:**
+
+- **Google Multispecies Whale Model score CSVs were used for ONE thing only: the very first
+  100-clip screen** (50 high-scoring-orca + 50 low-scoring-background candidates — see the
+  pre-v0 section below). That one hand-screened set of 100 trained the first real classifier.
+- **From that point on — from v0 onward — candidate selection came ENTIRELY from the Perch V2
+  classifier's own detections, NOT from the Google model.** Every "Gradio review of
+  top-scoring detections" entry in this document, for every version v0 and later, means
+  top-scoring under **the Perch V2 classifier being iterated**, run over the audio and ranked
+  by its own scores. This is the agile-modeling loop: train a classifier → run it → review
+  its highest-scoring (and, for hard negatives, its confidently-wrong) detections → relabel →
+  retrain.
+- **The Google CSVs were never used for seeding again after that initial bootstrap.** They got
+  the very first model off the ground when no Perch-based classifier existed yet; once one
+  existed, the project fed on its own detections exclusively.
+
+So when reading any version's "how labels were obtained" below: unless it explicitly says
+"Google Multispecies" (which only the Phase 1 bootstrap and the initial 100-clip screen do),
+the candidates were surfaced by the in-progress Perch V2 classifier itself.
+
+---
+
 ## Critical Fix: Low-Amplitude Normalization (July 9 2026)
 
 **Discovery:** MARS hydrophone recordings at 891m depth have typical peak
@@ -92,7 +117,9 @@ examples (July 9 baseline below).
 **Training DB:** April 2018 only (`MARS_20180401_20180430_32kHz_norm`)
 
 **How labels were obtained:**
-- Gradio review of top-scoring orca detections from April 2018
+- Gradio review of top-scoring orca detections from April 2018 (**top-scoring under the Perch
+  V2 classifier itself — NOT the Google model; the Google CSVs were used only for the initial
+  100-clip bootstrap screen, see the seed-source transition note above**)
 - Expert review of April 13 2018 known event
 - Dr. John Ryan (MBARI) confirmed April 2018 humpback labels
 
@@ -379,7 +406,9 @@ rows above it in this table.
 
 ### Pending investigation
 
-- Review April 2018 ship_noise labels (24 clips) in Gradio — confirm no errors
+- ~~Review April 2018 ship_noise labels (24 clips) in Gradio — confirm no errors~~ **DONE /
+  SUPERSEDED Aug 21 2026:** absorbed into the ship_noise campaign (Aug 20-22 section below) —
+  April 2018 ship_noise went 24→45, not just re-confirmed.
 - Long-term fix: separate per-season classifiers, or larger/more balanced training set
 - Gray whale annotation review (some humpback labels may be gray whale)
 
