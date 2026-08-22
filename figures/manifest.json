@@ -890,8 +890,30 @@
       "score": 1.35,
       "label_selected": "ship_noise",
       "notes": "Part of finding #15 campaign: May 2018 ship_noise 4->29, 100% clean."
+    },
+    "tsne_orca_by_day_april2018_px30_pres_dpi300.png": {
+      "saved_filename": "tsne_orca_by_day_april2018_px30_pres_dpi300.png",
+      "original_filename": "tsne_orca_by_day_april2018_px30_pres_dpi300.png",
+      "capture_computer": "spark-ae0e",
+      "capture_timestamp": "unknown",
+      "date_registered": "2026-08-22T08:35:17.036035",
+      "figure_type": "tsne_plot",
+      "caption": "t-SNE of confirmed orca_call embeddings (Perch V2, cosine), April 2018 by day: Apr 13, Apr 18, Apr 21, Apr 25. 300 dpi print-quality version for the OCEANS poster (panel 8) -- supersedes the 150 dpi tsne_orca_by_day_april2018_px30_pres.png for print use; that file is kept for history. Presentation style, perplexity 30.",
+      "command": "python3 tools/plot_tsne_orca_by_day.py --april-db MARS_20180401_20180430_32kHz_norm --may-db MARS_20180501_20180531_32kHz_norm --perplexity 30 --style presentation --dpi 300",
+      "notes": "300 dpi added Aug 22 2026 per poster-chat request. Loaded 318 orca windows across the 4 confirmed April days (13/18/21/25) -- 1 short of the DB's total April orca_call count of 319; likely another small orphaned/stray label outside the confirmed-day set, similar to the one found on Apr 21 earlier -- not yet investigated, flagged for follow-up."
+    },
+    "tsne_orca_by_day_5days_px30_pres_dpi300.png": {
+      "saved_filename": "tsne_orca_by_day_5days_px30_pres_dpi300.png",
+      "original_filename": "tsne_orca_by_day_5days_px30_pres_dpi300.png",
+      "capture_computer": "spark-ae0e",
+      "capture_timestamp": "unknown",
+      "date_registered": "2026-08-22T08:35:46.078521",
+      "figure_type": "tsne_plot",
+      "caption": "t-SNE of confirmed orca_call embeddings (Perch V2, cosine), 5 confirmed days: Apr 13/18/21/25 2018 + May 12 2018. 300 dpi print-quality version for the OCEANS poster -- supersedes the 150 dpi tsne_orca_by_day_5days_px30_pres.png for print use; that file is kept for history. Presentation style, perplexity 30.",
+      "command": "python3 tools/plot_tsne_orca_by_day.py --april-db MARS_20180401_20180430_32kHz_norm --may-db MARS_20180501_20180531_32kHz_norm --perplexity 30 --style presentation --dpi 300",
+      "notes": "300 dpi added Aug 22 2026 per poster-chat request. See april2018_dpi300 sidecar for the by-day count discrepancy note (318 vs 319 April orca windows)."
     }
   },
-  "last_updated": "2026-08-21T20:24:59.215030",
-  "figure_count": 60
+  "last_updated": "2026-08-22T08:35:46.078854",
+  "figure_count": 62
 }

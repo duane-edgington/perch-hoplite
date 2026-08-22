@@ -151,7 +151,7 @@ def run_tsne(emb, perplexity=None, seed=42):
     return tsne.fit_transform(emb_norm), perplexity
 
 
-def plot_by_day(coords, days, title, out_png, month_marker=False, style="analysis"):
+def plot_by_day(coords, days, title, out_png, month_marker=False, style="analysis", dpi=150):
     import matplotlib
     matplotlib.use("Agg")
     import matplotlib.pyplot as plt
@@ -182,7 +182,7 @@ def plot_by_day(coords, days, title, out_png, month_marker=False, style="analysi
                 f"n={len(days)} confirmed orca windows  |  Perch V2 1536-dim → t-SNE 2D  |  exploratory",
                 transform=ax.transAxes, fontsize=7, color="#475569", va="bottom")
         fig.tight_layout()
-        fig.savefig(out_png, dpi=150, bbox_inches="tight", facecolor="#0f172a")
+        fig.savefig(out_png, dpi=dpi, bbox_inches="tight", facecolor="#0f172a")
         plt.close(fig)
         return out_png
 
@@ -203,25 +203,26 @@ def plot_by_day(coords, days, title, out_png, month_marker=False, style="analysi
             "not a null result.",
             transform=ax.transAxes, ha="center", va="top", fontsize=7, color="#666")
     fig.tight_layout()
-    fig.savefig(out_png, dpi=150, bbox_inches="tight")
+    fig.savefig(out_png, dpi=dpi, bbox_inches="tight")
     plt.close(fig)
     return out_png
 
 
 def make_plots(april_emb, april_days, april_wids,
                may_emb, may_days, may_wids,
-               out_dir, perplexity, seed, style="analysis"):
+               out_dir, perplexity, seed, style="analysis", dpi=150):
     os.makedirs(out_dir, exist_ok=True)
     written = []
     sfx = "_pres" if style == "presentation" else ""
     px_tag = f"px{int(perplexity)}" if perplexity else "pxauto"
+    dpi_tag = "" if dpi == 150 else f"_dpi{dpi}"
 
     # Plot 1 — April only
     coords_a, px_a = run_tsne(april_emb, perplexity, seed)
     p1 = plot_by_day(coords_a, april_days,
                      f"Confirmed orca calls — April 2018 by day (t-SNE, perplexity={px_a}, n={len(april_days)})",
-                     os.path.join(out_dir, f"tsne_orca_by_day_april2018_{px_tag}{sfx}.png"),
-                     style=style)
+                     os.path.join(out_dir, f"tsne_orca_by_day_april2018_{px_tag}{sfx}{dpi_tag}.png"),
+                     style=style, dpi=dpi)
     written.append(p1)
 
     # Plot 2 — all confirmed days (April + May 12); May as triangle
@@ -231,8 +232,8 @@ def make_plots(april_emb, april_days, april_wids,
     coords_all, px_all = run_tsne(all_emb, perplexity, seed)
     p2 = plot_by_day(coords_all, all_days,
                      f"Confirmed orca calls — {n_days} days Apr+May 2018 (t-SNE, perplexity={px_all}, n={len(all_days)})",
-                     os.path.join(out_dir, f"tsne_orca_by_day_{n_days}days_{px_tag}{sfx}.png"),
-                     month_marker=True, style=style)
+                     os.path.join(out_dir, f"tsne_orca_by_day_{n_days}days_{px_tag}{sfx}{dpi_tag}.png"),
+                     month_marker=True, style=style, dpi=dpi)
     written.append(p2)
     return written
 
@@ -297,6 +298,8 @@ def main():
     ap.add_argument("--seed", type=int, default=42)
     ap.add_argument("--style", choices=["analysis", "presentation"], default="analysis",
                     help="analysis=light readable (default); presentation=dark theme for slides")
+    ap.add_argument("--dpi", type=int, default=150,
+                    help="output image resolution (default 150; use 300 for print/poster quality)")
     ap.add_argument("--selftest", action="store_true")
     args = ap.parse_args()
 
@@ -318,7 +321,7 @@ def main():
 
     written = make_plots(april_emb, april_days, april_wids,
                          may_emb, may_days, may_wids,
-                         args.out_dir, args.perplexity, args.seed, style=args.style)
+                         args.out_dir, args.perplexity, args.seed, style=args.style, dpi=args.dpi)
     print("Wrote:")
     for p in written:
         print(" ", p)
