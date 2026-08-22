@@ -28,12 +28,24 @@ NVIDIA GB10 DGX — no TensorFlow, no Colab.
 | **spark-0626** (134.89.11.174) | **Validated second compute host (Aug 20 2026)** — NVIDIA GB10 DGX, same clone/setup via `scripts/clean_install.sh`. Confirmed: Gradio review renders identically to spark-ae0e (spectrograms + audio) against the same DBs. Package versions differ slightly (torch 2.13.0 vs 2.12.1, numpy 2.5.2 vs 2.4.4, usearch 2.26.0 vs 2.25.3, gradio 6.25.0 vs 6.15.1) — perch-hoplite's own pins kept librosa/scipy/pandas identical; the differences are believed low-risk (see clean_install.sh output Aug 20) but haven't been stress-tested beyond one review session. Good for a second parallel review (e.g. John on one host, Duane on the other) or as overflow when ae0e's GPU is busy with training. |
 | **thalassa** | NFS server | thalassa.shore.mbari.org |
 
-**scp screenshots from Mac to spark** — macOS screenshot filenames contain spaces.
-Use backslash-escaped spaces with a wildcard, e.g.:
+**macOS screenshot filenames — ALWAYS glob on the timestamp, NEVER retype/escape the name.**
+This has caused repeated real failures (July 19, Aug 21 x2) — worth reading carefully.
+Screenshot filenames contain spaces, and sometimes a non-ASCII space character that is
+**invisible on screen** but will NOT byte-match anything you retype — including a fully
+quoted string (`"Screenshot 2026-08-21 at 7.09.31 PM-1.png"`) or `$HOME/"..."`. **Quoting
+does not fix this.** Backslash-escaping most of the name with only a short trailing wildcard
+(e.g. `Screenshot\ 2026-07-16\ at\ 5*.png`) is ALSO unreliable — it still tries to literally
+match several of the spaces. **The only reliable pattern is a wildcard on both sides of just
+the unique timestamp digits, with zero literal spaces anywhere in the command:**
 ```bash
-scp ~/Desktop/Screenshot\ 2026-07-16\ at\ 5*.png duane@134.89.11.107:~/perch-hoplite/figures/
+# scp from Mac to spark (glob the whole name away except the time):
+scp ~/Desktop/Screenshot*7.09.31*.png duane@134.89.11.107:~/perch-hoplite/figures/
+# mv/rename, same rule, on either machine:
+mv ~/Desktop/Screenshot*7.09.31*.png ~/Downloads/gradio_apr2026_humpback_1.png
 ```
-Quoted versions and underscore wildcards do NOT work for macOS screenshot filenames.
+`--original-name` in `register_figure.py` is just a metadata string, so a typed
+approximation there is fine — the glob-only rule matters solely when a command needs to
+actually touch the real file (mv, scp, cp, etc.).
 
 ---
 
@@ -322,17 +334,9 @@ python3 tools/register_figure.py \
 `--computer` ∈ {ICEFISH, DuaneEM1, spark-ae0e, spark-0626, other}.
 Then `git add` the .png + its .json + manifest.json, and commit together.
 
-**macOS screenshot filename gotcha (both scp AND mv):** screenshot names contain spaces
-(and sometimes non-ASCII space characters that will NOT byte-match a retyped quoted
-string). ALWAYS glob on the unique timestamp instead of quoting the name:
-```bash
-# scp from Mac:
-scp ~/Desktop/Screenshot\ 2026-07-19\ at\ 4*.png duane@134.89.11.107:~/perch-hoplite/figures/
-# rename on spark (glob, don't retype the spaces):
-mv ~/perch-hoplite/figures/Screenshot*4.40.17*.png ~/perch-hoplite/figures/gradio_apr18_2018_orca_195s_wid202720.png
-```
-`--original-name` is just a metadata string, so a quoted approximation there is fine — the
-glob only matters when a command touches the actual file.
+**macOS screenshot filename gotcha** — see the consolidated rule + examples earlier in this
+doc (System Architecture section, "ALWAYS glob on the timestamp"). Applies equally to `mv`
+on spark as to `scp` from the Mac.
 
 **Attribution rule:** Duane (D. Edgington) is the orca annotator/reviewer — orca IDs are
 HIS expert call, recorded as expert-confirmed, never "pending review." Loop in J. Ryan
