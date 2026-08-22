@@ -56,6 +56,37 @@ use normalized embeddings. The v*_clean classifiers are not usable.
 
 ## New Era: Normalized Classifier Versions (July 2026)
 
+### Pre-v0 — First Human-Reviewed Gradio Sessions (D. Edgington's recollection, Aug 22 2026)
+
+**Distinct from Phase 1's automated bootstrap above** (which seeded labels directly from
+Google Multispecies Whale Model scores, no human review, used only for the doomed
+un-normalized `v1_clean`–`v8_clean` classifiers) — this is the actual start of hand-verified
+ground truth, all on April 2018 data.
+
+**The very first screening — 100 annotations that trained the first model.** In the initial
+Gradio tool, D. Edgington screened **100 clips: 50 high-scoring orca candidates** (top of the
+Google Multispecies Model's orca scores) **and 50 low-scoring candidates** (low orca score →
+material for the background/negative class). These 100 hand-screened annotations were the
+original training set for the very first model.
+
+**Then other classes were added.** Subsequent Gradio sessions expanded beyond
+orca/background to the additional classes (dolphin, ship_noise, humpback).
+
+**Then the 30-second context window was added — and with it, two expert annotators for the
+first time.** The wider context view was built because a single 5-second window is too short
+to identify humpback song structure. From this point the labeling split by expertise:
+**D. Edgington annotated orca, ship_noise, and dolphin; John Ryan annotated humpback** (John
+as the humpback expert — D. Edgington is now developing humpback expertise as well).
+
+**Session sizes:** initial screens were **50 clips per session**. These were later **reduced
+to 25 clips per session**, with a stepping increment added so that when a batch had more than
+100 clips to review, it could be stepped through in **25-clip chunks** (each clip a 5-second
+window).
+
+**Total estimated effort: ~4 hours** across this pre-v0 / early labeling phase. The initial
+100 grew, through the subsequent multi-class sessions, into v0's documented 584 labeled
+examples (July 9 baseline below).
+
 ### v0 — Baseline (July 9 2026)
 
 **Training DB:** April 2018 only (`MARS_20180401_20180430_32kHz_norm`)
@@ -319,17 +350,32 @@ training is **per-encounter**, not merely per-season — a stronger version of t
 
 | Classifier | ROC-AUC | Apr 13 rank | ship_noise | Status |
 |---|---|---|---|---|
-| v4 | **0.9590** | **1st (289)** | **1,278** | ✅ Production |
+| v4 | **0.9590** | **1st (289)** | **1,278** | Production through Aug 21 2026 |
 | v6 | 0.9499 | 3rd (306) | 4,496 | ❌ DO NOT USE |
 | v7 | 0.9499 | 3rd (306) | 4,496 | ❌ DO NOT USE |
 | v8 | 0.9463 | 3rd (303) | 4,831 | ❌ DO NOT USE |
+| `orca_v10.pt` (Aug 21 2026) | 0.9372* | — | — | Best current model — see "August 20-22 2026" section below for full per-class results and the *eval-set caveat |
 
-### Final classifier strategy
+*`orca_v10`'s aggregate ROC-AUC looks lower than v4's, but its eval set is larger/harder
+(459 examples vs. v4's 296) — not a real regression. Per-class F1 is the metric that matters
+here; see below. Apr-13-rank and ship_noise-count columns aren't directly comparable for
+`orca_v10` since its training recipe (3-season, no May) differs from the 4-season v6/v7/v8
+rows above it in this table.
 
-- **v4** — production classifier for all months ✅
-- **v2** — best for April 2018 specifically
-- **May 2018 orca** — use v4 inference (181 detections, all confirmed)
-- **4-season classifiers** — informative experiments, not production-ready
+### Final classifier strategy (updated Aug 21 2026)
+
+- **`orca_v10.pt`** — current best model, trained on the fully updated Aug 21 label set
+  (1,076 annotations). Not yet a formal "production" designation — see the August 20-22 2026
+  section below before treating it as v4's replacement everywhere.
+- **v4** — prior production classifier (April 2018 + Oct 2020 + April 2026, 803 labels);
+  numbers still cited on the OCEANS poster for panels 1-9, kept internally consistent there.
+- **v2** — best for April 2018 specifically (superseded in practice by v4/`orca_v10` for
+  general use).
+- **May 2018 orca** — use v4 inference for reference; May is now a permanent held-out test
+  month, never a training input (policy decision, Aug 21 2026 — see below).
+- **v5, v6, v7, v8** — all formally retired from the model lineage (v5's weights were also
+  accidentally overwritten Aug 21, see below); informative experiments only, not
+  production-ready.
 
 ### Pending investigation
 
@@ -392,17 +438,105 @@ context) is **pending direct expert listening** — Perch embeds species and col
 within-orca variation, so this is a lead, not proof. Confound-clearing template established:
 (1) same-month, (2) distinct-recording spread, (3) perplexity sweep.
 
-### Updated pending work
+### Updated pending work (superseded — see Aug 20-22 2026 section below for current status)
 
-- **Gray-whale re-annotation (#13, highest priority):** re-review humpback-labeled clips with
-  J. Ryan, adding `gray_whale_call`; retrain and check whether humpback F1 lifts from ~0.55.
+- ~~**Gray-whale re-annotation (#13, highest priority):** re-review humpback-labeled clips
+  with J. Ryan, adding `gray_whale_call`; retrain and check whether humpback F1 lifts from
+  ~0.55.~~ **CLOSED Aug 21 2026** — both April 2018 (19 clips) and April 2026 (39 clips)
+  reviewed, zero gray-whale contamination found in either. Humpback F1 improved anyway
+  (~0.55→0.62) via the retrain, for reasons unrelated to gray-whale contamination — see below.
 - Per-class inference thresholds (from the F1 sweep): orca ~+1.5 vs ship ~+0.4 — one global
   threshold can't serve both.
 - Re-score example spectrogram clips under v4 for current README caption numbers.
 
 ---
 
-## Addendum — Poster Narrative Arc (IEEE OCEANS, October 2026)
+## August 20-22 2026 — Poster Push, Data Campaign, and First Retrain Since v4
+
+Triggered by IEEE OCEANS 2026 poster preparation (Sept 21-24, Monterey). Three PIs: D.
+Edgington, J. Ryan, working with an MBARI poster-production collaborator.
+
+### April 21 2018 — the last "pending review" orca day, resolved (Aug 21)
+
+Flagged Aug 19 while building poster calendar data: 40 total detections, 25 at ≥1.16, never
+reviewed. Full 25-clip Gradio review (D. Edgington): **all 25 confirmed orca, no ambiguity, no
+other sounds present.** orca_call 294→319. April 2018 now shows confirmed orca on **four**
+days — 13, 18, 21, 25 — not three. Recording-spread check found only 2 recordings in a
+10-minute window (23:19-23:29), unlike the other three confirmed days (5-15 recordings each
+over 1-4 hours) — a genuinely different pattern, flagged as relevant if this day's t-SNE
+separation is ever used as evidence of a distinct encounter (it should NOT be, on current
+evidence — see below).
+
+### Ship_noise labeling campaign — the weakest class gets real support (Aug 21)
+
+Panel-10-style review of the poster's own admitted weak point: ship_noise had only n=3 held-out
+support in every prior model, its reported F1 an acknowledged artifact. Top-25-by-score,
+no threshold gate, reviewed per month:
+- **April 2018:** 24→45 confirmed (+21; one clip was distinctly different — "lots of bands,"
+  possibly a different vessel/motor type — labeled `other` instead).
+- **May 2018:** 4→29 confirmed (+25, **100% clean**).
+- **October 2020:** 2→2 (**0 new** — all 25 candidates showed audible contamination,
+  correctly left unlabeled rather than forced into a category; leading hypothesis is real ship
+  noise co-occurring with October's peak humpback activity in the same window).
+- Project-wide ship_noise: 35→81. Within the 3-season "Option A" recipe specifically (below):
+  52.
+
+### May 2018 becomes a permanent held-out test month (Aug 21, policy decision)
+
+Triggered by a poster-accuracy question: an early poster draft claimed "no model here trained
+on May 2018," true for v4 but not for the discarded v6/v7/v8 (which DID include a May-inclusive
+4-season DB — the same recipe that caused the historical ship_noise inflation). Rather than
+keep qualifying that sentence, **May 2018 is now permanently excluded from all future
+training**, kept purely as held-out validation. v6/v7/v8 (and the accidentally-overwritten July
+15 v5 experiment) are formally retired from the model lineage. May's existing orca
+confirmations (181 + 8 more) remain valid science — just never training input again.
+
+### "Option A" retrain — first classifier trained since v4 (Aug 21)
+
+3-season recipe matching v4 exactly (April 2018 + Oct 2020 + April 2026), retrained on the
+fully updated Aug 21 labels (1,076 annotations vs. v4's 803). Two runs, 256 vs. 512 steps
+(`orca_v5b.pt`, `orca_v10.pt` — v5-v9 all considered taken/retired after the naming
+collision below, next model is v10+). Aggregate ROC-AUC/cmap came in lower than v4's
+(0.937/0.678 vs. 0.959/0.830) — **but this reflects a larger, harder eval set (459 examples,
+up from v4's 296), not a real regression.** Per-class F1 (512-step run) tells the real story:
+
+| Class | F1 (opt) | vs. prior |
+|---|---|---|
+| orca_call | 0.945 | held steady (~0.95) |
+| humpback_song | 0.619 | **improved** from ~0.55 |
+| ship_noise | **0.800** | first-ever credible score, up from a fake 1.0 on n=3 |
+| dolphin_call | 0.687 | slightly down from ~0.71-0.77 |
+| other | 0.591 | now the visible weak point (grew 52→124, merging 3 seasons' worth of catch-all clips for the first time — plausibly needs its own song/non-song-style split, same idea as humpback) |
+
+**Incident, recorded for the record:** the first run was accidentally saved as `orca_v5.pt`,
+overwriting the July 15 context-embedding experiment's weights (already marked unusable;
+provenance/metrics survived, only the live weights file was lost). Renamed to `orca_v5b.pt`;
+new rule going forward is the next classifier is `orca_v10.pt`, no v5-v9 reuse.
+
+### Exact label-count reconciliation (Aug 22)
+
+A poster stat card claimed "~1,450 total labels" against a trajectory chart whose bars summed
+to 873. Direct SQL count across all four current DBs: **1,336** exact — not ~1,450 (origin of
+that figure unknown, likely a stale approximation). 873 (built v4) and 1,336 (everything
+confirmed to date) are both correct; they answer different questions and should be stated as
+such, not reconciled by rounding.
+
+### Tooling fixes accompanying the poster push (Aug 22)
+
+- `plot_tsne_orca_by_day.py` and `plot_tsne.py` both gained a `--dpi` flag (previously
+  hardcoded at 150) for print-quality (300 dpi) figure exports.
+- `plot_tsne_orca_by_day.py` refactored to accept `--confirmed-april-days` /
+  `--confirmed-may-days` on the command line, replacing the old pattern of editing the
+  `APRIL_DAYS`/`MAY_DAYS` constants directly in source — that editing pattern had caused a
+  real figure-mismatch incident (an exploratory day list change silently altered what
+  "panel 8's figure" meant for every subsequent run).
+- `register_figure.py` gained a dedicated `--script` field in its provenance sidecar schema,
+  separate from the free-text `--command` field, after a recurring difficulty pinning down
+  exactly which script/version produced a given archived figure.
+
+---
+
+
 
 The agile-modeling story as a sequence of deliberate expansions, each cheap because
 embeddings are computed once and every train/infer cycle takes minutes:
@@ -435,12 +569,25 @@ embeddings are computed once and every train/infer cycle takes minutes:
    structure (Apr 25 evening vs Apr 13 morning) — while honestly bounding what it cannot yet
    resolve (pod/individual/call-type).
 
+6. **Close the measured gaps, then retrain (Aug 20-22) — the payoff of the payoff.** The
+   per-class weaknesses measured in step 5 became a punch list, not just a caveat: April 21's
+   last unreviewed orca signal got resolved (25/25 confirmed), the gray-whale hypothesis for
+   humpback's weak F1 got tested directly and closed (zero contamination in two full batches),
+   and ship_noise — stuck at a fake 1.0-on-n=3 since the beginning — got a real, targeted
+   labeling campaign. May 2018 was deliberately set aside as a permanent held-out test month
+   rather than folded back in, learning from step 5's 4-season lesson instead of repeating it.
+   The resulting retrain (`orca_v10.pt`) shows real per-class gains — ship_noise 0.80 F1 on
+   genuine support, humpback up to 0.62 — even though its aggregate ROC-AUC looks lower on
+   paper, because the eval set itself grew harder alongside the training set. The method's
+   whole arc, end to end: bootstrap → normalize → multiply classes → diagnose the ceiling →
+   close the specific gaps the diagnosis found.
+
 **Poster thesis:** agile modeling on frozen Perch V2 embeddings let one expert, in ~8–10
 hours of labeling over weeks, build a cross-season Bigg's-orca detector *and* use it as an
 instrument that surfaces testable marine-mammal biology — with its limits measured, not
-hidden.
+hidden, and — as of this update — those measured limits actively being closed one at a time.
 
 ---
 
-*Duane R. Edgington — MBARI — updated July 19 2026*
+*Duane R. Edgington — MBARI — updated Aug 22 2026*
 *github.com/duane-edgington/perch-hoplite*
