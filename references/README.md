@@ -52,8 +52,6 @@ Google Research,
 “Perch Hoplite” github repository [Online] Available:
 https://github.com/google-research/perch-hoplite
 
-Burns, A., Harrell ,L., van Merriënboer, B., Dumoulin, V ., Hamer, J, Denton T.
+Burns, A., Harrell ,L., van Merriënboer, B., Dumoulin, V ., Hamer, J, Denton T. “Perch 2.0 transfers 'whale'
 to underwater tasks” arXiv preprint https://doi.org/10.48550/arXiv.2512.03219
-Burns, A., Harrell ,L., van Merriënboer, B., Dumoulin, V ., Hamer, J, Denton T.
-to underwater tasks” arXiv preprint https://doi.org/10.48550/arXiv.2512.03219
-“Perch 2.0 transfers 'whale'
+
