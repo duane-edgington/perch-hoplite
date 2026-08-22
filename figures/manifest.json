@@ -670,8 +670,19 @@
       "score": 2.11,
       "label_selected": "orca_call",
       "notes": "Companion figure: gradio_apr21_2018_orca_1.png shows the same clip (wid=516390) without the context view."
+    },
+    "poster_fig3_class_spectrograms.png": {
+      "saved_filename": "poster_fig3_class_spectrograms.png",
+      "original_filename": "poster_fig3_class_spectrograms.png",
+      "capture_computer": "spark-ae0e",
+      "capture_timestamp": "unknown",
+      "date_registered": "2026-08-21T18:18:05.278613",
+      "figure_type": "matplotlib_plot",
+      "caption": "Matched 4-class spectrogram panel (orca_call, dolphin_call, humpback_song, ship_noise) -- one confirmed exemplar per class, 5s windows, v4 labels. Mel-scale log-power spectrograms, identical FFT params (2048-pt FFT, 128 mel bands, 10Hz-16kHz) and shared color scale across all four panels. Y-axis correctly labeled 'Frequency (Hz)' (binning is mel-scale, axis rendering is linear -- fixed Aug 21 2026, supersedes an earlier version that said 'Hz, mel'). Built for IEEE OCEANS 2026 poster panel 3.",
+      "command": "python3 tools/poster_fig3_spectrograms_v5.py --out /mnt/PAM_Analysis/perch-hoplite/results/poster_fig3_class_spectrograms.png",
+      "notes": "n_fft increased from project default 512 to 2048 to fix empty low-freq mel filters that clipped humpback content. Humpback exemplar: Oct 25 2020, MARS_20201025_175314, 135-140s -- confirmed as genuine song via 30s context after an earlier candidate was rejected (looked like a low-freq moan, possible gray/blue whale, unresolved side finding for #13)."
     }
   },
-  "last_updated": "2026-08-21T17:49:22.013772",
-  "figure_count": 48
+  "last_updated": "2026-08-21T18:18:05.278878",
+  "figure_count": 49
 }
