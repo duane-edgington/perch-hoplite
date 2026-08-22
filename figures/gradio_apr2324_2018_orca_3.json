@@ -1,0 +1,20 @@
+{
+  "saved_filename": "gradio_apr2324_2018_orca_3.png",
+  "original_filename": "Screenshot 2026-08-22 at 2.27.25 PM.png",
+  "capture_computer": "DuaneEM1",
+  "capture_timestamp": "2026-08-22 14:27:25",
+  "date_registered": "2026-08-22T14:40:31.482941",
+  "figure_type": "gradio_screenshot",
+  "caption": "PLACEHOLDER \u2014 April 23/24 2018 orca review clip #3 of 3, from the Sat Aug 23 2026 session that confirmed Apr 23/24 as orca days (55 orca of 58 reviewed). Exact WAV/offset/score/label to be filled in from the screenshot.",
+  "command": "phase2_classify.py review --detections-csv review_apr2324_2018_orca_ge116.csv --num-results 58 --classes orca_call,humpback_song,dolphin_call,ship_noise,other,unlabeled --serve --port 7874 (v4, MARS_20180401_20180430_32kHz_norm)",
+  "script": "gradio_review_ui",
+  "source_wav": "PLACEHOLDER_FILL_FROM_SCREENSHOT",
+  "wav_offset_s": 0.0,
+  "spectrogram_type": "mel",
+  "colormap": "viridis",
+  "classifier": "orca_v4.pt",
+  "db": "MARS_20180401_20180430_32kHz_norm",
+  "score": 0.0,
+  "label_selected": "orca_call",
+  "notes": "Registered with placeholder fields Aug 23 2026 -- WAV, offset, score, and actual label (orca vs the 2 humpback / 1 mix in this session) need updating from the screenshot header once reviewed."
+}
