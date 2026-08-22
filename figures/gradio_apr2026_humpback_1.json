@@ -1,0 +1,19 @@
+{
+  "saved_filename": "gradio_apr2026_humpback_1.png",
+  "original_filename": "Screenshot 2026-08-21.png",
+  "capture_computer": "DuaneEM1",
+  "capture_timestamp": "unknown",
+  "date_registered": "2026-08-21T20:17:06.276856",
+  "figure_type": "gradio_screenshot",
+  "caption": "PLACEHOLDER \u2014 April 2026 confirmed humpback clip, from the 39/39 gray-whale review (#13, closed Aug 21 2026, 0 contamination). Exact WAV/offset/score to be filled in from the screenshot.",
+  "command": "phase2_classify.py review --detections-csv review_apr2026_humpback_graywhale.csv --num-results 39 --classes humpback_song,gray_whale_moan,other,unlabeled --spectrogram-type mel --colormap viridis --serve --port 7873 (v4, MARS_20260401_20260430_32kHz_norm)",
+  "source_wav": "PLACEHOLDER_FILL_FROM_SCREENSHOT",
+  "wav_offset_s": 0.0,
+  "spectrogram_type": "mel",
+  "colormap": "viridis",
+  "classifier": "orca_v4.pt",
+  "db": "MARS_20260401_20260430_32kHz_norm",
+  "score": 0.0,
+  "label_selected": "humpback_song",
+  "notes": "Registered with placeholder fields (2026-08-21) -- WAV filename, offset, score, and whether this documents a plain confirmation vs. audible background species need updating once reviewed."
+}
