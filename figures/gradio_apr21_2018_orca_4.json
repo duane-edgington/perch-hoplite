@@ -1,0 +1,19 @@
+{
+  "saved_filename": "gradio_apr21_2018_orca_4.png",
+  "original_filename": "Screenshot 2026-08-21.png",
+  "capture_computer": "DuaneEM1",
+  "capture_timestamp": "unknown",
+  "date_registered": "2026-08-21T17:46:21.203992",
+  "figure_type": "gradio_screenshot",
+  "caption": "PLACEHOLDER \u2014 April 21 2018 confirmed orca clip #4 of 4, from the 25/25 review that resolved the pending-review flag from finding #14. Exact WAV/offset/score to be filled in from the screenshot. Expert-confirmed orca (D. Edgington, Aug 21 2026).",
+  "command": "phase2_classify.py review --detections-csv review_apr21_2018_orca_ge116.csv --num-results 25 --spectrogram-type mel --colormap viridis --serve --port 7869 (v4, MARS_20180401_20180430_32kHz_norm)",
+  "source_wav": "PLACEHOLDER_FILL_FROM_SCREENSHOT",
+  "wav_offset_s": 0.0,
+  "spectrogram_type": "mel",
+  "colormap": "viridis",
+  "classifier": "orca_v4.pt",
+  "db": "MARS_20180401_20180430_32kHz_norm",
+  "score": 0.0,
+  "label_selected": "orca_call",
+  "notes": "Registered with placeholder fields (2026-08-21) \u2014 WAV filename, offset, and score need updating from the actual Gradio screenshot header before this is finalized."
+}
