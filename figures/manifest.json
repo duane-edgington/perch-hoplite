@@ -912,8 +912,20 @@
       "caption": "t-SNE of confirmed orca_call embeddings (Perch V2, cosine), 5 confirmed days: Apr 13/18/21/25 2018 + May 12 2018. 300 dpi print-quality version for the OCEANS poster -- supersedes the 150 dpi tsne_orca_by_day_5days_px30_pres.png for print use; that file is kept for history. Presentation style, perplexity 30.",
       "command": "python3 tools/plot_tsne_orca_by_day.py --april-db MARS_20180401_20180430_32kHz_norm --may-db MARS_20180501_20180531_32kHz_norm --perplexity 30 --style presentation --dpi 300",
       "notes": "300 dpi added Aug 22 2026 per poster-chat request. See april2018_dpi300 sidecar for the by-day count discrepancy note (318 vs 319 April orca windows)."
+    },
+    "tsne_apr2018_oct2020_apr2026_norm_dpi300.png": {
+      "saved_filename": "tsne_apr2018_oct2020_apr2026_norm_dpi300.png",
+      "original_filename": "tsne_apr2018_oct2020_apr2026_norm_dpi300.png",
+      "capture_computer": "spark-ae0e",
+      "capture_timestamp": "unknown",
+      "date_registered": "2026-08-22T09:36:14.260930",
+      "figure_type": "tsne_plot",
+      "caption": "Perch V2 embeddings, t-SNE -- April 2018 + October 2020 + April 2026 (normalized). 1,076 labeled windows, 6 classes, 3 seasons (updated Aug 22 2026 -- supersedes the 823-window/orca n=219 version; now reflects all confirmed labels through finding #19, orca_call=319). Orca cluster consistent across all three seasons -- Perch V2 embeddings are linearly separable for transfer. 300 dpi print-quality version for the OCEANS poster (panel 5).",
+      "command": "python3 tools/plot_tsne.py --db-dir MARS_20180401_20180430_32kHz_norm MARS_20201001_20201031_32kHz_norm MARS_20260401_20260430_32kHz_norm --output tsne_apr2018_oct2020_apr2026_norm_dpi300.png --dpi 300",
+      "script": "tools/plot_tsne.py",
+      "notes": "This is a genuinely updated dataset, not just a resolution bump -- 1,076 windows vs the original 823, orca 319 vs 219. The old tsne_apr2018_oct2020_apr2026_norm.png (823 windows) is kept for history; this dpi300 file both updates the data AND the resolution. Poster caption/legend numbers referencing 'n=219' or '823 labeled windows' need updating to match if this file is swapped in."
     }
   },
-  "last_updated": "2026-08-22T08:35:46.078854",
-  "figure_count": 62
+  "last_updated": "2026-08-22T09:36:14.261588",
+  "figure_count": 63
 }

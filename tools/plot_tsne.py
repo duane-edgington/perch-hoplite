@@ -137,7 +137,7 @@ def run_tsne(embeddings: np.ndarray, perplexity: int, n_iter: int,
 
 
 def plot_tsne(coords: np.ndarray, labels: list, output_path: str,
-              title: str = "Perch V2 Embeddings — t-SNE"):
+              title: str = "Perch V2 Embeddings — t-SNE", dpi: int = 150):
     """Plot t-SNE coordinates colored by label."""
     unique_labels = sorted(set(labels))
     n_labels = len(unique_labels)
@@ -177,7 +177,7 @@ def plot_tsne(coords: np.ndarray, labels: list, output_path: str,
             color="#64748b", fontsize=7.5, va="bottom")
 
     Path(output_path).parent.mkdir(parents=True, exist_ok=True)
-    fig.savefig(output_path, dpi=150, bbox_inches="tight",
+    fig.savefig(output_path, dpi=dpi, bbox_inches="tight",
                 facecolor="#0f172a")
     plt.close(fig)
     print(f"\nSaved: {output_path}")
@@ -200,6 +200,8 @@ def main():
         help="t-SNE iterations (default 1000)")
     ap.add_argument("--seed", type=int, default=42,
         help="Random seed for reproducibility")
+    ap.add_argument("--dpi", type=int, default=150,
+        help="output image resolution (default 150; use 300 for print/poster quality)")
     args = ap.parse_args()
 
     all_embeddings = []
@@ -221,7 +223,7 @@ def main():
           f"{len(args.db_dir)} DB(s)")
 
     coords = run_tsne(embeddings, args.perplexity, args.n_iter, args.seed)
-    plot_tsne(coords, all_labels, args.output, args.title)
+    plot_tsne(coords, all_labels, args.output, args.title, dpi=args.dpi)
     return 0
 
 
