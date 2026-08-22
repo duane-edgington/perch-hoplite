@@ -1,0 +1,11 @@
+{
+  "saved_filename": "tsne_orca_by_day_5days_px30_pres.png",
+  "original_filename": "tsne_orca_by_day_5days_px30_pres.png",
+  "capture_computer": "spark-ae0e",
+  "capture_timestamp": "unknown",
+  "date_registered": "2026-08-21T17:08:07.377695",
+  "figure_type": "tsne_plot",
+  "caption": "t-SNE of confirmed orca_call embeddings (Perch V2, cosine), 5 confirmed days: Apr 13/18/21/25 2018 + May 12 2018. Supersedes the earlier 4-day version (filename was 'tsne_orca_by_day_4days_...') -- renamed to reflect the true day count after Apr 21's confirmation. Presentation style, perplexity 30.",
+  "command": "python3 tools/plot_tsne_orca_by_day.py --april-db MARS_20180401_20180430_32kHz_norm --may-db MARS_20180501_20180531_32kHz_norm --perplexity 30 --style presentation",
+  "notes": "Filename convention fixed to compute day-count dynamically (see tools/plot_tsne_orca_by_day.py, Aug 21 2026 update) rather than hardcoding '4days'."
+}

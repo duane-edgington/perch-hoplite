@@ -5,7 +5,7 @@ plot_tsne_orca_by_day.py — t-SNE of CONFIRMED orca_call embeddings, colored by
 Purpose: explore Duane's ear-observation that orca calls sound different across the
 confirmed April 2018 days (Apr 13 / 18 / 25) and May 12 2018. Produces two plots:
   1. April-only  (Apr 13, 18, 25)          — one month, cleaner acoustic environment
-  2. All four days (adds May 12 2018)       — May shown with a different marker shape
+  2. All confirmed days (adds May 12 2018)   — May shown with a different marker shape
 
 READ THIS BEFORE INTERPRETING (t-SNE caveats):
   - t-SNE is EXPLORATORY, not a test. Distances between clusters and cluster sizes are
@@ -47,11 +47,12 @@ from datetime import date
 
 import numpy as np
 
-APRIL_DAYS = [date(2018, 4, 13), date(2018, 4, 18), date(2018, 4, 25)]
+APRIL_DAYS = [date(2018, 4, 13), date(2018, 4, 18), date(2018, 4, 21), date(2018, 4, 25)]
 MAY_DAYS = [date(2018, 5, 12)]
 DAY_COLORS = {
     date(2018, 4, 13): "#1b9e77",   # confirmed Bigg's event
     date(2018, 4, 18): "#d95f02",   # confirmed bout
+    date(2018, 4, 21): "#66a61e",   # confirmed (Aug 21 2026 resolution of the "pending" flag)
     date(2018, 4, 25): "#7570b3",   # confirmed cluster
     date(2018, 5, 12): "#e7298a",   # confirmed May event
 }
@@ -61,6 +62,7 @@ DAY_COLORS = {
 PRES_DAY_COLORS = {
     date(2018, 4, 13): "#38bdf8",   # sky
     date(2018, 4, 18): "#fbbf24",   # amber
+    date(2018, 4, 21): "#4ade80",   # green (Aug 21 2026 addition)
     date(2018, 4, 25): "#c084fc",   # bright purple
     date(2018, 5, 12): "#fb7185",   # rose
 }
@@ -222,13 +224,14 @@ def make_plots(april_emb, april_days, april_wids,
                      style=style)
     written.append(p1)
 
-    # Plot 2 — all four days (April + May 12); May as triangle
+    # Plot 2 — all confirmed days (April + May 12); May as triangle
     all_emb = np.concatenate([april_emb, may_emb], axis=0)
     all_days = np.concatenate([april_days, may_days])
+    n_days = len(set(all_days.tolist()))
     coords_all, px_all = run_tsne(all_emb, perplexity, seed)
     p2 = plot_by_day(coords_all, all_days,
-                     f"Confirmed orca calls — 4 days Apr+May 2018 (t-SNE, perplexity={px_all}, n={len(all_days)})",
-                     os.path.join(out_dir, f"tsne_orca_by_day_4days_{px_tag}{sfx}.png"),
+                     f"Confirmed orca calls — {n_days} days Apr+May 2018 (t-SNE, perplexity={px_all}, n={len(all_days)})",
+                     os.path.join(out_dir, f"tsne_orca_by_day_{n_days}days_{px_tag}{sfx}.png"),
                      month_marker=True, style=style)
     written.append(p2)
     return written
@@ -247,12 +250,12 @@ def selftest():
         base = base / np.linalg.norm(base) * center_seed
         return base + rng.normal(0, spread, (n, D)).astype(np.float32)
 
-    # three April "days" with modest separation, plus a more distinct May day
-    a13 = cluster(6.0, 60); a18 = cluster(6.2, 45); a25 = cluster(6.4, 50)
+    # four April "days" with modest separation, plus a more distinct May day
+    a13 = cluster(6.0, 60); a18 = cluster(6.2, 45); a21 = cluster(6.1, 55); a25 = cluster(6.4, 50)
     m12 = cluster(9.0, 40)
-    april_emb = np.concatenate([a13, a18, a25]).astype(np.float32)
+    april_emb = np.concatenate([a13, a18, a21, a25]).astype(np.float32)
     april_days = np.array([date(2018, 4, 13)] * 60 + [date(2018, 4, 18)] * 45
-                          + [date(2018, 4, 25)] * 50, dtype=object)
+                          + [date(2018, 4, 21)] * 55 + [date(2018, 4, 25)] * 50, dtype=object)
     april_wids = np.arange(len(april_days))
     may_emb = m12.astype(np.float32)
     may_days = np.array([date(2018, 5, 12)] * 40, dtype=object)
