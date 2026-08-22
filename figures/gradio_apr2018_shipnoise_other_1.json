@@ -1,0 +1,19 @@
+{
+  "saved_filename": "gradio_apr2018_shipnoise_other_1.png",
+  "original_filename": "Screenshot 2026-08-21 at 7.16.55 PM-1.png",
+  "capture_computer": "DuaneEM1",
+  "capture_timestamp": "2026-08-21 19:16:55",
+  "date_registered": "2026-08-21T20:23:17.729153",
+  "figure_type": "gradio_screenshot",
+  "caption": "Ambiguous motor/vessel noise, labeled 'other' not ship_noise (April 27 2018, MARS_20180427_120913, 235-240s, score=1.739, wid=202008): mel spectrogram (viridis), 'very different, lots of bands' per D. Edgington -- possibly a smaller motor or different vessel type than typical broadband ship noise. Flagged as a candidate for a future ship_noise subtype split (finding #15, Aug 21 2026).",
+  "command": "phase2_classify.py review --detections-csv review_apr2018_shipnoise_top25.csv --num-results 25 --classes ship_noise,other,dolphin_call,orca_call,humpback_song,unlabeled --serve --port 7870 (v4, MARS_20180401_20180430_32kHz_norm)",
+  "source_wav": "MARS_20180427_120913_resampled_32kHz.wav",
+  "wav_offset_s": 235.0,
+  "spectrogram_type": "mel",
+  "colormap": "viridis",
+  "classifier": "orca_v4.pt",
+  "db": "MARS_20180401_20180430_32kHz_norm",
+  "score": 1.739,
+  "label_selected": "other",
+  "notes": "The single 'other' outlier from the April 2018 ship_noise campaign (24 ship_noise + 1 other out of 25 reviewed)."
+}

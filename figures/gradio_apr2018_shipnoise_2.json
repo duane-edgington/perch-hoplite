@@ -1,0 +1,19 @@
+{
+  "saved_filename": "gradio_apr2018_shipnoise_2.png",
+  "original_filename": "Screenshot 2026-08-21 at 7.10.38 PM-1.png",
+  "capture_computer": "DuaneEM1",
+  "capture_timestamp": "2026-08-21 19:10:38",
+  "date_registered": "2026-08-21T20:22:06.698928",
+  "figure_type": "gradio_screenshot",
+  "caption": "Ship noise confirmed (April 19 2018, MARS_20180419_114913, 60-65s, score=1.499, wid=30853): mel spectrogram (viridis), broadband low-frequency energy. Expert-confirmed ship_noise (D. Edgington, Aug 21 2026), from the April 2018 ship_noise labeling campaign (finding #15).",
+  "command": "phase2_classify.py review --detections-csv review_apr2018_shipnoise_top25.csv --num-results 25 --classes ship_noise,other,dolphin_call,orca_call,humpback_song,unlabeled --serve --port 7870 (v4, MARS_20180401_20180430_32kHz_norm)",
+  "source_wav": "MARS_20180419_114913_resampled_32kHz.wav",
+  "wav_offset_s": 60.0,
+  "spectrogram_type": "mel",
+  "colormap": "viridis",
+  "classifier": "orca_v4.pt",
+  "db": "MARS_20180401_20180430_32kHz_norm",
+  "score": 1.499,
+  "label_selected": "ship_noise",
+  "notes": "Part of finding #15 campaign: April 2018 ship_noise 24->45."
+}
