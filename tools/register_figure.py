@@ -114,6 +114,13 @@ def main():
                     help="Figure caption text (used in README/poster)")
     ap.add_argument("--command",       required=True,
                     help="Full command used to generate the figure")
+    ap.add_argument("--script",        default=None,
+                    help="Path to the generating script, e.g. tools/plot_tsne.py. "
+                         "Required for --type tsne_plot/matplotlib_plot (code-generated "
+                         "figures) -- if omitted for those types, a best-effort guess is "
+                         "extracted from --command and a warning is printed, since --command "
+                         "is free text and not reliably parseable. Not required for "
+                         "gradio_screenshot (a UI capture, not a script run).")
 
     # Gradio-specific (optional for plots)
     ap.add_argument("--wav",        default=None, help="Source WAV filename")
@@ -136,6 +143,21 @@ def main():
         print(f"ERROR: {fig_path} does not exist. Copy the file to figures/ first.")
         sys.exit(1)
 
+    # Resolve --script: use it if given; otherwise best-effort extract from --command for
+    # code-generated figure types, since --command is free text and inconsistently written
+    # (this project has repeatedly hit confusion from not knowing which exact script/version
+    # made a given figure -- see CLAUDE_perch_hoplite.md history, Aug 2026).
+    script_value = args.script
+    if not script_value and args.type in ("tsne_plot", "matplotlib_plot", "monthly_plot", "heatmap_plot"):
+        m = re.search(r"(tools/\S+\.py|\S+\.py)", args.command)
+        if m:
+            script_value = m.group(1)
+            print(f"NOTE: --script not given; extracted '{script_value}' from --command. "
+                  f"Pass --script explicitly next time to avoid relying on free-text parsing.")
+        else:
+            print(f"WARNING: --script not given and no .py filename found in --command. "
+                  f"This figure's sidecar will NOT clearly record which script generated it.")
+
     # Parse timestamp from original filename
     capture_ts = parse_timestamp_from_filename(args.original_name)
     if capture_ts:
@@ -155,6 +177,7 @@ def main():
         "figure_type":       args.type,
         "caption":           args.caption,
         "command":           args.command,
+        "script":            script_value,
     }
 
     # Gradio-specific fields
