@@ -1,0 +1,12 @@
+{
+  "saved_filename": "tsne_orca_by_day_4days_px30_pres_dpi300.png",
+  "original_filename": "tsne_orca_by_day_4days_px30_pres_dpi300.png",
+  "capture_computer": "spark-ae0e",
+  "capture_timestamp": "unknown",
+  "date_registered": "2026-08-22T10:44:24.586098",
+  "figure_type": "tsne_plot",
+  "caption": "t-SNE of confirmed orca_call embeddings (Perch V2, cosine), 4 confirmed days: Apr 13/18/25 2018 + May 12 2018 -- the ORIGINAL panel-8 day set (deliberately excludes April 21, whose separation rests on only 2 recordings in a 10-minute window). 300 dpi print-quality version, generated via --confirmed-april-days to reproduce this exact historical figure after APRIL_DAYS grew to include April 21. Presentation style, perplexity 30.",
+  "command": "python3 tools/plot_tsne_orca_by_day.py --april-db MARS_20180401_20180430_32kHz_norm --may-db MARS_20180501_20180531_32kHz_norm --perplexity 30 --style presentation --dpi 300 --confirmed-april-days 2018-04-13,2018-04-18,2018-04-25",
+  "script": "tools/plot_tsne_orca_by_day.py",
+  "notes": "This is the correct, panel-8-matching figure -- confirmed 292 April orca windows (214+28+50, no April 21) + 181 May. Supersedes the earlier mistaken 5-day/april-only-with-Apr21 files sent for panel 8 (Aug 22 2026 mixup, since corrected)."
+}

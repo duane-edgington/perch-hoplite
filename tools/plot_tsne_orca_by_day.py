@@ -49,6 +49,13 @@ import numpy as np
 
 APRIL_DAYS = [date(2018, 4, 13), date(2018, 4, 18), date(2018, 4, 21), date(2018, 4, 25)]
 MAY_DAYS = [date(2018, 5, 12)]
+# NOTE: these are DEFAULTS only. Do not edit these to explore a new/different day set --
+# use --confirmed-april-days / --confirmed-may-days on the command line instead (see CLI
+# section below). Editing these constants silently changes what every future run produces,
+# including anyone else's, which caused a real figure-mismatch incident (Aug 22 2026): a
+# day added here for one exploratory run ended up in a "panel 8" render that was never
+# supposed to include it. CLI flags make each run's day selection explicit and reproducible
+# from the command alone, with no hidden state.
 DAY_COLORS = {
     date(2018, 4, 13): "#1b9e77",   # confirmed Bigg's event
     date(2018, 4, 18): "#d95f02",   # confirmed bout
@@ -56,6 +63,26 @@ DAY_COLORS = {
     date(2018, 4, 25): "#7570b3",   # confirmed cluster
     date(2018, 5, 12): "#e7298a",   # confirmed May event
 }
+_FALLBACK_COLOR_CYCLE = ["#999999", "#33a02c", "#e31a1c", "#ff7f00", "#6a3d9a", "#b15928"]
+
+
+def _color_for_day(d, palette, fallback_cycle_state={}):
+    """Look up a day's color in the given palette; if the day isn't listed (e.g. a new day
+    passed via --confirmed-april-days that predates a DAY_COLORS entry), assign a stable
+    fallback color instead of crashing or silently defaulting everything to gray. Caches by
+    (palette id, day) so repeated lookups of the same unlisted day always return the same
+    color within a run."""
+    if d in palette:
+        return palette[d]
+    cache_key = (id(palette), d)
+    if cache_key in fallback_cycle_state:
+        return fallback_cycle_state[cache_key]
+    idx = sum(1 for k in fallback_cycle_state if k[0] == id(palette))
+    color = _FALLBACK_COLOR_CYCLE[idx % len(_FALLBACK_COLOR_CYCLE)]
+    fallback_cycle_state[cache_key] = color
+    print(f"  NOTE: {d.isoformat()} has no predefined color -- using fallback {color}. "
+          f"Add it to DAY_COLORS/PRES_DAY_COLORS for a permanent, deliberate color choice.")
+    return color
 # Brighter day palette for the dark presentation theme (matches plot_tsne_orca_events.py
 # slate background #1e293b). Distinct-by-day rather than the species green, since every
 # point here is orca.
@@ -168,7 +195,7 @@ def plot_by_day(coords, days, title, out_png, month_marker=False, style="analysi
             marker = ("^" if d.month == 5 else "o") if month_marker else "o"
             ax.scatter(coords[mask, 0], coords[mask, 1],
                        s=55, alpha=0.9, edgecolors="none",
-                       c=colors.get(d, "#94a3b8"), marker=marker,
+                       c=_color_for_day(d, colors), marker=marker,
                        label=f"{d.isoformat()} (n={int(mask.sum())})")
         ax.set_title(title, color="#e2e8f0", fontsize=13, pad=12)
         ax.set_xlabel("t-SNE dim 1", color="#94a3b8", fontsize=9)
@@ -193,7 +220,7 @@ def plot_by_day(coords, days, title, out_png, month_marker=False, style="analysi
         marker = ("^" if d.month == 5 else "o") if month_marker else "o"
         ax.scatter(coords[mask, 0], coords[mask, 1],
                    s=42, alpha=0.75, edgecolors="white", linewidths=0.4,
-                   c=DAY_COLORS.get(d, "#888888"), marker=marker,
+                   c=_color_for_day(d, DAY_COLORS), marker=marker,
                    label=f"{d.isoformat()} (n={int(mask.sum())})")
     ax.set_title(title, fontsize=12)
     ax.set_xlabel("t-SNE 1"); ax.set_ylabel("t-SNE 2")
@@ -218,10 +245,11 @@ def make_plots(april_emb, april_days, april_wids,
     dpi_tag = "" if dpi == 150 else f"_dpi{dpi}"
 
     # Plot 1 — April only
+    n_april_days = len(set(april_days.tolist()))
     coords_a, px_a = run_tsne(april_emb, perplexity, seed)
     p1 = plot_by_day(coords_a, april_days,
                      f"Confirmed orca calls — April 2018 by day (t-SNE, perplexity={px_a}, n={len(april_days)})",
-                     os.path.join(out_dir, f"tsne_orca_by_day_april2018_{px_tag}{sfx}{dpi_tag}.png"),
+                     os.path.join(out_dir, f"tsne_orca_by_day_april2018_{n_april_days}days_{px_tag}{sfx}{dpi_tag}.png"),
                      style=style, dpi=dpi)
     written.append(p1)
 
@@ -300,6 +328,16 @@ def main():
                     help="analysis=light readable (default); presentation=dark theme for slides")
     ap.add_argument("--dpi", type=int, default=150,
                     help="output image resolution (default 150; use 300 for print/poster quality)")
+    ap.add_argument("--confirmed-april-days", default=None,
+                    help="comma-separated YYYY-MM-DD dates overriding the default April day "
+                         "list for THIS RUN ONLY (does not touch the APRIL_DAYS constant). "
+                         f"Default: {','.join(d.isoformat() for d in APRIL_DAYS)}. "
+                         "Use this instead of editing APRIL_DAYS in the source -- e.g. to "
+                         "reproduce a figure from before a day was added, pass the exact "
+                         "historical day list explicitly.")
+    ap.add_argument("--confirmed-may-days", default=None,
+                    help="comma-separated YYYY-MM-DD dates overriding the default May day "
+                         f"list for THIS RUN ONLY. Default: {','.join(d.isoformat() for d in MAY_DAYS)}.")
     ap.add_argument("--selftest", action="store_true")
     args = ap.parse_args()
 
@@ -308,12 +346,31 @@ def main():
     if not args.april_db:
         ap.error("--april-db required (or --selftest)")
 
+    def _parse_days(s):
+        out = []
+        for tok in s.split(","):
+            tok = tok.strip()
+            if not tok:
+                continue
+            y, m, d = (int(x) for x in tok.split("-"))
+            out.append(date(y, m, d))
+        return out
+
+    active_april_days = _parse_days(args.confirmed_april_days) if args.confirmed_april_days else APRIL_DAYS
+    active_may_days = _parse_days(args.confirmed_may_days) if args.confirmed_may_days else MAY_DAYS
+    if args.confirmed_april_days:
+        print(f"  Using explicit April day list (overrides default): "
+              f"{[d.isoformat() for d in active_april_days]}")
+    if args.confirmed_may_days:
+        print(f"  Using explicit May day list (overrides default): "
+              f"{[d.isoformat() for d in active_may_days]}")
+
     print("Loading confirmed orca embeddings...")
-    april_emb, april_days, april_wids = load_confirmed_orca(args.april_db, APRIL_DAYS)
+    april_emb, april_days, april_wids = load_confirmed_orca(args.april_db, active_april_days)
     print(f"  April: {len(april_days)} orca windows across "
           f"{sorted(set(d.isoformat() for d in april_days))}")
     if args.may_db:
-        may_emb, may_days, may_wids = load_confirmed_orca(args.may_db, MAY_DAYS)
+        may_emb, may_days, may_wids = load_confirmed_orca(args.may_db, active_may_days)
         print(f"  May:   {len(may_days)} orca windows")
     else:
         may_emb = np.empty((0, april_emb.shape[1]), np.float32)

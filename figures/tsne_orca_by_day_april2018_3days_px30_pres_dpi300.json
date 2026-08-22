@@ -1,0 +1,12 @@
+{
+  "saved_filename": "tsne_orca_by_day_april2018_3days_px30_pres_dpi300.png",
+  "original_filename": "tsne_orca_by_day_april2018_3days_px30_pres_dpi300.png",
+  "capture_computer": "spark-ae0e",
+  "capture_timestamp": "unknown",
+  "date_registered": "2026-08-22T10:44:49.854020",
+  "figure_type": "tsne_plot",
+  "caption": "t-SNE of confirmed orca_call embeddings (Perch V2, cosine), April 2018 by day: Apr 13, 18, 25 only (April 21 explicitly excluded via --confirmed-april-days). 300 dpi. Presentation style, perplexity 30.",
+  "command": "python3 tools/plot_tsne_orca_by_day.py --april-db MARS_20180401_20180430_32kHz_norm --may-db MARS_20180501_20180531_32kHz_norm --perplexity 30 --style presentation --dpi 300 --confirmed-april-days 2018-04-13,2018-04-18,2018-04-25",
+  "script": "tools/plot_tsne_orca_by_day.py",
+  "notes": "Companion figure to the 4-day version above; not used on the poster."
+}
