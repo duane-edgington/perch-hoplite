@@ -25,7 +25,7 @@ from collections import defaultdict
 from datetime import date
 
 CONFIRMED_DAYS = {
-    date(2018, 4, 13), date(2018, 4, 18), date(2018, 4, 25), date(2018, 5, 12),
+    date(2018, 4, 13), date(2018, 4, 18), date(2018, 4, 21), date(2018, 4, 25), date(2018, 5, 12),
 }
 _DATE_RE = re.compile(r"(20\d{2})(\d{2})(\d{2})")
 # MARS filename: MARS_YYYYMMDD_HHMMSS_resampled_32kHz.wav -> capture HHMMSS too
@@ -104,6 +104,14 @@ def main():
     print("\nInterpretation: a day whose orca windows span MANY recordings across the day is "
           "hard to explain as a single-recording/boat artifact — its t-SNE separation is more "
           "likely real. A day concentrated in 1-2 files warrants skepticism.")
+    print("\nCAVEAT (J. Ryan, Aug 21 2026): a good multi-recording spread only rules out the "
+          "single-boat/single-recording artifact. It does NOT rule out range/propagation "
+          "effects — animals at different distances from the hydrophone on different days can "
+          "produce systematically different embeddings purely from frequency-dependent "
+          "propagation loss and topography (MARS sits in Monterey Canyon at ~891m), with no "
+          "difference in the actual calls or callers. Multi-recording spread is necessary but "
+          "NOT sufficient to conclude 'different pod/encounter' — it narrows the explanation "
+          "space, it doesn't settle it.")
 
 
 if __name__ == "__main__":
