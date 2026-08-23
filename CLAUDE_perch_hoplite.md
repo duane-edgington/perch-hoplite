@@ -18,6 +18,82 @@ NVIDIA GB10 DGX — no TensorFlow, no Colab.
 
 ---
 
+## Roadmap (as of Aug 23 2026)
+
+Options discussed and prioritized. Not a committed schedule — a menu of directions, roughly
+ordered short-term → long-term. Highest-leverage items flagged.
+
+### Short term (finishable, mostly solo, closes current loops)
+
+1. **Finish `orca_v10`, then test it against v4 on the May 2018 hold-out.** This is the
+   near-term anchor. Improve v10 with the best available data (items 2-3 below), then judge
+   v10 vs. v4 on **May 2018 — the permanent held-out test month (finding #18)** — specifically:
+   is v10 better than v4 at picking up orca calls on data neither model trained on? May is the
+   honest referee; this is the experiment that validates whether today's labeling work actually
+   improved the model, not just changed the eval set.
+
+2. **[HIGH-YIELD] Split `humpback_song` → `humpback_song` + `humpback_vocalization`, and
+   reannotate.** The gray-whale hypothesis for humpback's weak F1 is dead (finding #13 closed);
+   the real cause is that the class lumps true song with other (non-song) humpback
+   vocalizations. This is the diagnosed, highest-yield model improvement available — the class
+   with the most existing data (321 labels) and the clearest fix. **Requires John Ryan** (the
+   humpback expert) to help define the song/non-song boundary crisply before reannotating.
+   Panel 11 of the poster already promises this as the next classifier step.
+
+3. **More ship_noise labels (April 2018 first, other non-May months as needed).** Depth review
+   past the top-25 (rank ~26-75), no threshold gate, to push ship_noise eval support from n=10
+   toward dolphin's n=44 (needs ~+150-180 labels; supply is not the constraint, quality-at-depth
+   is the open question). NOT from May 2018 (held-out). Lower ceiling than the humpback split
+   (ship_noise is already at 0.80 F1) but a clean, self-contained solo task.
+
+4. **Decide `orca_v10`'s production status.** It was trained but never formally designated as
+   v4's replacement. A decision, not labor — but a real loose end (which model does future
+   inference use?). Resolve deliberately after the May hold-out test (item 1) gives evidence.
+
+### Longer term (research thrusts, higher ceiling, higher effort/risk)
+
+5. **[HIGHEST CEILING] Analyze the external public orca dataset — expand to multiple data
+   sources and multiple ecotypes.** Palmer et al. 2025, *"A Public Dataset of Annotated
+   Orcinus orca Acoustic Signals for Detection and Ecotype Classification"* (Scientific Data,
+   doi:10.1038/s41597-025-05281-5; PDF in `references/s41597-025-05281-5.pdf`). 225,000+
+   annotations, 23 locations, 11 years, Alaska/BC/WA, multiple hydrophone systems, archived at
+   NOAA NCEI. **Includes Bigg's/West Coast Transients (our ecotype) plus Residents and
+   Offshores** — so it both validates our MARS Bigg's work against an external Bigg's population
+   AND opens ecotype classification (Resident vs. Bigg's vs. Offshore) as a published benchmark.
+   Why highest-ceiling: transforms the story from "a detector for our bay" to "Perch V2
+   embeddings transfer across populations and equipment." First experiment is small: pull the
+   collated ecotype CSV, embed a balanced Resident/Bigg's/Offshore sample with Perch V2, linear
+   probe — do ecotypes separate? Wrinkle: heterogeneous sample rates (9-250 kHz, some
+   low-passed) need resampling to our 32 kHz standard; annotations are Raven selection tables
+   (we have `csv_to_raven.py`). Scouting done Aug 23 2026; not yet started.
+
+6. **Add temporal / sequence analysis to the Perch V2 pipeline.** Current windowing treats each
+   5s window independently, but real encounters are call *sequences* — "we don't get one call
+   in a 5s window, we get lots." Modeling sequences (bout structure, call-type transitions,
+   possibly pod/individual signatures in temporal pattern) is the most scientifically
+   interesting thrust and the highest-risk (new architecture on frozen embeddings, weeks of
+   work, no guarantee). Best attempted *after* item 5 provides multiple populations to find
+   sequence differences between — sequence modeling is far more compelling with multi-population
+   data. File as "the ambitious next paper," not the next sprint.
+
+7. **Expand to more dolphin species and more humpback vocalization types.** Partly downstream of
+   the humpback split (item 2, already covers song/non-song) and the external data (item 5,
+   which notes Pacific white-sided dolphins as a confounder). Let data acquisition drive these
+   rather than starting cold.
+
+8. **Try to detect gray whale moans.** Gray whales are essentially absent from current MARS
+   data (the whole point of finding #13 — zero contamination found in two April batches). So
+   this needs *new data where gray whales actually occur* — loops back to item 5 (external
+   dataset) or new MARS months chosen for gray-whale season. Do not start cold; let data drive.
+
+### Cross-cutting
+
+- **New curated public repo before the conference.** Present a clean v0→v4→v10 lineage without
+  the v5-v8 detour needing constant caveats (noted in finding #18). Also the natural home for
+  external-dataset work if item 5 proceeds.
+
+---
+
 ## System Architecture
 
 | Machine | Role | Notes |
