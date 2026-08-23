@@ -25,7 +25,7 @@ ordered short-term → long-term. Highest-leverage items flagged.
 
 ### Short term (finishable, mostly solo, closes current loops)
 
-1. **Finish `orca_v10`, then test it against v4 on the May 2018 hold-out.** This is the
+1. **Finish `orca_v10`, then test it against v4 on the May 2018 hold-out.** **[May hold-out test DONE Aug 23 2026 — v10 wins decisively, see finding #20; remaining: humpback split + ship_noise depth to further improve v10, and a precision check before formal production swap.]** This is the
    near-term anchor. Improve v10 with the best available data (items 2-3 below), then judge
    v10 vs. v4 on **May 2018 — the permanent held-out test month (finding #18)** — specifically:
    is v10 better than v4 at picking up orca calls on data neither model trained on? May is the
@@ -46,7 +46,7 @@ ordered short-term → long-term. Highest-leverage items flagged.
    is the open question). NOT from May 2018 (held-out). Lower ceiling than the humpback split
    (ship_noise is already at 0.80 F1) but a clean, self-contained solo task.
 
-4. **Decide `orca_v10`'s production status.** It was trained but never formally designated as
+4. **Decide `orca_v10`'s production status.** **[Aug 23 2026: May hold-out test (finding #20) gives strong evidence v10 > v4 on unseen data — recommend promoting v10 to production after a May false-positive/precision check.]** It was trained but never formally designated as
    v4's replacement. A decision, not labor — but a real loose end (which model does future
    inference use?). Resolve deliberately after the May hold-out test (item 1) gives evidence.
 
@@ -497,6 +497,34 @@ all expert-confirmed, finding #14.
 
 ---
 
+
+18. **May 2018 is now a permanent held-out test month — policy decision (D. Edgington, Aug 21 2026).** Triggered by a poster-accuracy question: the OCEANS poster states "neither v4 nor `orca_v10` has trained on May 2018 recordings" — true for those two, but v6/v7/v8 DID train on a May-inclusive 4-season DB, so an unscoped version of that claim would be checkable-false against the public repo's own history. Rather than keep patching poster wording around this, **the simpler, permanent fix: May 2018 is deliberately never trained on, by any future model, going forward.**
+    - **Rationale:** a true, clean held-out month — never touched during training — lets any future classifier be validated against May with a clear conscience, no caveats needed. Also resolves the poster-wording problem at the source rather than per-sentence.
+    - **v6, v7, v8 are explicitly discarded** (already ❌ DO NOT USE for the ship_noise-inflation reason; now also formally out of the "models trained here" lineage going forward). **v5 (July 15 context-embedding experiment) was already discarded, then its weights were accidentally overwritten Aug 21** (see finding #16) — also out of the lineage. Current usable models: v0–v4 (April 2018/Oct2020/Apr2026 only, matching the new policy already), `orca_v5b.pt` and `orca_v10.pt` (today's Option A retrain, same recipe).
+    - **Practical effect:** #17's ship_noise depth review sources ONLY from April 2018 (and other non-May months as needed) — not May, even though May has abundant untapped ship_noise supply (1,113 raw candidates). The ship_noise data gap gets closed by pulling more from already-in-scope months, not by reopening May.
+    - **Also affects finding #14's May orca work:** May's confirmed orca labels (181 May 12 + 8 more) remain valid, useful, *documented* science — not deleted or discredited — but will not be folded into any future training DB. May-2018 orca confirmations are held-out **validation** evidence for any future model, not training fuel.
+    - **New public repo, pre-poster:** Duane plans to build a curated public repo before the conference, separate from this working repo — a chance to present a clean v0→v4/v10 lineage without the v5–v8 detour needing extensive caveats.
+
+19. **Exact total annotation count — verified via SQL (D. Edgington, Aug 22 2026).** Triggered by a poster-accuracy question about the stat card's "~1,450 labels" claim vs. the trajectory chart's bars summing to exactly 873. Direct query (`SELECT COUNT(*) FROM annotations`) against all four DBs today:
+
+    | DB | Annotations |
+    |---|---|
+    | April 2018 | 685 |
+    | May 2018 | 260 |
+    | October 2020 | 317 |
+    | April 2026 | 74 |
+    | **TOTAL** | **1,336** |
+
+    **The verified total is 1,336, NOT ~1,450** — a confirmed 114-label gap between the poster's current claim and the actual database contents. Origin of "~1,450" is unknown (possibly an earlier draft's approximation, or written before some of Aug 21's final counts settled) — not worth chasing further; **1,336 is now the number of record, exact and re-derivable by anyone from this same four-line query.**
+    - **873 vs. 1,336 — both are correct, they answer different questions:** 873 = labels that built the presented model (v4)'s trajectory. 1,336 = total labels across all months/classes today, including everything confirmed after v4 was trained (extended-April/May orca, the ship_noise campaign, gray-whale reviews, etc.). Poster instruction: state both explicitly with this distinction, don't reconcile via approximation.
+
+20. **May 2018 hold-out test — orca_v10 beats v4 on unseen data (D. Edgington, Aug 23 2026).** The experiment the May-holdout policy (#18) was designed for: since neither v4 nor `orca_v10` trained on May 2018, it is a fair referee for "is v10 actually better, or did the retrain just shift the eval set?" Method: ran both models' orca inference over all of May 2018 at logit floor 0.0 (`phase2_classify.py infer`, outputs `MARS_20180501_20180531_v{4,10}_orcaval.csv`), then scored each model on the **196 confirmed-orca windows** (May 12/13/14/16, all ear-reviewed) via `tools/compare_may_holdout.py`. Result — v10 wins decisively on recall/confidence for known orca:
+    - **Mean score on confirmed orca: 2.613 (v10) vs 1.646 (v4)** — nearly a full logit higher.
+    - **Head-to-head: v10 scored higher on 192 of 195 shared windows** (v4 higher on 3); mean(v10−v4) = **+0.958**.
+    - **Recall at the +1.16 operating threshold: 79.6% (v10) vs 60.7% (v4)** (+19 pts); at +2.0, 59.2% vs 39.3%.
+    - **Misses (confirmed orca scored <0.0):** v4 = 0, v10 = 1. The one caveat — v10's more selective net dropped exactly 1 of 196 known orca that v4's broader net caught. Against 192 windows where v10 scored higher, this is negligible.
+    - **Total May detections at floor 0.0: v10 = 271, v4 = 241** — v10 is slightly more, not runaway, so no sign its higher confidence comes from indiscriminate over-firing.
+    - **Interpretation:** a genuine, defensible improvement on held-out data — the +100 orca labels and retrain produced real gains in orca discrimination, not a metrics artifact. Strongest evidence yet that **v10 should replace v4 as production** (resolves roadmap item 4, pending a precision check). Honest bound: this measures RECALL on known orca cleanly; it does NOT fully measure May precision (false-positive rate), since May is not exhaustively negative-labeled — a full "v10 better overall" claim would want a false-positive review too, but the near-equal total detection counts are reassuring. Scorer committed as `tools/compare_may_holdout.py`.
 ## Label Class Definitions
 
 **`negative` (label_type=2, weak negative):**
@@ -531,9 +559,9 @@ Orange-red (other) sits at the humpback/orca/negative boundary.
 | April 13 2018 | 289 orca detections — confirmed Bigg's orca hunting event ✅ |
 | April 18 2018 | 173 orca @≥1.16 (v4); 25 reviewed = 100% orca — CONFIRMED bout (D. Edgington) ✅ |
 | **April 21 2018** | **40 total, 25 @≥1.16 (v4) — ⚠️ ACTION ITEM: real signal, NOT YET REVIEWED.** Found Aug 19 2026 building poster FIG 4 data; never named in `orca_region_scores_v4.csv`, no Gradio session run. Do not present as confirmed or dismissed. |
-| April 23–25 2018 (cluster total) | 118 orca @≥1.16 (v4) — cluster total, NOT a single-day count. Per-day breakdown: Apr 23 = 39 @≥1.16, Apr 24 = 19 @≥1.16, **Apr 25 = 211 total / 60 @≥1.16** (Apr 25: 50 reviewed = 100% orca — CONFIRMED, D. Edgington) ✅; Apr 23/24 individually pending. **RESOLVED Aug 22 2026: the "318 vs 319" stray-label discrepancy found while building the by-day t-SNE (four confirmed days = 318 windows, DB total = 319) traces to one pre-existing label on April 23** — `MARS_20180423_230912_resampled_32kHz.wav`, 515.0-520.0s, `orca_call` positive, sitting inside the unreviewed portion of the Apr 23-25 cluster. Consistent with the April 21 stray found earlier (an incidental single label from an untracked earlier pass, not a new confirmation) — April 23/24 remain "individually pending," this one label doesn't change that status. |
+| April 23–25 2018 (cluster total) | 118 orca @≥1.16 (v4) — cluster total, NOT a single-day count. Per-day breakdown: Apr 23 = 39 @≥1.16, Apr 24 = 19 @≥1.16, **Apr 25 = 211 total / 60 @≥1.16** (Apr 25: 50 reviewed = 100% orca — CONFIRMED, D. Edgington) ✅. **Apr 23 & 24 CONFIRMED (D. Edgington, Sat Aug 23 2026):** all 58 ≥1.16 detections across both days reviewed (39 Apr23 + 19 Apr24) in 18 min — **55 confirmed orca, 2 humpback, 1 orca/humpback mix left unlabeled** (~95% orca). orca_call 319→374. Strong ship_noise in backgrounds throughout (whale-watch boats following the orcas — consistent with KSBW "record sightings" report). **April 2018 now shows SIX consecutive-ish confirmed orca days: 13, 18, 21, 23, 24, 25** — Apr 23/24 fill the gap between 21 and 25, making it a genuinely continuous multi-day presence. Earlier "318 vs 319" stray label (Apr 23 `MARS_20180423_230912`, 515-520s) is now subsumed into this full confirmation. **Poster panel 7's "Apr 23/24 detected but never listened to" is now STALE — they've been listened to and confirmed.** |
 | May 12 2018 | 181 orca labels — full review 181/181 confirmed, Bigg's orca event ✅ |
-| May 13 2018 | 1 orca @≥1.16 (v4) — confirmed orca by ear (D. Edgington) ✅ (single clip) |
+| May 13 2018 | **UPGRADED (D. Edgington, Sat Aug 23 2026):** was 1 orca @≥1.16 (single-clip caveat). Reviewed all 11 detections down to floor 0.0 (scores 1.24 → 0.11) in 5.5 min — **8 confirmed orca** (1 at ≥1.16 re-confirmed + 7 new sub-threshold), **2 dolphin_call**, 1 "can't tell" left unlabeled. orca 189→196, dolphin +2. No longer a fragile single-clip day — now a properly-supported secondary event, comparable to May 14's cluster. Clips were genuinely hard (needed 5s + 30s context + replays). |
 | May 14 2018 | 4 orca @≥1.16 (v4) — all 4 confirmed orca (D. Edgington), ~06–07h morning cluster ✅ (real secondary event) |
 | May 16 2018 | 4 reviewed @≥1.16 (v4) — 3 confirmed orca (D. Edgington), ~15:09 cluster ✅ (1 too faint, unlabeled); figs wid9642/wid9647 |
 | May 7 2018 | 1 @≥1.16 (v4) — too faint to confirm, left unlabeled |
