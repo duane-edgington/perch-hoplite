@@ -1,0 +1,20 @@
+{
+  "saved_filename": "gradio_may2018_v10_orca_may16_2.png",
+  "original_filename": "Screenshot 2026-08-23.png",
+  "capture_computer": "DuaneEM1",
+  "capture_timestamp": "unknown",
+  "date_registered": "2026-08-23T10:25:44.757299",
+  "figure_type": "gradio_screenshot",
+  "caption": "Orca confirmed, May 16 2018 (MARS_20180516_150913, 190-195s, score=1.984, wid=9639, orca_v10): second May 16 example, adjacent offset to may16_1, stepped orca calls. Known orca day. Expert-confirmed (D. Edgington, Aug 23 2026), finding #21.",
+  "command": "phase2_classify.py review --detections-csv review_may2018_v10_precision_ge116.csv --classes orca_call,humpback_song,dolphin_call,ship_noise,other,unlabeled --serve --port 7876 (orca_v10, MARS_20180501_20180531_32kHz_norm)",
+  "script": "gradio_review_ui",
+  "source_wav": "MARS_20180516_150913_resampled_32kHz.wav",
+  "wav_offset_s": 190.0,
+  "spectrogram_type": "mel",
+  "colormap": "viridis",
+  "classifier": "orca_v10.pt",
+  "db": "MARS_20180501_20180531_32kHz_norm",
+  "score": 1.984,
+  "label_selected": "orca_call",
+  "notes": "Known day (May 16), 190s offset (distinct from may16_1's 205s). Part of finding #21."
+}

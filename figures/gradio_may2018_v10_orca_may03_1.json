@@ -1,0 +1,20 @@
+{
+  "saved_filename": "gradio_may2018_v10_orca_may03_1.png",
+  "original_filename": "Screenshot 2026-08-23.png",
+  "capture_computer": "DuaneEM1",
+  "capture_timestamp": "unknown",
+  "date_registered": "2026-08-23T10:25:44.623733",
+  "figure_type": "gradio_screenshot",
+  "caption": "Orca confirmed, May 3 2018 (MARS_20180503_200913, 270-275s, score=2.030, wid=276895, orca_v10): NEW orca day discovered by v10, missed by v4. Expert-confirmed (D. Edgington, Aug 23 2026), finding #21.",
+  "command": "phase2_classify.py review --detections-csv review_may2018_v10_precision_ge116.csv --classes orca_call,humpback_song,dolphin_call,ship_noise,other,unlabeled --serve --port 7876 (orca_v10, MARS_20180501_20180531_32kHz_norm)",
+  "script": "gradio_review_ui",
+  "source_wav": "MARS_20180503_200913_resampled_32kHz.wav",
+  "wav_offset_s": 270.0,
+  "spectrogram_type": "mel",
+  "colormap": "viridis",
+  "classifier": "orca_v10.pt",
+  "db": "MARS_20180501_20180531_32kHz_norm",
+  "score": 2.03,
+  "label_selected": "orca_call",
+  "notes": "One of 4 NEW May orca days v10 surfaced (May 2/3/7/29). Part of finding #21."
+}
