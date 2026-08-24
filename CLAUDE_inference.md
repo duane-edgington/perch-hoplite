@@ -138,7 +138,7 @@ for fn, blob in rows:
 `--detections-csv` (the review set from Step 2), `--detections-offset` (start index, 0),
 `--num-results` (how many rows to load — set to the CSV row count), `--classes` (label buttons,
 include `unlabeled` for "skip/ambiguous"), `--audio-dir` (playback WAVs for that year/month),
-`--spectrogram-type mel --colormap viridis`, `--serve --port <N>`.
+`--annotator-id <name>` (WHO is labeling — set it, don't leave the default generic `analyst`: use `duane` for orca/ship/dolphin, `john` for humpback since he is the humpback authority and his calls are the ground truth for that class), `--spectrogram-type mel --colormap viridis`, `--serve --port <N>`.
 
 ```bash
 cd ~/perch-hoplite
@@ -149,6 +149,7 @@ nohup python3 phase2_classify.py review \
     --detections-csv /mnt/PAM_Analysis/perch-hoplite/results/review_oct2020_v10_orca_ge116.csv \
     --detections-offset 0 --num-results 16 \
     --classes orca_call,humpback_song,dolphin_call,ship_noise,other,unlabeled \
+    --annotator-id duane \
     --audio-dir /mnt/PAM_Analysis/GoogleMultiSpeciesWhaleModel2/resampled_32kHz/2020/10 \
     --spectrogram-type mel --colormap viridis \
     --serve --port 7877 \
@@ -181,6 +182,11 @@ ps aux | grep "[p]hase2_classify.py review"   # confirm empty
   what was confirmed as what (orca vs humpback vs dolphin vs other).
 - Record in CLAUDE_perch_hoplite.md: date, month reviewed, model, # clips, session time,
   outcome per class, any new days discovered. Always note the session time (ask if not stated).
+- **Record the annotator** (`--annotator-id`) — who made the calls. Default is the generic
+  `analyst`; always set it (duane / john / other). Matters for multi-annotator provenance,
+  especially John's humpback ground-truth.
+- **Record the labeling session ID** the tool prints (e.g. `20260824_070516_duane` —
+  timestamp + annotator). It is the audit handle linking a label set back to one session.
 - Remember where annotations came from (which months are in the training recipe vs held-out):
   training recipe = April 2018 + Oct 2020 + April 2026; **May 2018 is the permanent held-out
   test month** (finding #18). Hold-out status doesn't change how you review, but it changes how
