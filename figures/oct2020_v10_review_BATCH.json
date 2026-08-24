@@ -1,0 +1,14 @@
+{
+  "batch": "oct2020_v10_review",
+  "count": 13,
+  "files": "oct2020_v10_review_01.png .. oct2020_v10_review_13.png",
+  "session": "Aug 23 2026, annotator duane, port 7877",
+  "finding_ref": "CLAUDE.md finding #22",
+  "clip_list_csv": "results/review_oct2020_v10_orca_ge116.csv",
+  "summary": "Framegrabs from the Oct 2020 v10 orca-candidate review. All 16 detections >=+1.16 were reviewed by ear; NO identifiable orca found (~14 humpback, 2 other). These images illustrate the humpback/other false-positive candidates in peak-humpback October. Confirms Oct 2020 acoustic silence for orca under the more-sensitive v10 model, strengthening the 'seen but not heard' interpretation.",
+  "confidence": "These are NOT orca. Illustrative false-positive/other examples.",
+  "registration": "Light-touch batch (Option A) — per-clip WAV/offset/score legible in each PNG header and listed in clip_list_csv; no individual sidecars.",
+  "script": "gradio_review_ui",
+  "classifier": "orca_v10.pt",
+  "db": "MARS_20201001_20201031_32kHz_norm"
+}

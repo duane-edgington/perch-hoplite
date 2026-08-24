@@ -1,0 +1,14 @@
+{
+  "batch": "apr2026_v10_review",
+  "count": 15,
+  "files": "apr2026_v10_review_01.png .. apr2026_v10_review_15.png",
+  "session": "Aug 24 2026, annotator duane, session 20260824_070516_duane, port 7878",
+  "finding_ref": "CLAUDE.md finding #23",
+  "clip_list_csv": "results/review_apr2026_v10_orca_ge231.csv",
+  "summary": "Framegrabs from the April 2026 v10 orca-candidate review (13 detections >=+2.31). Several sounded orca in the 5 s window but showed surrounding humpback vocalizations in the 30 s context — genuinely ambiguous. NOT confirmed orca. April 2026 is a trained month. Awaiting John Ryan's BLIND review before any orca determination.",
+  "confidence": "AMBIGUOUS candidates — NOT confirmed orca. Do not use as confirmed-orca evidence or on the poster. Pending John blind review.",
+  "registration": "Light-touch batch (Option A) — per-clip metadata legible in PNG headers and listed in clip_list_csv; no individual sidecars.",
+  "script": "gradio_review_ui",
+  "classifier": "orca_v10.pt",
+  "db": "MARS_20260401_20260430_32kHz_norm"
+}
