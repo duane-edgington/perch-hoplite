@@ -5,9 +5,8 @@ The exact process for turning raw MARS archive audio into a hoplite embedding DB
 This step is infrequent and easy to get subtly wrong (venv, normalization, naming), so it's
 written down.
 
-STATUS: partial draft (Aug 24 2026). Resampling script captured below; exact nohup invocation
-+ log path to be added by D. Edgington from the office. Embedding stage captured from the
-Sept 2024 run.
+STATUS: near-complete (updated Aug 25 2026). Resampling script + exact nohup invocation + embed
+stage all captured. Remaining minor TODO: none blocking — coverage-query table confirmed as `recordings`; SoX version pinned (v14.4.2).
 
 ---
 
@@ -20,12 +19,26 @@ Script used for the current data (`new_32k_resample_sox.sh`), run as
 `./new_32k_resample_sox.sh <year> <month>` (e.g. `./new_32k_resample_sox.sh 2024 09`).
 Located in `~/gmwd/new3-12_whale_detection/gmwd/` on spark-ae0e.
 
-TODO (D. Edgington, from office): add the exact nohup command + log-file path used for the
-Sept 2024 run. A "fancier version that throttles the number of concurrent processes" also
-exists somewhere but was NOT the one used for the current set — the version below launches one
-`sox` process per file concurrently (`&` ... `wait`), which on a large month is a lot of
-parallel processes. Note for reproducibility: concurrency affects speed/system-load, NOT the
-output bytes.
+**Environment for the resampling run (pin these for the FAIR reproducibility bundle):**
+- **SoX version: `SoX v14.4.2`** (`sox --version`), binary at `/usr/bin/sox`. SoX output can
+  differ across versions/builds, so this version is part of the reproducibility record.
+- Run from `~/gmwd/new3-12_whale_detection/gmwd/` with **that directory's own venv active**
+  (`source venv/bin/activate` from within that dir) — a separate venv from both the perch-hoplite
+  venv and the perch-pytorch (embedding) venv. Note: SoX itself is a system binary, so the venv
+  matters for any surrounding Python tooling, not for sox's output.
+
+**Exact nohup invocation used for the Sept 2024 run** (from `~/gmwd/new3-12_whale_detection/gmwd/`
+on spark-ae0e; note the month is passed WITHOUT a leading zero — `9`, not `09`):
+```bash
+nohup ./new_32k_resample_sox.sh 2024 9 > logs/nohup_resample_2024_09.out &
+```
+Log went to `logs/nohup_resample_2024_09.out` (relative to the script's dir). Resampling a full
+month takes ~1 day on spark.
+
+Note: a "fancier version that throttles the number of concurrent processes" also exists somewhere
+but was NOT the one used for the current set — the version below launches one `sox` process per
+file concurrently (`&` ... `wait`), which on a large month is a lot of parallel processes. For
+reproducibility: concurrency affects speed/system-load, NOT the output bytes.
 
 ```bash
 #!/usr/bin/env bash
@@ -201,8 +214,10 @@ raw `/mnt/PAM_Archive/<YYYY>/<MM>/`
   → detections CSV → review (CLAUDE_inference.md)
 
 ## TODO to finalize this doc (D. Edgington, from office)
-- [ ] Exact nohup command + log path used for the Sept 2024 SoX resampling run.
+- [x] Exact nohup command + log path used for the Sept 2024 SoX resampling run. (Done Aug 25 2026:
+      `nohup ./new_32k_resample_sox.sh 2024 9 > logs/nohup_resample_2024_09.out &` — note month
+      passed as `9` not `09`.)
 - [ ] Locate the "fancier" concurrency-throttling resample variant (speed/load only — same
       output bytes; `vol 3` is standard and always used, there is no operational no-vol variant).
-- [ ] Pin the SoX version (`sox --version`) for the reproducibility bundle.
+- [x] Pin the SoX version — SoX v14.4.2, /usr/bin/sox (done Aug 25 2026).
 - [ ] Confirm the `hoplite_sources` table name for the coverage query (adjust if different).
