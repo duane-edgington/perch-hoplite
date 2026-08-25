@@ -461,6 +461,17 @@ all expert-confirmed, finding #14.
 
 ## Known Issues / Pending Work
 
+> **Poster status (Aug 25 2026): current version is v44.** John Ryan reviewed it, has NO
+> concerns; the extended abstract is uploaded and ACCEPTED by the conference. The v35 review
+> must-fixes were resolved by v42 (header logos/MBARI logo; stat card + panel-11 orca F1 both
+> 0.95; "foundation model" defined; 10→14-days reconciliation in the panel-7 figure caption);
+> v44 continues layout/figure work (adds AWS). Poster is "just for show" — one conference day,
+> no lasting presence — so polish is low-stakes; do not over-invest. Reviews on record:
+> `poster_v35_review.md`, `poster_v35_replacements.md`, `poster_v42_review.md`. CMYK full-size
+> print (OCEANS2026_orca_poster_v44_FULLSIZE_72x48_CMYK.pdf style name) is for the plotter;
+> Melissa makes the real final poster once text/graphics/layout are locked. OCEANS 2026:
+> Sept 21–24.
+
 1. **Mel spectrogram banding** — minor horizontal artifacts in mel/pcen/perch modes (partially fixed)
 2. **plot_monthly deduplication** — ✅ fixed July 12 2026: now deduplicates on `(idx, label)`
 3. **Inference /tmp write speed** — 266K row CSV takes ~33 min to write
@@ -579,6 +590,17 @@ all expert-confirmed, finding #14.
     - **BUT Sept 1–19 is still worth testing (corrected view).** The value was never only 9/27. Established pattern in this project: when CA-pod Bigg's are in the Bay they are present for MULTIPLE days and show up acoustically across them (April 2018's 13–25 run; May's clusters; recurring CA140 matriline). Sept 2024 is a month when that population was demonstrably active in the region (the 9/27 sighting proves it), so "was there Bigg's acoustic presence in the covered Sept 1–19 window?" is a legitimate, interesting detection question — not a throwaway scan. DB already built (323,760 embeddings). RUN v4/v10 inference on Sept 1–19.
     - **Inference run (Aug 24 2026):** v4 = 2765 detections @floor 0.0, v10 = 2417 (v10 more selective, as everywhere). These totals are ~10x a real orca month (May 2018 had v4=241/v10=271), which by itself signals a NOISY month, not an orca bonanza — the floor-0.0 total is never the signal. v10 @>=2.31 = ~60 detections, but **smeared evenly across ALL days 1-19 (1-8/day, no clustering).** That even daily background is the OPPOSITE of a real orca encounter signature (cf. April 21 2026: 6 hits in one recording, consecutive bouts) and is the classic profile of a persistent background source firing weakly — most likely PEAK HUMPBACK SEASON (September), same failure mode as Oct 2020. **Provisional read: humpback-heavy month, no obvious orca-encounter signature; NOT confirmed either way.** Confirm with a short ear-review of the top ~10-15 >=2.31 clips (across the higher-count days 5/8/9): if humpback -> hypothesis confirmed, done; if real orca -> go deeper. Low priority / no urgency (the ground-truth 9/27 test died with the outage). Do NOT treat the big detection count as orca presence without the listen.
     - Coverage query (recordings table, `substr(filename,6,8)` = day) recorded in CLAUDE_embed.md Stage 2.5 as the standard pre-inference check.
+
+26. **Strategic direction from John Ryan (meeting Aug 25 2026) — full-archive seasonal/interannual analysis is the new #1 priority.** A significant redirect. John's strong bias: **run the best current model(s) across the ENTIRE MARS archive** and characterize **seasonal and interannual variance** in orca detection, cross-verified against California Killer Whale Project sightings. Look for which months/periods correlate with other events (ocean warming, prey/food-source migration, etc.) — i.e., find ecological patterns in when orcas are acoustically present.
+    - **Explicitly DE-prioritized for now (John):** do NOT pursue other ecotypes (Resident/Offshore) yet; do NOT pursue external datasets (e.g. Palmer 2025) yet. Focus stays on the transient (Bigg's) calls we currently detect — even though they're largely CA140-associated. This overrides the earlier roadmap's "highest-ceiling external ecotype dataset" item — reprioritized below full-archive analysis at John's direction.
+    - **(2) Cross-hydrophone comparison (later):** when ready, test/compare against OTHER hydrophones deployed in Monterey Bay — do we detect orcas best at MARS, or better at others? A deployment-siting question. Not now, but on the list.
+    - **(3) Publication strategy:** John sees publishing the full-archive seasonal/interannual results as HIGH priority. Target BOTH science venues and technical venues — possibly a PAIR of publications (peer-reviewed conferences/workshops count). The ecological-pattern paper is the science story; the method/pipeline is the technical story.
+    - **(4) Poster:** John reviewing v42 this afternoon; **he has NO concerns.** The extended abstract is uploaded and ACCEPTED by the conference. The poster is "just for show" — one day at the conference, no lasting presence after. So poster polish is genuinely low-stakes from here; do not over-invest.
+    - **(5) April 2026 blind review — TABLED for now.** Multi-annotator strategy not discussed with John. Duane + Claude to design, implement, and document a two-annotator approach separately (still worth doing, just not urgent).
+    - **(6) Humpback song/vocalization split — TABLED for now.** Keep focus on orcas; continue distinguishing humpback-from-orca (and vice versa) as needed for orca precision, but don't invest in the song/non-song reannotation project yet.
+    - **(7) FAIR public release — John is fine with it.** His view: a notebook that runs the SoX resampling on the public AWS raw audio may itself suffice as "releasing the data" (reproducibility-not-dataset, matches CLAUDE_release_plan.md). He's ALSO open to releasing resampled data in an appropriate format/venue if we want. Either path acceptable.
+    - **(8) thalassa / IT storage discipline (IMPORTANT operational constraint):** John is concerned about the data load our activity places on MBARI IT infrastructure. Directive: **monitor and keep our usage clean.** Do NOT keep all 32kHz resampled files on thalassa — analyze a year (or whatever unit) then DELETE all but key files supporting the work. Back up (then remove) old log files and other cruft. This directly shapes the full-archive plan (#1): we can't resample-and-keep the whole archive at once; we process in chunks, extract/keep only what supports findings (models, labels, confirmed clips, key figures), and delete the bulk resampled WAV after analysis. The reproducibility bundle (script + manifest + checksums) is what makes deleting the bulk resampled audio safe — it can be regenerated on demand.
+    - **Roadmap impact:** #1 (full-archive seasonal/interannual + sightings correlation) is now the top near-term thrust, ahead of the external-ecotype and temporal-architecture items. Storage discipline (#8) is a hard constraint on how it's executed (chunked, clean-as-you-go).
 ## Label Class Definitions
 
 **`negative` (label_type=2, weak negative):**
