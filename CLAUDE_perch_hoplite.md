@@ -206,16 +206,29 @@ with data: URIs, so Safari is out regardless.
 
 ## Classifier Versioning (new era — July 9 2026)
 
-Old classifiers (v1_clean through v8_clean) were trained on un-normalized
-embeddings and are retired. New versioning starts at v0:
+Old classifiers (v1_clean through v8_clean) are retired. New versioning starts at v0:
 
-> **Note (Aug 24 2026) — `orca_v4_clean.pt` does NOT exist; do not use it.** The `_clean`
-> suffix belonged to the OLD, retired, pre-normalization era (v1_clean…v8_clean). The current
+> **What `_clean` meant (clarified Aug 25 2026 from docs/agile_modeling_history.md).** The
+> `_clean` classifiers were the **Phase 1 bootstrap models (v1_clean–v8_clean, June 2026),
+> trained on labels AUTO-SEEDED from the Google Multispecies Whale Model score CSVs with NO
+> human review** (~4,002 high-confidence orca positives + 242,708 negatives, selected by
+> thresholding the Google model's scores). "Clean" most plausibly refers to that
+> high-confidence / cleanly-separated auto-label tier — though the history doc never literally
+> states why the word was chosen, so this is well-supported inference, not a documented
+> definition. They were retired for TWO reasons that are easy to conflate: (1) trained on
+> **un-normalized embeddings** (the July 9 low-amplitude bug), and (2) superseded by the
+> **human-reviewed agile loop**. Note the naming break: `_clean` numbered v1–v8; the new era
+> deliberately restarted at **v0** (not v9) as a clean break. **There was never a `v0_clean`**
+> — v0 was already the first post-normalization, human-labeled model (584 hand-reviewed clips,
+> July 9). Common misconception: "clean" was the human-verified era — it was the OPPOSITE, the
+> pre-human auto-seeded era. (The Colab/TF → spark/PyTorch migration was a real concurrent
+> change but is NOT what `_clean` referred to.)
+
+> **Note (Aug 24 2026) — `orca_v4_clean.pt` does NOT exist; do not use it.** The current
 > canonical models are `orca_v4.pt` and `orca_v10.pt` (no `_clean`), in
-> `/mnt/PAM_Analysis/perch-hoplite/models/`. `phase1_embed_torch.py` prints a "Next step"
-> hint that references `orca_v4_clean.pt` with a wrong output name/date-range — that hint is a
-> STALE hardcoded template, not a real file. Ignore it; always run inference with `orca_v4.pt`
-> / `orca_v10.pt`. TODO: fix that misleading hint string in phase1_embed_torch.py.
+> `/mnt/PAM_Analysis/perch-hoplite/models/`. `phase1_embed_torch.py`'s "Next step" hint
+> formerly referenced `orca_v4_clean.pt` — that stale hint was fixed Aug 25 2026 to print the
+> correct models + output naming. Always run inference with `orca_v4.pt` / `orca_v10.pt`.
 
 | Version | ROC-AUC | top1_acc | cmap | F1† | Training DB | Notes |
 |---|---|---|---|---|---|---|
