@@ -2,15 +2,15 @@
 
 **Poster:** "Application of Foundation Model and Agile Modeling to Passive Acoustic Detection of
 Orcas in Monterey Bay National Marine Sanctuary" — D. R. Edgington and J. Ryan, MBARI.
-**Venue:** IEEE OCEANS Monterey 2026, 21–24 September 2026, General Poster Track.
-**Current draft:** `OCEANS2026_orca_poster_DRAFT_v39.pptx` (36 × 24 in, half of 72 × 48).
+**Venue:** IEEE OCEANS Monterey 2026, 21–24 September 2026, General Poster Track. Under a month out.
+**Current draft:** `OCEANS2026_orca_poster_DRAFT_v44.pptx` (36 × 24 in, half of 72 × 48).
+**Updated:** 23 August 2026.
 **Full state and rationale:** `CLAUDE_Oceans_poster_production.md`.
 
 > **Versioning rule (from 20 Aug 2026):** every build that leaves this chat gets a **new**
 > version number, even for a one-line change. Never re-issue a number that has already been
-> sent. Two different files both called v5 existed briefly; the current draft is **v39** and the
+> sent. Two different files both called v5 existed briefly; the current draft is **v44** and the
 > earlier v5s are superseded — delete them.
-**Updated:** 20 August 2026 — v7: spectrogram slot, all-class t-SNE, v0→v4 timeline. Roughly one month of runway.
 
 ---
 
@@ -57,8 +57,10 @@ being added, and the re-review it was waiting on is moot.
 single exception being that Bigg's orcas prey on gray whale calves, if prey comes up.
 
 ### 6. Logo block — ✅ COMPLETE (23 Aug 2026)
-All four marks placed from `poster/logos/`. Top row right-aligned: IEEE OES, OCEANS 2026 Monterey,
-General Poster marker. Below them, MBARI at 6.4 x 2.37 in, right-aligned to the same edge.
+All four marks placed from `poster/logos/`. **Top-right block: conference marks only** — IEEE OES,
+OCEANS 2026 Monterey, General Poster marker, right-aligned and centred vertically in the block.
+**MBARI is at the foot of the sheet, immediately left of the QR code (x 55.9, y 45.72, 4.60 x
+1.70 in), as the template mandates — not in the top-right block.**
 
 The MBARI file is an EPS (`MBARI_logo+type.eps`, Illustrator, 2014). ImageMagick alone fell back
 to the file's embedded 331 x 123 preview; ghostscript was installed and the PostScript rasterised
@@ -67,6 +69,29 @@ printed size. **Use that PNG, not the EPS, and not an ImageMagick conversion wit
 
 **QR decision: footer only.** The slot in the logo block is removed. The QR stays at bottom right
 where its URL is printed beside it.
+
+### 6b. Print files — CMYK is the deliverable ✅
+
+**MBARI's plotters accept CMYK only, never RGB** (Melissa, 24 Aug). So the CMYK file is the
+print deliverable, not a fallback. She printed the v41 CMYK at full size on plain matt without
+trouble.
+
+| File | Use |
+|---|---|
+| `OCEANS2026_orca_poster_v44_FULLSIZE_72x48_CMYK.pdf` | **send to the plotter.** True 72 x 48 in (5184 x 3456 pt), DeviceCMYK throughout, no RGB objects |
+| `OCEANS2026_orca_poster_v44_FULLSIZE_72x48_RGB.pdf` | editable source — opens in Illustrator with live vector text, save as `.ai` from there |
+| `OCEANS2026_orca_poster_DRAFT_v44.pptx` | the 36 x 24 in working file |
+
+**Conversion notes.** DeviceCMYK via ghostscript, unprofiled — no ICC destination, because the
+right one depends on the plotter and stock. Measured shift on the navy field and mint numerals
+is 8–11 levels out of 255, which is mild; a FOGRA39-profiled conversion was tried and produced
+identical output, so the generic path is not costing anything here. If the plotter's own profile
+is available, send it and a color-managed version can be produced. Blacks convert to four-color
+rather than rich black — normal for inkjet large-format, where registration is not an issue.
+
+**There is no true `.ai` export from this pipeline**, but Illustrator opens the RGB PDF with live
+vector text and shapes and can save `.ai` from there. The page is already 72 x 48, so no 200%
+scaling step.
 
 ### 7. Scale ⬜
 **Owner: Melissa.** The draft is authored at **36 × 24 in** because OOXML caps slide dimensions
@@ -214,7 +239,7 @@ at any time. Current figure set:
 ```bash
 python make_poster_figures.py figs     # regenerates all six figures (PNG 300 dpi + PDF)
 node build_poster.js                   # rebuilds the .pptx from those figures
-python /path/to/validate.py OCEANS2026_orca_poster_DRAFT_v39.pptx
+python /path/to/validate.py OCEANS2026_orca_poster_DRAFT_v44.pptx
 ```
 `make_poster_figures.py` reads `poster_fig4_calendar_apr_may_2018.csv` and
 `poster_fig8_threshold_sweep_v4.csv` from the working directory. Panel geometry lives in the
