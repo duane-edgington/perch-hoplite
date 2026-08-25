@@ -355,12 +355,17 @@ def main():
     if elapsed > 0:
         print(f"  Throughput    : {window_count / elapsed:.1f} windows/sec")
     print(f"  DB location   : {db_dir}")
-    print(f"\nNext step — run inference:")
+    print(f"\nNext step — run inference (current canonical models are orca_v4.pt / orca_v10.pt;")
+    print(f"there is no orca_v4_clean.pt — the _clean models were the retired pre-normalization era):")
     print(f"  python3 phase2_classify.py infer \\")
     print(f"    --db-dir {db_dir} \\")
-    print(f"    --classifier /mnt/PAM_Analysis/perch-hoplite/models/orca_v4_clean.pt \\")
-    print(f"    --output-csv /mnt/PAM_Analysis/perch-hoplite/results/{dataset_name}_detections.csv \\")
-    print(f"    --logit-threshold 0.0")
+    print(f"    --classifier /mnt/PAM_Analysis/perch-hoplite/models/orca_v10.pt \\")
+    print(f"    --labels orca_call --logit-threshold 0.0 \\")
+    print(f"    --output-csv /mnt/PAM_Analysis/perch-hoplite/results/<MONTH>_v10_orcaval.csv")
+    print(f"  (repeat with orca_v4.pt -> _v4_orcaval.csv to compare models)")
+    print(f"  TIP: check day-by-day coverage before interpreting — MARS has outages:")
+    print(f"    sqlite3 {db_dir}/hoplite.sqlite \\")
+    print(f"      \"SELECT substr(filename,6,8) day, COUNT(*) FROM recordings GROUP BY day ORDER BY day;\"")
     print("=" * 60)
 
 
