@@ -5,8 +5,11 @@ The exact process for turning raw MARS archive audio into a hoplite embedding DB
 This step is infrequent and easy to get subtly wrong (venv, normalization, naming), so it's
 written down.
 
-STATUS: near-complete (updated Aug 25 2026). Resampling script + exact nohup invocation + embed
-stage all captured. Remaining minor TODO: none blocking — coverage-query table confirmed as `recordings`; SoX version pinned (v14.4.2).
+STATUS: complete (updated Aug 27 2026). Resampling script + exact nohup invocation + embed
+stage all captured. Coverage-query table confirmed as `recordings`; SoX version pinned (v14.4.2).
+The "fancier" concurrency-throttling resample variant is LOCATED (`tools/resample_sox_32k_batched_vol.sh`)
+and is now the canonical script for the full-archive campaign. Stage 1 verification and the
+window-count reconciliation rule added from the July 2015 run.
 
 ---
 
@@ -15,9 +18,45 @@ stage all captured. Remaining minor TODO: none blocking — coverage-query table
 Raw MARS audio lives at `/mnt/PAM_Archive/<YYYY>/<MM>/MARS_*.wav`. Resampled output goes to
 `/mnt/PAM_Analysis/GoogleMultiSpeciesWhaleModel2/resampled_32kHz/<YYYY>/<MM>/`.
 
-Script used for the current data (`new_32k_resample_sox.sh`), run as
+### CANONICAL SCRIPT (full-archive campaign, Aug 27 2026 onward)
+
+**`tools/resample_sox_32k_batched_vol.sh`** — in the repo, throttles concurrency, supports day
+ranges. This is the script to use going forward.
+
+```
+./tools/resample_sox_32k_batched_vol.sh <year> <month> [start_day] [end_day] [max_jobs]
+```
+- `year month` required; month WITHOUT leading zero (`7`, not `07`)
+- `start_day end_day` default 1–31; `max_jobs` defaults to `nproc`
+- `SAMPLE_RATE` env var overrides 32000 (output dir + filename suffix follow the rate)
+- Example (July 2015, the partial deployment month): `./tools/resample_sox_32k_batched_vol.sh 2015 7 28 31`
+- Prints a `Starting (vol 3): ...` banner, a per-day file count, and a
+  `Finished: N submitted, M failure(s)` report with any failed filenames listed. No `set -e`:
+  one bad file does not kill the batch.
+
+**⚠️ DO NOT USE `tools/resample_sox_32k_batched_novol.sh` for pipeline data.** It is byte-for-byte
+identical except it omits `vol 3`, it takes the SAME arguments, and it writes to the SAME output
+directory with the SAME `_resampled_32kHz.wav` suffix — so **nothing in the filename or path
+records which variant produced a file.** The only in-band evidence is the log banner
+(`Starting (vol 3):` vs `Starting (no vol):`). `vol 3` is the volts calibration and is mandatory
+(J. Ryan); see the clipping note below. If a resample's provenance is ever in doubt, compare peak
+amplitude against the raw file — `vol 3` output should be ~3x raw:
+```bash
+sox <raw>.wav       -n stat 2>&1 | grep -i "maximum amplitude"
+sox <resampled>.wav -n stat 2>&1 | grep -i "maximum amplitude"
+```
+Also note the `_vol` script's own header comment block is a bad copy-paste of the `_novol` one
+(it correctly says "This variant DOES apply the `vol` gain adjustment", then continues with the
+novol rationale about clipping warnings). Do not trust that header; trust this doc.
+
+### Original script (historical — produced the 2018/2020/2024/2026 data)
+
+Script used for the earlier data (`new_32k_resample_sox.sh`), run as
 `./new_32k_resample_sox.sh <year> <month>` (e.g. `./new_32k_resample_sox.sh 2024 09`).
-Located in `~/gmwd/new3-12_whale_detection/gmwd/` on spark-ae0e.
+Located in `~/gmwd/new3-12_whale_detection/gmwd/` on spark-ae0e. Takes only two args (any extra
+positional args are silently ignored) and loops `seq 1 31` unconditionally, so its log carries
+harmless `No such file` glob misses for days with no data. Launches one `sox` per file with no
+concurrency cap. Same SoX effect chain, so **same output bytes** as the batched vol variant.
 
 **Environment for the resampling run (pin these for the FAIR reproducibility bundle):**
 - **SoX version: `SoX v14.4.2`** (`sox --version`), binary at `/usr/bin/sox`. SoX output can
@@ -107,6 +146,78 @@ script; downstream tools match on it.
 
 ---
 
+## Stage 1.5 — VERIFY THE RESAMPLE before spending GPU time (run EVERY month)
+
+Cheap, and it establishes the true expected window count for the Stage 2 check. Added Aug 27 2026
+after the July 2015 run, where a size-based check missed a short file and a start-to-start cadence
+check found only one of two recorder restarts.
+
+```bash
+RS=/mnt/PAM_Analysis/GoogleMultiSpeciesWhaleModel2/resampled_32kHz/<YYYY>/<MM>
+RAW=/mnt/PAM_Archive/<YYYY>/<MM>
+
+# 1. the run's own failure report
+grep -E "^Starting|^Finished:|^Failed files:|^WARNING:" -A20 <resample-log>
+
+# 2. counts, resampled vs raw — must match exactly
+ls $RS/*_resampled_32kHz.wav | wc -l
+ls $RAW/MARS_*.wav | wc -l
+
+# 3. per-date histogram (substr 6,8 = YYYYMMDD). Expect 144 files/day for a full day.
+ls $RS | awk '{print substr($0,6,8)}' | sort | uniq -c
+
+# 4. bookends
+ls $RS | head -2; ls $RS | tail -2
+
+# 5. DURATION SCAN — the important one. Finds restarts/truncations a size floor misses.
+for f in $RS/*.wav; do
+  d=$(soxi -D "$f"); [ "$d" = "600.000000" ] || echo "$d  $(basename $f)"
+done
+
+# 6. total duration, and the TRUE expected window count (ceil of each file / 5 s)
+for f in $RS/*.wav; do soxi -D "$f"; done \
+  | awk '{s+=$1; w+=int(($1+4.999999)/5)} END {printf "total %.1f s = %.2f h — expected windows %d\n", s, s/3600, w}'
+
+# 7. format check (want 32000 Hz, 1 channel, 16-bit)
+soxi $(ls $RS/*.wav | head -1)
+```
+
+**Why the duration scan and not `find -size`:** a 205 s 32 kHz 16-bit mono file is ~13 MB, so any
+size floor coarse enough to catch true zero-byte failures sails right past a restart-truncated
+file. Duration is the direct measurement.
+
+**Why start-to-start cadence spacing is not sufficient:** a restart shifts the filename cadence,
+so spacing between *starts* conflates "file was cut short" with "next file began late". On
+2015-07-30 the start-to-start delta read 214 s while the file was actually 205 s — a real 9 s gap,
+not 214. Use the durations to get gaps right:
+`gap = next_start − (this_start + this_duration)`.
+
+**Sanity arithmetic (do this, it catches duplicated audio):**
+`files × 600 − Σ(600 − short_file_durations)` should equal the measured total. If the measured
+total is *higher* than that, files overlap in time and the DB will contain duplicated audio —
+investigate before embedding.
+
+### Worked example — July 2015 (partial deployment month, verified Aug 27 2026)
+- MARS first deployed 2015-07-28; recording starts **18:05:24**, so the 28th has only 36 files.
+- **469 resampled = 469 raw**, no failures, no truncated-to-zero files.
+- Per-date: 28th = 36, 29th = 144, 30th = **145**, 31st = 144. The 145 is a restart artifact, not
+  an overlap.
+- Two short files, both recorder restarts:
+
+| File | Duration | Ends | Next starts | Real gap |
+|---|---|---|---|---|
+| `MARS_20150729_162524` | 242 s | 16:29:26 | 16:35:24 | 358 s |
+| `MARS_20150730_031011` | 205 s | 03:13:36 | 03:13:45 | 9 s |
+
+- Arithmetic closes exactly: 469×600 = 281,400; minus (358 + 395) = **280,647 s = 77.96 h**,
+  matching the measured total → **no duplicated audio**.
+- Total missing audio 753 s (12.6 min) across 78 h. Consistent with the standing
+  "near-continuous, not gapless" description of MARS.
+- Each restart also shifted the filename cadence (`:x5:24` → `:x0:11` → `:x3:45`), which is why
+  the month's last file is `MARS_20150731_235345`.
+
+---
+
 ## Stage 2 — Perch V2 embedding (resampled WAV → hoplite DB)
 
 Tool: `phase1_embed_torch.py` (NOT `phase2_classify.py` — phase2 has no embed subcommand).
@@ -152,14 +263,42 @@ The auto-generated internal **Dataset name** may show the wrong end-date (Sept 2
 inference queries**, so it doesn't matter. Don't be alarmed by the dataset field.
 
 ### Sanity check after embedding
-The tool prints an "Expected windows" figure up front and a `Done. NNNNNN embeddings in <db>`
-line at the end. Confirm they match and are in a sane range.
-- May 2018: 2232 files → 535,680 embeddings
-- Sept 2024: 2698 files → expected 323,760 windows (shorter/fewer-per-file than May; ~120
-  windows/file ≈ ~10-min files). Confirm final count ≈ 323,760.
-```bash
-tail -8 /mnt/PAM_Analysis/perch-hoplite/logs/embed_sep2024_norm.log   # look for "Done. NNNNNN embeddings"
+
+**⚠️ The printed `Expected` figure is an approximation — do not treat a shortfall as a failure.**
+`phase1_embed_torch.py` computes it as `len(audio_files) * int(600 / hop_size_s)`, i.e. it
+**assumes every file is exactly 600 s**. Any month containing a recorder restart will legitimately
+come in *under* the printed number.
+
+**Windowing rule (confirmed empirically, July 2015):** the perch-pytorch adapter **keeps the
+final partial window** — it is `ceil(duration / 5)`, not `floor`. So:
+
 ```
+true expected windows = Σ ceil(duration_i / 5)
+```
+
+which is what the Stage 1.5 step-6 one-liner already computes. Reconcile against **that**, not
+against `files × 120`. A 600 s file gives exactly 120 either way, which is why this only surfaces
+on months with restarts.
+
+```bash
+tail -12 /mnt/PAM_Analysis/perch-hoplite/logs/embed_<month>_norm.log   # "Windows in DB" vs "Expected"
+```
+
+### Verified runs
+
+| Month | Files | Windows in DB | Printed "Expected" | Elapsed | Throughput | Notes |
+|---|---|---|---|---|---|---|
+| May 2018 | 2232 | 535,680 | 535,680 | — | — | all files 600 s |
+| Sept 2024 | 2698 | 323,760 | 323,760 | 17.9 min | ~302 win/s | month ends 9/19 (real outage) |
+| **July 2015** | **469** | **56,130** | 56,280 | **4.3 min** | **219.4 win/s** | partial month (deployment 7/28 18:05); 2 restarts → 150-window shortfall is CORRECT: 467×120 + ceil(242/5)=49 + ceil(205/5)=41 = 56,130 ✅ |
+
+**On throughput:** July 2015's 219.4 win/s vs Sept 2024's ~302 win/s is **not a regression** — it
+is `torch.compile` warmup amortized over a 4-minute run instead of an 18-minute one. Expect full
+months to land nearer 300 win/s. Judge throughput only on full-month runs.
+
+**Full-month planning figures (for the 11-year campaign):** ~4,464 files → ~535,680 windows →
+~30 min GPU, ~1 day SoX wall-clock, ~157 GB resampled WAV. The WAV footprint is the binding
+constraint (thalassa), not GPU time.
 
 ---
 
@@ -171,8 +310,11 @@ embedded data:
 
 ```bash
 sqlite3 /mnt/PAM_Analysis/perch-hoplite/db/MARS_20240901_20240930_32kHz_norm/hoplite.sqlite \
-  "SELECT substr(filename,6,8) AS day, COUNT(*) FROM hoplite_sources GROUP BY day ORDER BY day;"
-# (if hoplite_sources is not the table, run .tables and adjust)
+  "SELECT substr(filename,6,8) AS day, COUNT(*) FROM recordings GROUP BY day ORDER BY day;"
+# Table is `recordings` (CONFIRMED Aug 27 2026 — this is also the query phase1_embed_torch.py
+# prints in its own "next step" tip on completion). Earlier drafts of this doc said
+# `hoplite_sources`, which was wrong. If in doubt: sqlite3 <db>/hoplite.sqlite ".tables"
+# Note substr(filename,6,8) yields the full YYYYMMDD, not just the day-of-month.
 ```
 
 Cross-check against an independent source (the raw archive `/mnt/PAM_Archive/<YYYY>/<MM>/`, or
@@ -203,9 +345,11 @@ Then score-band triage + candidate selection + review per CLAUDE_inference.md.
 ## Full chain summary
 
 raw `/mnt/PAM_Archive/<YYYY>/<MM>/`
-  → **Stage 1** SoX (`new_32k_resample_sox.sh <year> <month>`, rate -v 32000 / -b 16 /
-    highpass 10 / vol 3 / fade)
+  → **Stage 1** SoX (`tools/resample_sox_32k_batched_vol.sh <year> <month> [start_day] [end_day]
+    [max_jobs]`, rate -v 32000 / -b 16 / highpass 10 / vol 3 / fade)
   → resampled `/mnt/PAM_Analysis/.../resampled_32kHz/<YYYY>/<MM>/`
+  → **Stage 1.5** verify: counts vs raw, per-date histogram, DURATION SCAN, true expected
+    windows = Σ ceil(dur/5)
   → **Stage 2** `phase1_embed_torch.py` (perch-pytorch venv, --device cuda --compile,
     per-window peak-norm-0.25 auto-applied, db named `..._norm`)
   → hoplite DB `/mnt/PAM_Analysis/perch-hoplite/db/MARS_<start>_<end>_32kHz_norm/`
@@ -217,7 +361,19 @@ raw `/mnt/PAM_Archive/<YYYY>/<MM>/`
 - [x] Exact nohup command + log path used for the Sept 2024 SoX resampling run. (Done Aug 25 2026:
       `nohup ./new_32k_resample_sox.sh 2024 9 > logs/nohup_resample_2024_09.out &` — note month
       passed as `9` not `09`.)
-- [ ] Locate the "fancier" concurrency-throttling resample variant (speed/load only — same
-      output bytes; `vol 3` is standard and always used, there is no operational no-vol variant).
+- [x] Locate the "fancier" concurrency-throttling resample variant. **Done Aug 27 2026:** it is
+      `tools/resample_sox_32k_batched_vol.sh` in this repo, and it is now the CANONICAL Stage 1
+      script (day-range args + concurrency cap + failure report). Its sibling
+      `tools/resample_sox_32k_batched_novol.sh` DOES exist and omits `vol 3` — see the warning in
+      Stage 1. Concurrency affects speed/load only, not output bytes.
 - [x] Pin the SoX version — SoX v14.4.2, /usr/bin/sox (done Aug 25 2026).
-- [ ] Confirm the `hoplite_sources` table name for the coverage query (adjust if different).
+- [x] Confirm the coverage-query table name. **Done Aug 27 2026: it is `recordings`**, not
+      `hoplite_sources`. Stage 2.5 corrected.
+
+## Open items (Aug 27 2026)
+- [ ] Fix the copy-pasted header comment block in `tools/resample_sox_32k_batched_vol.sh` — it
+      currently reproduces the `_novol` rationale (and has an unclosed paren), so a reader
+      choosing a script from the header gets the wrong answer. Doc-only; does not affect output.
+- [ ] Consider deleting or renaming `tools/resample_sox_32k_batched_novol.sh`. Identical arg
+      signature + identical output path + no filename marker = a foot-gun across a ~130-month
+      campaign. `vol 3` is mandatory (J. Ryan), so the novol variant has no pipeline role.
