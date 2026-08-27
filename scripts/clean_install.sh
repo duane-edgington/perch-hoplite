@@ -1,139 +1,174 @@
 #!/bin/bash
 # clean_install.sh
 # =============================================================================
-# Unified environment setup for the MBARI perch-hoplite marine bioacoustics
-# pipeline on spark-ae0e (NVIDIA GB10 DGX, aarch64, CUDA 13, sm_121).
+# Environment setup for the MBARI perch-hoplite marine bioacoustics pipeline.
 #
-# Creates ONE venv at ~/perch-hoplite/venv that supports the ENTIRE workflow:
+# PLATFORM: NVIDIA DGX Spark / GB10 superchip ONLY
+#   (Grace CPU + Blackwell GPU, aarch64, CUDA 13, sm_121; Python 3.12)
+#   Verified hosts: spark-ae0e, spark-0626.
 #
-#   EMBEDDING (phase1_embed_torch.py)
-#     Uses the native PyTorch Perch V2 model from ~/perch-pytorch.
-#     No TensorFlow. No Colab. No Google Drive.
+#   TensorFlow-free by design: NVIDIA provides no TF for GB10, so the whole
+#   pipeline runs pure-PyTorch (Perch V2 reimplementation in ~/perch-pytorch).
+#   See docs/perch_hoplite_tf_free_setup.md.
 #
-#   INFERENCE / TRAINING / ANNOTATION (phase2_classify.py, phase2_classify_logmel.py)
-#     Reads pre-computed embeddings from hoplite DB.
-#     Trains linear classifiers. Serves Gradio annotation GUI.
-#     No TensorFlow required — PyTorch Perch V2 used for all model calls.
+# Creates ONE venv at ~/perch-hoplite/venv supporting the entire workflow:
+#   EMBEDDING (phase1_embed_torch.py) — native PyTorch Perch V2, no TF/Colab.
+#   INFERENCE / TRAINING / ANNOTATION (phase2_classify.py) — PyTorch + Gradio.
 #
-# Activate with:
-#   source ~/perch-hoplite/venv/bin/activate
+# Versions are PINNED (see requirements-spark.txt) to the known-good env
+# captured 2026-08-27, so a re-install reproduces it and is not silently
+# broken by an upstream release (e.g. a future perch-hoplite 1.0.3).
 #
-# Prerequisites:
-#   ~/perch-pytorch/perch_weights/weights.npz       (Perch V2 backbone weights)
+# Prerequisites (must exist before running):
+#   ~/perch-pytorch/perch_weights/weights.npz
 #   ~/perch-pytorch/perch_weights/graph_manifest.json
-#   ~/perch-pytorch/const__pad1_output_0.npy        (exact mel reference)
+#   ~/perch-pytorch/const__pad1_output_0.npy
 #   ~/perch-pytorch/perch_hoplite_torch_adapter.py
 #   ~/perch-pytorch/perch_embedder_torch.py
 #   ~/perch-pytorch/perch_frontend_torch.py
 #
 # Usage:
 #   cd ~/perch-hoplite
-#   bash clean_install.sh
+#   bash scripts/clean_install.sh
+#
+# -----------------------------------------------------------------------------
+# TODO (deferred): cross-platform install paths. This script is GB10-ONLY.
+#   Other targets need their own recipes (different torch wheels, no sm121 ONNX,
+#   and TF is actually AVAILABLE there so the TF-free shims are optional):
+#     - Mac (Apple Silicon, e.g. M5 Max / Metal): torch MPS build, no CUDA, no ONNX-gpu wheel
+#     - Google Colab (A100, x86_64): torch cu121/cu124, standard onnxruntime-gpu
+#     - AWS GPU instances / k8s: match the instance CUDA; Docker image is the likely path
+#   These are UNTESTED and out of scope here.
 # =============================================================================
 
 set -e   # exit on first error
+
+# -----------------------------------------------------------------------------
+# Platform guard — refuse to run on non-GB10 systems (avoids installing broken
+# CUDA-13 / aarch64-sm121 wheels on Mac / Colab / x86).
+# -----------------------------------------------------------------------------
+ARCH="$(uname -m)"
+OS="$(uname -s)"
+if [ "$OS" != "Linux" ] || [ "$ARCH" != "aarch64" ]; then
+  echo "ERROR: clean_install.sh is for NVIDIA DGX Spark / GB10 (Linux aarch64) only."
+  echo "  Detected: OS=$OS ARCH=$ARCH"
+  echo "  Mac / Colab / x86 / AWS need a different install path (see TODO in this script)."
+  echo "  To override at your own risk: set ALLOW_NONSPARK=1 and re-run."
+  [ "${ALLOW_NONSPARK:-0}" = "1" ] || exit 1
+  echo "  ALLOW_NONSPARK=1 set — continuing anyway (unsupported)."
+fi
 
 cd ~/perch-hoplite
 
 echo "=== Creating venv at ~/perch-hoplite/venv ==="
 python3 -m venv venv
 source venv/bin/activate
-python --version              # expect 3.12.3
+python --version              # expect 3.12.x
 which python                  # expect ~/perch-hoplite/venv/bin/python
 
 # =============================================================================
-# Section 1 — PyTorch (required for Perch V2 embedding + model inference)
-# Used by: phase1_embed_torch.py, phase2_classify.py (load_model_from_db)
+# Section 1 — PyTorch (GB10 / CUDA 13 / sm_121), PINNED
+#   Installed from the CUDA-13 index; these wheels are GB10-specific.
 # =============================================================================
 echo ""
-echo "=== [1/6] PyTorch (CUDA 13 / GB10 / sm_121) ==="
-pip3 install torch torchvision torchaudio \
+echo "=== [1/6] PyTorch (CUDA 13 / GB10 / sm_121), pinned ==="
+pip3 install \
+    torch==2.12.1+cu130 \
+    torchvision==0.27.1+cu130 \
+    torchaudio==2.11.0+cu130 \
     --index-url https://download.pytorch.org/whl/cu130
 
 # =============================================================================
-# Section 2 — Core scientific stack
-# Used by: all scripts
+# Section 2 — All other pinned deps from requirements-spark.txt
+#   (perch-hoplite==1.0.2, usearch==2.25.3, numpy/scipy/sklearn, audio, gradio,
+#    timm, ml_collections, plotting, utils). TF-free: no tensorflow, no jax.
+#   IMPORTANT: do NOT install perch-hoplite[tf] or [jax] extras.
 # =============================================================================
 echo ""
-echo "=== [2/6] Core scientific stack ==="
-pip3 install numpy scipy pandas matplotlib
+echo "=== [2/6] Pinned pipeline dependencies (requirements-spark.txt) ==="
+pip3 install -r requirements-spark.txt
 
 # =============================================================================
-# Section 3 — Audio processing
-# Used by: phase1_embed_torch.py (soundfile), phase2_classify_logmel.py (librosa PCEN)
+# Section 3 — Optional: ONNX runtime GPU (GB10-specific wheel; cross-check only)
+#   Not required for normal perch-hoplite operation. Skip if not needed.
 # =============================================================================
 echo ""
-echo "=== [3/6] Audio processing ==="
-pip3 install soundfile librosa
-
-# =============================================================================
-# Section 4 — ML utilities
-# Used by: perch_embedder_torch.py (timm EfficientNet backbone)
-#          perch_hoplite_torch_adapter.py (ml_collections)
-# =============================================================================
-echo ""
-echo "=== [4/6] ML utilities ==="
-pip3 install timm ml_collections
-
-# =============================================================================
-# Section 5 — perch-hoplite (core only — NO TensorFlow, NO JAX)
-# Used by: phase1_embed_torch.py, phase2_classify.py
-# IMPORTANT: do not add [tf] or [jax] extras — this pipeline is TF-free
-# =============================================================================
-echo ""
-echo "=== [5/6] perch-hoplite (core only, no TF/JAX) ==="
-pip3 install perch-hoplite
-
-# =============================================================================
-# Section 6 — Gradio (annotation GUI)
-# Used by: phase2_classify.py review command
-# =============================================================================
-echo ""
-echo "=== [6/6] Gradio (annotation GUI) ==="
-pip3 install gradio
-
-# =============================================================================
-# Optional — ONNX runtime GPU (cross-check / calibrated logits only)
-# Not required for normal perch-hoplite operation.
-# =============================================================================
-echo ""
-echo "=== [Optional] ONNX runtime GPU (skip if not needed) ==="
+echo "=== [3/6] (Optional) ONNX runtime GPU — GB10 aarch64/sm121 wheel ==="
 pip3 uninstall -y onnxruntime onnxruntime-gpu || true
-pip3 install https://huggingface.co/Jay0515/onnxruntime-gpu-aarch64-cuda13-sm121/resolve/main/onnxruntime_gpu-1.25.0-cp312-cp312-linux_aarch64.whl
+pip3 install "onnxruntime-gpu @ https://huggingface.co/Jay0515/onnxruntime-gpu-aarch64-cuda13-sm121/resolve/main/onnxruntime_gpu-1.25.0-cp312-cp312-linux_aarch64.whl"
 
 # =============================================================================
-# Verification
+# Section 4 — Verify core stack
 # =============================================================================
 echo ""
-echo "=== Verification ==="
+echo "=== [4/6] Verify core stack ==="
 python3 -c "
-import torch, gradio, librosa, soundfile, numpy, scipy, pandas, timm
-import ml_collections
-print(f'torch:        {torch.__version__}')
-print(f'CUDA:         {torch.cuda.is_available()} — {torch.cuda.get_device_name(0) if torch.cuda.is_available() else \"N/A\"}')
-print(f'gradio:       {gradio.__version__}')
-print(f'librosa:      {librosa.__version__}')
-print(f'numpy:        {numpy.__version__}')
-print(f'scipy:        {scipy.__version__}')
-print(f'pandas:       {pandas.__version__}')
-print(f'timm:         {timm.__version__}')
+import torch, gradio, librosa, soundfile, numpy, scipy, pandas, timm, sklearn
+import ml_collections, usearch
+print('torch:        ', torch.__version__)
+print('CUDA:         ', torch.cuda.is_available(), '-', torch.cuda.get_device_name(0) if torch.cuda.is_available() else 'N/A')
+print('numpy:        ', numpy.__version__)
+print('gradio:       ', gradio.__version__)
+print('usearch:      ', usearch.__version__)
 print('All core packages OK')
 "
 
+# =============================================================================
+# Section 5 — Verify perch-hoplite is the PINNED version and TF-free
+# =============================================================================
+echo ""
+echo "=== [5/6] Verify perch-hoplite==1.0.2, TF-free ==="
 python3 -c "
-import onnxruntime as ort
-print(f'onnxruntime:  {ort.__version__}')
-providers = ort.get_available_providers()
-print(f'ORT providers: {providers}')
-assert 'CUDAExecutionProvider' in providers, 'ERROR: CUDAExecutionProvider missing'
-print('ONNX GPU OK')
+from importlib.metadata import version
+v = version('perch_hoplite')
+assert v == '1.0.2', f'EXPECTED perch-hoplite 1.0.2, got {v}'
+print('perch-hoplite:', v, '(pinned OK)')
+import importlib.util as u
+assert u.find_spec('tensorflow') is None, 'ERROR: tensorflow is installed — this pipeline is TF-free'
+print('tensorflow:    not installed (correct — TF-free)')
+from perch_hoplite.db import sqlite_usearch_impl
+print('perch-hoplite core import OK')
 "
 
+# =============================================================================
+# Section 6 — (Optional) Verify ONNX GPU
+# =============================================================================
+echo ""
+echo "=== [6/6] (Optional) Verify ONNX GPU ==="
 python3 -c "
-from perch_hoplite.db import sqlite_usearch_impl
-from perch_hoplite.agile import embed as agile_embed
-print('perch-hoplite core OK')
+try:
+    import onnxruntime as ort
+    print('onnxruntime:  ', ort.__version__)
+    p = ort.get_available_providers()
+    print('ORT providers:', p)
+    print('CUDAExecutionProvider present:', 'CUDAExecutionProvider' in p)
+except Exception as e:
+    print('ONNX check skipped/failed (optional):', e)
 "
+
+# =============================================================================
+# Section 7 — SoX (system binary, NOT pip) — required for Stage 1 resampling
+#   new_32k_resample_sox.sh calls the sox CLI (rate -v 32000 ... vol 3).
+#   Reproducibility depends on the sox VERSION (output can differ across builds).
+#   Known-good: SoX v14.4.2 at /usr/bin/sox. This is an apt package, not pip:
+#     sudo apt-get install sox libsox-fmt-all
+# =============================================================================
+echo ""
+echo "=== [7] SoX binary check (system package, required for resampling) ==="
+if command -v sox >/dev/null 2>&1; then
+  SOX_VER="$(sox --version 2>&1 | grep -oE 'v[0-9]+\.[0-9]+\.[0-9]+' | head -1)"
+  echo "sox found: $(command -v sox)  version $SOX_VER"
+  if [ "$SOX_VER" != "v14.4.2" ]; then
+    echo "  WARNING: expected SoX v14.4.2 (the version used for the archive resamples)."
+    echo "           A different version may produce byte-different output; re-verify"
+    echo "           checksums if reproducing the resampled dataset."
+  fi
+else
+  echo "  WARNING: sox NOT found on PATH. Stage 1 resampling will fail."
+  echo "           Install it (system package, not pip):"
+  echo "             sudo apt-get install sox libsox-fmt-all"
+  echo "           Target version: SoX v14.4.2"
+fi
 
 echo ""
 echo "=== Install complete ==="
@@ -147,6 +182,6 @@ echo "    --audio-dir /mnt/PAM_Analysis/GoogleMultiSpeciesWhaleModel2/resampled_
 echo "    --date 20180413 --db-dir /tmp/test_db --device cuda --compile"
 echo ""
 echo "  python3 phase2_classify.py infer \\"
-echo "    --db-dir /mnt/PAM_Analysis/duane_scratch/perch_hoplite/db/MARS_20180413_torch_32kHz \\"
-echo "    --classifier /mnt/PAM_Analysis/duane_scratch/perch_hoplite/models/orca_v4_clean.pt \\"
-echo "    --output-csv /tmp/test.csv --logit-threshold 0.0"
+echo "    --db-dir /mnt/PAM_Analysis/perch-hoplite/db/MARS_20180401_20180430_32kHz_norm \\"
+echo "    --classifier /mnt/PAM_Analysis/perch-hoplite/models/orca_v10.pt \\"
+echo "    --labels orca_call --logit-threshold 0.0 --output-csv /tmp/test.csv"

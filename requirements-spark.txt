@@ -1,0 +1,63 @@
+# requirements-spark.txt
+# =============================================================================
+# Pinned dependencies for the MBARI perch-hoplite marine bioacoustics pipeline.
+#
+# PLATFORM: NVIDIA DGX Spark / GB10 superchip ONLY
+#   (Grace CPU + Blackwell GPU, aarch64, CUDA 13, sm_121; Python 3.12)
+#   Hosts: spark-ae0e, spark-0626.
+#
+# !! DO NOT use this file on Mac, Colab, generic x86 CUDA, or AWS !!
+#   The torch cu130 wheels and the aarch64/sm121 ONNX wheel are GB10-specific
+#   and WILL FAIL or be wrong elsewhere. See TODO in clean_install.sh for the
+#   (not-yet-written) cross-platform install paths.
+#
+# TENSORFLOW-FREE BY DESIGN: NVIDIA provides no TF for GB10, so this pipeline
+#   runs pure-PyTorch (see docs/perch_hoplite_tf_free_setup.md). TF is NOT a
+#   dependency and must NOT be installed.
+#
+# Versions below are pinned to the known-good environment captured 2026-08-27
+# via `pip freeze` on spark-ae0e. torch + onnxruntime-gpu are installed from
+# special index/URLs (see clean_install.sh); they are listed here for the
+# record but normally installed by the script, not by `pip install -r`.
+# =============================================================================
+
+# ---- Core embedding / retrieval (the load-bearing pins) ----
+perch-hoplite==1.0.2         # current & effectively only PyPI release (Jun 2026)
+usearch==2.25.3              # vector index backend; >=2.9 API — see tf_free doc shim 2
+numpy==2.4.4                 # NOTE: pipeline runs numpy 2.x (old requirements.txt wrongly said <2.0)
+scipy==1.18.0
+scikit-learn==1.9.0          # linear classifier training / metrics
+
+# ---- Audio I/O ----
+soundfile==0.14.0
+librosa==0.11.0
+soxr==1.1.0                  # resampling backend used by librosa
+
+# ---- ML utilities (PyTorch Perch V2 backbone) ----
+timm==1.0.27                 # EfficientNet backbone for perch_embedder_torch
+ml_collections==0.1.1        # config dicts used by the torch adapter
+
+# ---- Labeling GUI ----
+gradio==6.15.1
+
+# ---- Data / plotting ----
+pandas==2.3.3
+matplotlib==3.11.0
+
+# ---- Utilities ----
+tqdm==4.68.3
+ipywidgets==8.1.8            # required by perch-hoplite internals
+
+# ---- Installed separately in clean_install.sh (GB10-specific, NOT via this file) ----
+# torch==2.12.1+cu130          --index-url https://download.pytorch.org/whl/cu130
+# torchvision==0.27.1+cu130
+# torchaudio==2.11.0+cu130
+# onnxruntime-gpu==1.25.0      (aarch64-cuda13-sm121 wheel; optional, cross-check only)
+#   from https://huggingface.co/Jay0515/onnxruntime-gpu-aarch64-cuda13-sm121/...
+
+# ---- SYSTEM dependency (NOT pip) — required for Stage 1 resampling ----
+# sox        CLI binary, known-good SoX v14.4.2 at /usr/bin/sox
+#            Install via apt, not pip:  sudo apt-get install sox libsox-fmt-all
+#            (The PyPI package named "sox" is a wrapper we do NOT use; our
+#             new_32k_resample_sox.sh calls the sox binary directly. "soxr"
+#             below is libsoxr for librosa — a different thing.)
