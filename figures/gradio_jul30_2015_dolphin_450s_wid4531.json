@@ -1,0 +1,20 @@
+{
+  "saved_filename": "gradio_jul30_2015_dolphin_450s_wid4531.png",
+  "original_filename": "Screenshot 2026-08-27 at 4.36.12 PM.png",
+  "capture_computer": "PERCH",
+  "capture_timestamp": "2026-08-27 16:36:12",
+  "date_registered": "2026-08-27T16:51:54.246219",
+  "figure_type": "gradio_screenshot",
+  "caption": "Dolphin call confirmed by ear (D. Edgington) in the first month of MARS operation, July 30 2015 03:21 UTC. Flagged as a sub-threshold orca_call candidate and reviewed as part of the July 2015 orca screen, which found zero orca. Mel/viridis, 5 s window with 30 s context.",
+  "command": "nohup python3 phase2_classify.py review --db-dir /mnt/PAM_Analysis/perch-hoplite/db/MARS_20150728_20150731_32kHz_norm --classifier /mnt/PAM_Analysis/perch-hoplite/models/orca_v10.pt --target-label orca_call --detections-csv /mnt/PAM_Analysis/perch-hoplite/results/review_jul2015_orca_ge050.csv --detections-offset 0 --num-results 6 --classes orca_call,humpback_song,dolphin_call,ship_noise,other,unlabeled --annotator-id duane --audio-dir /mnt/PAM_Analysis/GoogleMultiSpeciesWhaleModel2/resampled_32kHz/2015/07 --spectrogram-type mel --colormap viridis --serve --port 7878",
+  "script": null,
+  "source_wav": "MARS_20150730_031345_resampled_32kHz.wav",
+  "wav_offset_s": 450.0,
+  "spectrogram_type": "mel",
+  "colormap": "viridis",
+  "classifier": "orca_v10.pt",
+  "db": "MARS_20150728_20150731_32kHz_norm",
+  "score": 0.603,
+  "label_selected": "dolphin_call",
+  "notes": "Label #5, wid=4531. Displayed score 0.603 is the orca_v4 score: the review CSV was built from the v4 detections (the superset at >=0.5), while the session ran --classifier orca_v10.pt. orca_v10 scored this window 0.895. Both models placed it below the operating threshold. Source recording MARS_20150730_031345 is the file that began immediately after the 03:13:45 recorder restart (see CLAUDE_embed.md Stage 1.5, July 2015 worked example)."
+}

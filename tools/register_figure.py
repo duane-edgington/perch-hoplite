@@ -104,7 +104,7 @@ def main():
     ap.add_argument("--original-name", required=True,
                     help="Original filename as uploaded (preserves macOS timestamp)")
     ap.add_argument("--computer",      required=True,
-                    choices=["ICEFISH", "DuaneEM1", "spark-ae0e", "spark-0626", "other"],
+                    choices=["ICEFISH", "PERCH", "DuaneEM1", "spark-ae0e", "spark-0626", "other"],
                     help="Computer where screenshot/plot was captured")
     ap.add_argument("--type",          required=True,
                     choices=["gradio_screenshot", "tsne_plot", "monthly_plot",
