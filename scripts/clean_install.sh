@@ -58,13 +58,42 @@ if [ "$OS" != "Linux" ] || [ "$ARCH" != "aarch64" ]; then
   echo "  ALLOW_NONSPARK=1 set — continuing anyway (unsupported)."
 fi
 
-cd ~/perch-hoplite
+# Install locations are overridable so this can be TESTED without clobbering an
+# existing environment. Defaults reproduce the production layout.
+#   PERCH_HOME : repo dir containing requirements-spark.txt (default ~/perch-hoplite)
+#   VENV_DIR   : venv to create (default $PERCH_HOME/venv)
+# Example test run (won't touch ~/perch-hoplite/venv):
+#   PERCH_HOME=~/tmp_install_test/perch-hoplite VENV_DIR=~/tmp_install_test/venv \
+#     bash scripts/clean_install.sh
+PERCH_HOME="${PERCH_HOME:-$HOME/perch-hoplite}"
+VENV_DIR="${VENV_DIR:-$PERCH_HOME/venv}"
 
-echo "=== Creating venv at ~/perch-hoplite/venv ==="
-python3 -m venv venv
-source venv/bin/activate
+if [ -e "$VENV_DIR" ]; then
+  echo "ERROR: VENV_DIR already exists: $VENV_DIR"
+  echo "  Refusing to overwrite. Remove it first, or set VENV_DIR to a new path."
+  echo "  (This guard protects an existing working venv from being clobbered.)"
+  exit 1
+fi
+
+cd "$PERCH_HOME" || { echo "ERROR: PERCH_HOME not found: $PERCH_HOME"; exit 1; }
+
+# -----------------------------------------------------------------------------
+# Self-logging: capture ALL output (stdout+stderr) to a timestamped log so
+# warnings (e.g. missing sox) aren't lost in the scrollback. Re-exec once
+# through tee unless already logging (INSTALL_LOGGING guard prevents a loop).
+# -----------------------------------------------------------------------------
+if [ -z "${INSTALL_LOGGING:-}" ]; then
+  export INSTALL_LOGGING=1
+  LOG="$PERCH_HOME/clean_install_$(date +%Y%m%d_%H%M%S).log"
+  echo "Logging full install output to: $LOG"
+  exec > >(tee "$LOG") 2>&1
+fi
+
+echo "=== Creating venv at $VENV_DIR ==="
+python3 -m venv "$VENV_DIR"
+source "$VENV_DIR/bin/activate"
 python --version              # expect 3.12.x
-which python                  # expect ~/perch-hoplite/venv/bin/python
+which python                  # expect $VENV_DIR/bin/python
 
 # =============================================================================
 # Section 1 — PyTorch (GB10 / CUDA 13 / sm_121), PINNED
@@ -86,7 +115,7 @@ pip3 install \
 # =============================================================================
 echo ""
 echo "=== [2/6] Pinned pipeline dependencies (requirements-spark.txt) ==="
-pip3 install -r requirements-spark.txt
+pip3 install -r "$PERCH_HOME/requirements-spark.txt"
 
 # =============================================================================
 # Section 3 — Optional: ONNX runtime GPU (GB10-specific wheel; cross-check only)
@@ -173,8 +202,10 @@ fi
 echo ""
 echo "=== Install complete ==="
 echo ""
+echo "Review any warnings with:  grep -i warning \"$LOG\""
+echo ""
 echo "Activate with:"
-echo "  source ~/perch-hoplite/venv/bin/activate"
+echo "  source $VENV_DIR/bin/activate"
 echo ""
 echo "Quick tests:"
 echo "  python3 phase1_embed_torch.py \\"

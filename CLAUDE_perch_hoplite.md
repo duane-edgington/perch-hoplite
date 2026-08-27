@@ -516,6 +516,34 @@ build handoff), thalassa_storage_survey.md, poster_v42_review.md, docs/agile_mod
 
 ## Known Issues / Pending Work
 
+> **Spark environment drift (Aug 27 2026).** The two GB10 sparks run slightly different Python
+> package sets. Both have **perch-hoplite 1.0.2** and **sox v14.4.2** (resampling is byte-
+> consistent across both). But their venvs drifted: **spark-0626 is newer** (torch 2.13.0+cu130,
+> usearch 2.26.0, numpy 2.5.2, gradio 6.25.0) vs **spark-ae0e = the pinned set** in
+> `requirements-spark.txt` (torch 2.12.1+cu130, usearch 2.25.3, numpy 2.4.4, gradio 6.15.1),
+> because 0626's venv was installed unpinned at a different time. Both work; the drift is minor.
+> `requirements-spark.txt` documents the ae0e snapshot. spark-0626's perch-hoplite venv is
+> **pipeline-only** (no rfdetr/sahi — safe to rebuild). **To standardize in the future:** rebuild
+> the target spark's venv from the pinned file — `rm -rf ~/perch-hoplite/venv` then
+> `bash scripts/clean_install.sh` (it reads requirements-spark.txt and re-verifies 1.0.2 + TF-free).
+> Or, if you'd rather track the newer set, update requirements-spark.txt to 0626's versions and
+> rebuild ae0e. Open decision; not urgent since both work. `clean_install.sh` self-logs (tee) and
+> guards against clobbering an existing venv, so a rebuild is safe and diagnosable.
+
+> **Working method — capturing command output so you can find warnings later (Aug 27 2026).**
+> Long installs/runs scroll warnings off-screen. Always capture output. Cheat-sheet (copy, don't
+> memorize):
+> - **See live AND save to file:** `bash some_script.sh 2>&1 | tee run.log`
+>   (`2>&1` = merge errors into normal output; `tee` = write to file while still printing)
+> - **Background long job + log (nohup):** `nohup bash some_script.sh > run.log 2>&1 &`
+>   (order matters: `> file` before `2>&1`; the trailing `&` backgrounds it; `nohup` = keep
+>   running if you log out). Check progress: `tail -f run.log`. See it's still running: `jobs` or
+>   `ps aux | grep some_script`.
+> - **Then find warnings/errors:** `grep -iE "warn|error|fail" run.log`
+> - `clean_install.sh` now SELF-LOGS via `tee` to a timestamped `clean_install_*.log` in
+>   PERCH_HOME — no need to remember the above for that script; just run it and check the log it
+>   names. Review with `grep -i warning <that log>`.
+
 > **Working method — running scripts on spark (Aug 27 2026).** For anything beyond a trivial
 > one-liner, do NOT paste multi-line `python3 -c "..."` with nested quotes — it mangles (drops
 > into `>` mode, breaks on quotes). Write to a file with a QUOTED heredoc and run it:

@@ -1,61 +1,24 @@
-# Perch Hoplite Marine Bioacoustics Pipeline
-# Python 3.12 — NVIDIA DGX SPARC (spark-ae0e, spark-0626)
-# thalassa.shore.mbari.org NFS environment
+# requirements.txt — SEE requirements-spark.txt
+# =============================================================================
+# This project's dependencies are PLATFORM-SPECIFIC and pinned in a dedicated
+# file, because the environment is NVIDIA DGX Spark / GB10 (aarch64, CUDA 13,
+# sm_121) and TensorFlow-free by necessity.
 #
-# !! IMPORTANT — READ BEFORE pip install !!
+#   ->  Use  requirements-spark.txt  together with  scripts/clean_install.sh
 #
-# On spark-ae0e and spark-0626, the following are ALREADY INSTALLED
-# in the active venv and must NOT be reinstalled or upgraded:
+# Do NOT `pip install -r requirements.txt` expecting a working environment —
+# the real, tested install path is:
 #
-#   nvidia-tensorflow  2.17.0+nv25.2   (NVIDIA's DGX-optimized TF build)
-#   tensorflow         2.17.1
-#   perch-hoplite      1.0.1
-#   gradio             6.15.1
-#   soundfile          0.13.1
-#   librosa            0.11.0
+#   cd ~/perch-hoplite
+#   bash scripts/clean_install.sh          # pins torch (cu130), perch-hoplite
+#                                          # ==1.0.2, usearch==2.25.3, etc.,
+#                                          # verifies TF-free, checks sox binary
 #
-# Reinstalling tensorflow from PyPI would replace nvidia-tensorflow
-# with the stock build and lose DGX-specific GPU optimizations.
+# Why not a plain requirements.txt: the torch cu130 wheels and the
+# aarch64/sm121 ONNX wheel are GB10-specific and would fail elsewhere; and
+# `sox` (Stage 1 resampling) is a SYSTEM package (apt), not pip. See
+# docs/perch_hoplite_tf_free_setup.md for the TF-free rationale.
 #
-# Installation procedure on a fresh venv:
-#   Step 1 — NVIDIA TensorFlow (DGX only, do NOT use on non-DGX systems):
-#     pip install nvidia-tensorflow[horovod]
-#
-#   Step 2 — perch-hoplite from GitHub source:
-#     pip install git+https://github.com/google-research/perch-hoplite.git
-#
-#   Step 3 — remaining dependencies:
-#     pip install -r requirements.txt
-#
-# To verify current install is complete on spark-ae0e / spark-0626:
-#     pip list | grep -iE "perch|hoplite|tensorflow|gradio|soundfile|librosa"
-#
-# -----------------------------------------------------------------------
-
-# ---- Core ML / embedding ----
-# nvidia-tensorflow  — DO NOT list here; installed separately (see above)
-# perch-hoplite      — DO NOT list here; installed from GitHub (see above)
-numpy>=1.26,<2.0
-ml-collections>=0.1.1
-etils[epath]>=1.5.0
-
-# ---- Audio I/O ----
-soundfile>=0.12.1          # WAV/FLAC read-write for GUI audio playback
-librosa>=0.10.1            # audio feature utilities
-resampy>=0.4.2             # high-quality audio resampling
-
-# ---- Labeling GUI ----
-gradio>=4.31.0             # web-based annotation interface
-# Access at http://134.89.11.107:7860 (spark-ae0e)
-#        or http://134.89.11.174:7860 (spark-0626)
-
-# ---- Data / plotting ----
-pandas>=2.2.0
-matplotlib>=3.8.0
-seaborn>=0.13.0
-scipy>=1.12.0
-
-# ---- Utilities ----
-tqdm>=4.66.0               # progress bars during embedding
-ipywidgets>=8.0.0          # required by perch-hoplite internals
-
+# Cross-platform install paths (Mac / Colab / AWS) are a documented TODO in
+# scripts/clean_install.sh — not yet written or tested.
+# =============================================================================
