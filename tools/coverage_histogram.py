@@ -42,6 +42,7 @@ import re
 import subprocess
 import sys
 from collections import defaultdict
+from datetime import datetime, timedelta
 from pathlib import Path
 
 FNAME_RE = re.compile(r'MARS_(\d{4})(\d{2})(\d{2})_(\d{6})')
@@ -76,15 +77,55 @@ def durations_for(files):
 
 
 def classify(hours, files):
+    """Coverage class for one date.
+
+    NOTE: a day's summed duration CAN legitimately exceed 24 h. Files are binned by
+    their START timestamp, so the last file of a date runs past midnight (e.g. a file
+    starting 23:53:45 ends 00:03:45). That spill is counted in the earlier date's row.
+    Max legitimate spill is one file length (600 s = 0.167 h), hence the tolerance.
+    Summed duration is therefore NOT a valid overlap test -- see check_overlaps(),
+    which walks the actual timeline. An earlier version of this tool used a 24.05 h
+    ceiling as an overlap proxy and produced a FALSE ALARM on 2015-07-30 (24.06 h,
+    pure midnight spill, no duplicated audio).
+    """
     if files == 0:
         return "ABSENT"
-    if hours > 24.05:
-        return "OVER-24H"
+    if hours > 24.0 + (600.0 / 3600.0) + 0.01:
+        return "CHECK-OVERLAP"      # beyond what midnight spill can explain
     if hours >= 23.9:
         return "COMPLETE"
     if hours >= 22.0:
         return "NEAR-COMPLETE"
     return "PARTIAL"
+
+
+def check_overlaps(files, durs, tol=1.0):
+    """TRUE overlap test: walk the whole month's timeline in start-time order.
+
+    Returns (overlaps, gaps) where overlaps are consecutive pairs whose audio
+    genuinely double-covers wall-clock time (start[i]+dur[i] > start[i+1]+tol),
+    i.e. duplicated audio, and gaps are missing-time intervals > tol.
+    Crosses date boundaries, which is exactly where a per-day sum cannot see.
+    """
+    timed = []
+    for f in files:
+        m = FNAME_RE.search(f.name)
+        if not m:
+            continue
+        y, mo, d, hms = m.groups()
+        t = (int(hms[0:2]) * 3600 + int(hms[2:4]) * 60 + int(hms[4:6]))
+        timed.append((datetime(int(y), int(mo), int(d)) + timedelta(seconds=t), f))
+    timed.sort()
+
+    overlaps, gaps = [], []
+    for (t0, f0), (t1, _f1) in zip(timed, timed[1:]):
+        end0 = t0 + timedelta(seconds=durs.get(f0, 0.0))
+        delta = (t1 - end0).total_seconds()
+        if delta < -tol:
+            overlaps.append((f0.name, _f1.name, -delta))
+        elif delta > tol:
+            gaps.append((f0.name, _f1.name, delta))
+    return overlaps, gaps
 
 
 def main():
@@ -183,13 +224,29 @@ def main():
     print(f"  (files x 120 would be {tot_f*120}, "
           f"a {tot_f*120 - tot_w} window overcount)")
     absent = [r['date'] for r in rows if r['note'] == 'ABSENT']
-    over = [r['date'] for r in rows if r['note'] == 'OVER-24H']
     if absent:
         print(f"\nDATES WITH ZERO DATA ({len(absent)}): {', '.join(absent)}")
-    if over:
-        print(f"\n*** DATES EXCEEDING 24 h ({len(over)}): {', '.join(over)}")
-        print("    More audio than the day can hold => files OVERLAP in time and the DB")
-        print("    will contain DUPLICATED audio. Investigate before embedding.")
+
+    overlaps, gaps = check_overlaps(files, durs)
+    if overlaps:
+        print(f"\n*** TIME OVERLAPS: {len(overlaps)} consecutive pair(s) double-cover "
+              f"wall-clock time.")
+        print("    This IS duplicated audio -- investigate before embedding.")
+        for a, b, sec in overlaps[:20]:
+            print(f"      {a} overruns {b} by {sec:.1f} s")
+        if len(overlaps) > 20:
+            print(f"      ... and {len(overlaps) - 20} more")
+    else:
+        print("\nTime overlaps        : NONE (timeline is strictly non-overlapping)")
+
+    print(f"Recording gaps > 1 s : {len(gaps)}")
+    if gaps:
+        big = sorted(gaps, key=lambda g: -g[2])[:5]
+        tot = sum(g[2] for g in gaps)
+        print(f"  total gap time     : {tot:.0f} s ({tot/3600:.2f} h)")
+        print("  largest:")
+        for a, _b, sec in big:
+            print(f"      {sec:>10.0f} s after {a}")
     print(f"\nWrote {out}")
 
 
