@@ -2292,12 +2292,17 @@ Click a label for each segment, then **Save Labels to DB**.
             # (e.g. "orca_call", "dolphin_call", "other").
             # In legacy mode the label is always query_label.
             store_label = choice if label_classes else query_label
-            # DELETE existing annotation for this window first (any label),
-            # then INSERT fresh.
+            # DELETE only THIS ANNOTATOR's existing annotation for this window,
+            # then INSERT fresh. Scoped by provenance so a second annotator ADDS an
+            # opinion rather than destroying the first annotator's label. (Fixed
+            # Aug 28 2026 -- the unscoped form silently overwrote other annotators,
+            # which matters because the review UI is blind by default: the radio is
+            # hardcoded value="unlabeled" and never reads existing labels from the DB,
+            # so an annotator overwrote labels they could not even see.)
             con.execute("""
                 DELETE FROM annotations
-                WHERE recording_id=? AND offsets=?
-            """, (rec_id, off_enc))
+                WHERE recording_id=? AND offsets=? AND provenance=?
+            """, (rec_id, off_enc, prov))
             con.execute("""
                 INSERT INTO annotations
                     (recording_id, offsets, label, label_type, provenance)
