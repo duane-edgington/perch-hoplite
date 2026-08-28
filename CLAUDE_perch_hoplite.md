@@ -459,7 +459,135 @@ all expert-confirmed, finding #14.
 
 ---
 
+
+## HANDOFF — project state as of Aug 27 2026 EOD (for a fresh chat)
+
+**Where things stand.** orca_v10 validated across every accessible month; poster accepted and at
+v44; pipeline fully documented; John has redirected priorities (finding #26). **The full-archive
+campaign (priority #1) has STARTED — July 2015 is done, zero orca (finding #29).**
+
+### FULL-ARCHIVE CAMPAIGN — running progress (start here next session)
+
+The loop, one month at a time, per `CLAUDE_embed.md`:
+**resample (Stage 1) -> verify (Stage 1.5) -> embed (Stage 2) -> coverage (Stage 2.5) ->
+infer v4+v10 (Stage 3) -> score-band triage -> Gradio review -> record finding -> delete bulk WAV.**
+
+| Month | Status | Result |
+|---|---|---|
+| **2015-07** | ✅ COMPLETE (Aug 27 2026) | Zero orca. 469 files, 56,130 windows. 2 dolphin_call, 4 other. Finding #29. |
+| **2015-08** | ⬅️ **NEXT** | First FULL month (~4,464 files, ~535,680 windows, ~157 GB WAV, ~1 day SoX, ~30 min GPU). **Check the early hours of Aug 1** for anything spanning the 7/31 midnight boundary (finding #29). |
+
+**Canonical Stage 1 command** (day-range args; month WITHOUT leading zero):
+`./tools/resample_sox_32k_batched_vol.sh <year> <month> [start_day] [end_day] [max_jobs]`
+**NEVER** use `tools/resample_sox_32k_batched_novol.sh` — identical args, identical output path,
+no filename marker, but omits the mandatory `vol 3` volts calibration (J. Ryan: always vol 3,
+clipping is not a concern for signals of interest).
+
+**Storage discipline is now the binding constraint, not GPU time.** thalassa was at 96%; Duane is
+reclaiming space by deleting old 24 kHz / 48 kHz resamples for other models (frees more than
+Jul+Aug 2015 consume). **July 2015's resampled WAV is being KEPT** as the reference month while
+the loop is new. From August onward: analyze-then-archive — keep embeddings (usearch.index +
+hoplite.sqlite TOGETHER, #28) + crown jewels, delete bulk resampled WAV.
+
+**Canonical facts a new chat needs:**
+- Models: `orca_v4.pt` (prior production / poster worked-example), `orca_v10.pt` (current best /
+  poster result), at `/mnt/PAM_Analysis/perch-hoplite/models/`. NO `orca_v4_clean.pt` (see
+  Classifier Versioning; `_clean` = retired pre-normalization bootstrap era, v1-v8).
+- May 2018 = permanent held-out test month (finding #18). Training recipe = Apr2018 + Oct2020 +
+  Apr2026 (three-season). v10 beats v4 on the May hold-out: recall + precision, 4 new orca days
+  (findings #20/#21/#27).
+- Two dirs both named perch-hoplite: the GIT REPO clone (e.g. ~/perch-hoplite on spark) vs the
+  NFS DATA area /mnt/PAM_Analysis/perch-hoplite/ (holds db/, json_labels/, results/, models/,
+  logs/). json_labels/ + models/ + labels/ + provenance/ + example_clips/ = the <10 MB crown
+  jewels. Embeddings = usearch.index files (~200 GB for 11 yr); sqlite = metadata only (#28).
+- Three git clones: EM1 (/Users/duane/perch-hoplite), spark-ae0e (~/perch-hoplite, runs code),
+  Perch work machine (/Users/duane/projects/perch-hoplite). All push to
+  github.com/duane-edgington/perch-hoplite (PUBLIC).
+
+**Working method (hard-won):** (1) Claude stages files to /mnt/user-data/outputs, canNOT push;
+Duane pushes via a clone (download -> cp -> grep-verify new text -> commit -> push). (2) After
+push, grep the pushed file on GitHub for the new text before believing it landed. (3) pull
+before edit; one working copy, not stale clones. (4) On spark, run scripts via quoted-heredoc-
+to-file, never fragile inline `python3 -c` (finding: Known Issues working-method note).
+
+**Priority #1 (John, finding #26): full-archive seasonal/interannual orca analysis** — run best
+model(s) across the ENTIRE MARS archive, characterize seasonal/interannual variance, cross-verify
+with California Killer Whale Project sightings, correlate with warming/prey migration. Chunk it
+to respect thalassa at 96% (analyze-then-archive; embeddings are ~1% of audio size so keep
+embeddings, delete bulk resampled WAV after analysis). De-prioritized: other ecotypes, external
+datasets (Palmer 2025). Focus = transient/Bigg's (CA140-associated) calls.
+
+**Other open threads (all no-urgency / tabled):**
+- Public repo build: take CLAUDE_repo.md + CLAUDE_release_plan.md + this file to a FRESH chat.
+- Storage cleanup: backup disk -> rsync --dry-run -> verify -> remove ~723 GB bulk resamples
+  (thalassa_storage_survey.md). Keep embeddings (usearch+sqlite together) + crown jewels.
+- Embeddings archive for John (3 Perch users): ~200 GB for 11 yr — see #28.
+- Sept 1-19 2024: humpback-heavy, no orca clustering — confirm with ~10-min ear-review of top
+  >=2.31 clips (finding #25). 9/27 encounter NOT in acoustic record (real outage).
+- **Blind-review strategy (DEFERRED by Duane + John, Aug 27 2026 — action item retained, not dropped).**
+  Explicitly de-prioritized for now; the campaign focus is Duane reviewing Gradio sessions looking
+  for ORCA. A blind-review / two-annotator design still needs to be devised later (findings #23/#26).
+  Note: the Aug 24 April 2026 review server (13 clips, `ge231`) was left running 3 days and was
+  killed Aug 27; it had NO `--annotator-id`, so anything labeled in it went in as generic `analyst`.
+- **Reviewer stance for the campaign (Aug 27 2026):** Duane is the reviewer; the operative question
+  is **orca / not-orca**. A not-orca call of "humpback" is a **working label, not authoritative** —
+  John's humpback labels are the class ground truth. **ALWAYS set `--annotator-id duane`** so the two
+  are distinguishable in the pool. **At some point every humpback detection gets reviewed and a
+  classification scheme decided** (open action item; interacts with the song/vocalization split below,
+  and the humpback pool grows with every campaign month reviewed).
+- Humpback song/vocalization split (tabled, needs John).
+- Cross-hydrophone comparison in Monterey Bay (later, finding #26).
+- Danelle: sent 3 annotation charts (total / training-only / F1-with-training-support, incl. the
+  54 orca hard-negatives). Awaiting her response.
+- Metric wording: use "nearest-neighbour retrieval" (or "inner product"), NOT "cosine" (#28).
+
+**Context docs in the repo (all CLAUDE_*-prefixed, kept deliberately):**
+CLAUDE_perch_hoplite.md (this, main findings), CLAUDE_embed.md (resample+embed pipeline, all
+TODOs closed), CLAUDE_inference.md (inference/review workflow), CLAUDE_inference_april_2026.md
+(session record), CLAUDE_release_plan.md (FAIR release blueprint), CLAUDE_repo.md (public-repo
+build handoff), thalassa_storage_survey.md, poster_v42_review.md, docs/agile_modeling_history.md.
+
+
 ## Known Issues / Pending Work
+
+> **Spark environment drift (Aug 27 2026).** The two GB10 sparks run slightly different Python
+> package sets. Both have **perch-hoplite 1.0.2** and **sox v14.4.2** (resampling is byte-
+> consistent across both). But their venvs drifted: **spark-0626 is newer** (torch 2.13.0+cu130,
+> usearch 2.26.0, numpy 2.5.2, gradio 6.25.0) vs **spark-ae0e = the pinned set** in
+> `requirements-spark.txt` (torch 2.12.1+cu130, usearch 2.25.3, numpy 2.4.4, gradio 6.15.1),
+> because 0626's venv was installed unpinned at a different time. Both work; the drift is minor.
+> `requirements-spark.txt` documents the ae0e snapshot. spark-0626's perch-hoplite venv is
+> **pipeline-only** (no rfdetr/sahi — safe to rebuild). **To standardize in the future:** rebuild
+> the target spark's venv from the pinned file — `rm -rf ~/perch-hoplite/venv` then
+> `bash scripts/clean_install.sh` (it reads requirements-spark.txt and re-verifies 1.0.2 + TF-free).
+> Or, if you'd rather track the newer set, update requirements-spark.txt to 0626's versions and
+> rebuild ae0e. Open decision; not urgent since both work. `clean_install.sh` self-logs (tee) and
+> guards against clobbering an existing venv, so a rebuild is safe and diagnosable.
+
+> **Working method — capturing command output so you can find warnings later (Aug 27 2026).**
+> Long installs/runs scroll warnings off-screen. Always capture output. Cheat-sheet (copy, don't
+> memorize):
+> - **See live AND save to file:** `bash some_script.sh 2>&1 | tee run.log`
+>   (`2>&1` = merge errors into normal output; `tee` = write to file while still printing)
+> - **Background long job + log (nohup):** `nohup bash some_script.sh > run.log 2>&1 &`
+>   (order matters: `> file` before `2>&1`; the trailing `&` backgrounds it; `nohup` = keep
+>   running if you log out). Check progress: `tail -f run.log`. See it's still running: `jobs` or
+>   `ps aux | grep some_script`.
+> - **Then find warnings/errors:** `grep -iE "warn|error|fail" run.log`
+> - `clean_install.sh` now SELF-LOGS via `tee` to a timestamped `clean_install_*.log` in
+>   PERCH_HOME — no need to remember the above for that script; just run it and check the log it
+>   names. Review with `grep -i warning <that log>`.
+
+> **Working method — running scripts on spark (Aug 27 2026).** For anything beyond a trivial
+> one-liner, do NOT paste multi-line `python3 -c "..."` with nested quotes — it mangles (drops
+> into `>` mode, breaks on quotes). Write to a file with a QUOTED heredoc and run it:
+> ```
+> cat > /tmp/x.py << 'PYEOF'
+> ...python; use %-formatting to avoid nested quotes...
+> PYEOF
+> python3 /tmp/x.py
+> ```
+> Companion to push discipline (one working copy / pull-before-edit / grep-after-push).
 
 > **Poster status (Aug 25 2026): current version is v44.** John Ryan reviewed it, has NO
 > concerns; the extended abstract is uploaded and ACCEPTED by the conference. The v35 review
@@ -601,6 +729,74 @@ all expert-confirmed, finding #14.
     - **(7) FAIR public release — John is fine with it.** His view: a notebook that runs the SoX resampling on the public AWS raw audio may itself suffice as "releasing the data" (reproducibility-not-dataset, matches CLAUDE_release_plan.md). He's ALSO open to releasing resampled data in an appropriate format/venue if we want. Either path acceptable.
     - **(8) thalassa / IT storage discipline (IMPORTANT operational constraint):** John is concerned about the data load our activity places on MBARI IT infrastructure. Directive: **monitor and keep our usage clean.** Do NOT keep all 32kHz resampled files on thalassa — analyze a year (or whatever unit) then DELETE all but key files supporting the work. Back up (then remove) old log files and other cruft. This directly shapes the full-archive plan (#1): we can't resample-and-keep the whole archive at once; we process in chunks, extract/keep only what supports findings (models, labels, confirmed clips, key figures), and delete the bulk resampled WAV after analysis. The reproducibility bundle (script + manifest + checksums) is what makes deleting the bulk resampled audio safe — it can be regenerated on demand.
     - **Roadmap impact:** #1 (full-archive seasonal/interannual + sightings correlation) is now the top near-term thrust, ahead of the external-ecotype and temporal-architecture items. Storage discipline (#8) is a hard constraint on how it's executed (chunked, clean-as-you-go).
+
+27. **May 2018 per-day v4-vs-v10 breakdown (Aug 26 2026) — data artifact for a talk slide.** Produced per-day detection counts for all 31 days of May (held-out month), both models, thresholds 0.0/+1.16/+2.31, plus confirmed-clips-per-day. Tool: `tools/may_per_day_v4_v10.py` (reads the two existing May inference CSVs + DB confirmed windows — no re-inference). Output: `results/may2018_per_day_v4_v10.csv`. Reconciles exactly with #21 (confirmed total 210, 8 confirmed days).
+    - **The 8 confirmed days (v4@1.16 / v10@1.16 / confirmed):** 05-02 (0/1/1 NEW), 05-03 (0/1/1 NEW), 05-07 (1/1/1), 05-12 (111/144/181), 05-13 (1/5/8), 05-14 (4/10/10), 05-16 (4/7/7), 05-29 (0/1/1 NEW). Totals v4@1.16=121, v10@1.16=170, confirmed=210. **v10 >= v4 on every single day**, and catches 3 days v4 misses entirely (05-02/03/29).
+    - **Verified:** the 4 new days each carry EXACTLY ONE +1.16 detection (05-02/03/07/29 = 1 each) — previously inferred from "4 of 14," now DB-confirmed.
+    - **Charting guidance (important for the slide):** plot the **+1.16** series, NOT +2.31 — at v10's own optimum (+2.31) five of the eight confirmed days collapse to zero detections (only 05-12/14/16 survive), which would read as "no orca" on real orca days. State +2.31 in text if wanted. Also: "detections at threshold" != "confirmed orca present" (e.g. 05-12: 181 confirmed but 144 detected @1.16 — 37 confirmed clips sit below cutoff). The stronger, more honest slide is RECALL PER DAY (confirmed-recovered vs confirmed-present), not raw detection counts. Answer-back doc: `may_per_day_ANSWER.md`.
+
+28. **Embeddings live in `usearch.index`, NOT in the sqlite — storage/archive architecture pinned (Aug 27 2026).** Investigated for John's question "how big to archive all 11 years of embeddings" (3 Perch 2.0 users: Duane, Carlos, Danelle). Definitive schema check: the `hoplite.sqlite` contains ONLY metadata tables — `deployments, recordings, windows(offsets), annotations(label,label_type,provenance), hoplite_metadata`. **There is NO embedding-vector column in the sqlite.** The 1,536-dim float16 vectors live entirely in the companion **`usearch.index`** file. Arithmetic confirms: ~500K windows x 1536 x 2 bytes float16 ~= 1.5 GB, matching the observed ~1.6 GB usearch.index (vs. ~40 MB sqlite).
+    - **Correction of an earlier mistake in this project's notes/discussion:** it was previously (wrongly) suggested that the sqlite holds the embeddings and usearch is a cheaply-regenerable index to skip when archiving. WRONG. **usearch.index IS the embeddings** — regenerating it requires re-embedding the audio on the GPU (not a cheap rebuild-from-sqlite). Archive unit = **usearch.index (vectors) + hoplite.sqlite (the window-id -> recording/time/label key) TOGETHER**; neither is useful alone (sqlite without usearch = labels with no vectors; usearch without sqlite = anonymous vectors).
+    - **Similarity metric = INNER PRODUCT, and CONFIRMED != cosine (Aug 27 2026, Danelle's question, resolved by experiment).** `hoplite_metadata` usearch_config: `metric_name":"IP"`, and `idx.metric_kind = MetricKind.IP`. IP == cosine ONLY if vectors are L2-normalized — **VERIFIED they are NOT:** sampled 200 vectors from the April 2018 usearch.index (518,400 x 1536, F16), L2 norms ranged **2.75-4.78 (mean 3.30, std 0.34), nowhere near 1.0.** So retrieval is genuinely dot-product on non-normalized vectors — magnitude matters, unlike cosine. (The audio peak-norm-to-0.25 fix is AUDIO amplitude norm, NOT embedding L2-norm.) Norm-check script: read via `usearch.index.Index.restore(...).get(keys)` then `np.linalg.norm`. **Source-code confirmation (perch_hoplite v1.0.2, current & effectively only PyPI version, installed pip not git; usearch 2.25.3):** `perch_hoplite.db.score_functions.get_score_fn` offers `numpy_dot` (raw np.dot, NO normalization), `numpy_cos` (L2-normalizes both sides THEN dots), `numpy_neg_euclidean`. Our `phase2_classify.py` search selects via `--score-fn` whose **default is `"dot"`** (line 693), so the raw dot path is used. FOUR consistent confirmations that retrieval = raw inner product, NOT cosine: (1) usearch config metric_name=IP; (2) vectors not unit-norm (2.7-4.8); (3) score_functions numpy_dot is raw; (4) --score-fn default=dot. Cosine IS available (`--score-fn cos`) but unused. **For poster/paper, say "nearest-neighbour retrieval" (metric-agnostic, unattackable); if naming the metric, say "inner product" / "dot product," NEVER "cosine." Implication worth a methods sentence: embedding magnitude influences ranking, not just direction.**
+    - **11-year archive estimate (assume all months ~= April 2018 full month):** ~132 nominal months (~120-130 with outage gaps). Embeddings (usearch): 132 x 1.6 GB ~= **~200-215 GB**. Metadata (sqlite): 132 x 40 MB ~= **~5 GB**. **Full runtime package ~= ~210 GB.** For scale, resampled 32kHz audio for 11 yr ~= 157 GB/mo x 132 ~= **~20 TB** — so embeddings are ~1% of the audio. Headline for John: archiving ALL 11 years of embeddings is **~200 GB, not terabytes** — Zenodo-feasible (~4 records) or a small S3 bucket.
+    - **Regeneration cost if NOT archived:** resample (SoX, CPU, cheap compute but ~1 day/mo wall-clock + ~20 TB transient disk, must chunk) + embed (GB10 GPU: Sept 2024 = 324K embeddings in 17.9 min -> ~30 min/full month -> **~66 GPU-hours for 11 years**; usearch index built during this step). Trade-off for John: archive ~200 GB once (a few $/mo on S3) so three Perch users never re-spend ~66 GPU-hr + 20 TB transient resampling.
+    - **Archive-set recommendation (per-DB):** KEEP `hoplite.sqlite` + `usearch.index`; SKIP `hoplite.sqlite-wal`/`-shm` (transient — run `sqlite3 <db>/hoplite.sqlite "PRAGMA wal_checkpoint(TRUNCATE);"` with no process attached BEFORE archiving so the sqlite is complete), SKIP `logs/`. Across the db/ tree: keep the 5 per-month `_norm` DBs (Apr2018, May2018, Oct2020, Apr2026, Sep2024); SKIP non-`_norm` (superseded pre-normalization), SKIP `_ctx` (v5 context dead-end), SKIP redundant `combined_*` iterations (regenerable by recombining per-month `_norm`; keep at most the one v10 actually trained on — confirm which via train.py args). Full db/ survey: 15 dirs, sqlite total 1.1 GB, usearch total 43.2 GB currently on thalassa.
+29. **July 2015 — FIRST MONTH OF THE FULL-ARCHIVE CAMPAIGN (#26). ZERO ORCA. Pipeline end-to-end validated on 2015-era audio (D. Edgington, Aug 27 2026).**
+    The MARS archive campaign starts at the beginning: July 2015 is the first month the hydrophone
+    was deployed. Run end-to-end (resample -> verify -> embed -> coverage -> infer v4+v10 -> review)
+    in a single session. **Result: no orca.** A clean, unremarkable null — and exactly the expected
+    outcome for late July, which sits well outside the spring window where every confirmed Monterey
+    Bay Bigg's event to date has landed.
+    - **Data:** deployment begins **2015-07-28 18:05:24**; the month is only ~78 h. 469 files,
+      469 raw = 469 resampled (exact match), **56,130 embeddings**, 4.3 min on spark-ae0e GB10 at
+      219.4 windows/s. Coverage (DB) = 36 / 144 / 145 / 144 for Jul 28/29/30/31, matching disk.
+    - **Two recorder restarts** (not overlaps): `MARS_20150729_162524` = 242 s and
+      `MARS_20150730_031011` = 205 s. Total missing audio 753 s (12.6 min) in 78 h. Arithmetic
+      closes exactly (469x600 - 753 = 280,647 s measured), confirming **no duplicated audio**.
+      The 145-file day (7/30) is a restart artifact, not an overlap.
+    - **Inference (floor 0.0):** v4 = 42 detections, v10 = 27. **Nothing at >=2.31 (v10's own
+      optimal cutoff) for either model.** Exactly one detection each in [1.16, 2.31) — and it is
+      **the same window** in both: `MARS_20150731_222345`, 335-340 s, **v4 = 1.548, v10 = 2.002**.
+    - **THE CONCORDANT WINDOW IS NOT ORCA.** Reviewed by ear: not orca. This is a useful
+      calibration point — the strongest evidence the month had, two independently-trained
+      classifiers agreeing, and it still resolves negative. Worth remembering when a single
+      concordant above-threshold window turns up in a future month with no bout structure.
+    - **Floor-rate caution (recorded because it briefly misled this session):** 42/56,130 = 7.5e-4
+      per window vs Oct 2020's v4 rate of 144/535,278 = 2.7e-4 — i.e. July 2015 fires ~2.8x more
+      often per window than the month confirmed orca-silent. **This means nothing.** The mass is
+      entirely in the bottom band (v4: 36 of 42 below 0.5; v10: 23 of 27), collapsing under
+      threshold exactly as Oct 2020 did. Floor-0.0 rates are not comparable across months;
+      re-confirms the standing rule that T=0.0 counts are unusable.
+    - **v10's >=0.5 set is a strict SUBSET of v4's.** v4 showed three hits on the evening of 7/31
+      (22:13 = 0.587, 22:23 = 1.548, 23:23 = 0.711) which superficially resembled an evening
+      cluster (cf. Apr 25 2018, an evening encounter). **v10 drops both flanking windows below
+      0.5**, so the better model does not support the cluster. Correctly read as scattered
+      single windows, not a bout — no consecutive windows anywhere in the month.
+    - **Review session (D. Edgington, annotator-id `duane`, 4 minutes):** 6 clips = everything
+      either model scored >=0.5 (v4's superset). Saved 6 labels, 0 unlabeled skipped.
+      **Outcome: 2 `dolphin_call`, 4 `other`, 0 orca.** "other" = real acoustic content Duane
+      could not identify and was confident was not orca. NOTE: the labeling session ID was not
+      captured this session — recoverable from
+      `/mnt/PAM_Analysis/perch-hoplite/logs/review_jul2015_v10.log` if needed for audit.
+    - **Figures registered** (both PERCH framegrabs, mel/viridis, sidecars + manifest committed):
+      `gradio_jul30_2015_dolphin_450s_wid4531.png` (score 0.603 v4 / 0.895 v10) and
+      `gradio_jul31_2015_dolphin_425s_wid20726.png` (score 0.711 v4 / **v10 below 0.5**).
+      The second is notable: **a window orca_v10 essentially dismissed proved to be a real dolphin
+      call by ear** — a `dolphin_call` recall observation, not an orca-performance one.
+    - **Review-CSV score provenance (avoid re-deriving this):** the review set was built from the
+      **v4** detections CSV (the superset at >=0.5) while the session ran `--classifier orca_v10.pt`.
+      So **the scores displayed in the Gradio pane and recorded in the figure sidecars are v4
+      scores**, not v10. Both figure sidecars document this explicitly.
+    - **MONTH-BOUNDARY CAVEAT (carry into August 2015):** the record ends at midnight on 7/31, so
+      any encounter beginning that evening is truncated by the month boundary. August 2015
+      continues the same deployment — **check the early hours of Aug 1** when that month is
+      embedded. A real event spanning the boundary would surface there. (This is a general
+      artifact of month-at-a-time processing across an 11-year archive, not specific to July 2015.)
+    - **Pipeline/docs hardening produced by this run** (all pushed): `CLAUDE_embed.md` gained a
+      canonical Stage 1 script designation, a new **Stage 1.5 resample-verification** procedure,
+      and the **`ceil(duration/5)`** window-count reconciliation rule. `register_figure.py` gained
+      **PERCH** as a `--computer` choice (ICEFISH is retired; PERCH is the current screenshot source).
+
 ## Label Class Definitions
 
 **`negative` (label_type=2, weak negative):**
@@ -642,6 +838,7 @@ Orange-red (other) sits at the humpback/orca/negative boundary.
 | May 16 2018 | 4 reviewed @≥1.16 (v4) — 3 confirmed orca (D. Edgington), ~15:09 cluster ✅ (1 too faint, unlabeled); figs wid9642/wid9647 |
 | May 7 2018 | 1 @≥1.16 (v4) — too faint to confirm, left unlabeled |
 | October 2020 | Oct 5-12 cluster confirmed — zero orca vocalizations (Bigg's orca silent during hunts) ✅. **Threshold-review July 20 2026 (J. Ryan):** the 10 detections surviving ≥1.16 are all humpback (4 newly labeled, 6 already-known humpback → 263; 1 left unknown on ambiguous 30 s context), **0 orca labels in the month**. Even at the operating threshold the residual "orca" hits are windows already known to be humpback — Oct 2020 confirmed orca-silent (true-negative / specificity result). |
+| **July 2015** | **ZERO ORCA (finding #29).** First month of MARS operation (deployed 7/28 18:05; only ~78 h). v4 = 42 detections @0.0, v10 = 27; **none at >=2.31**; one concordant window @[1.16,2.31) (`MARS_20150731_222345` 335 s, v4 1.548 / v10 2.002) **reviewed and NOT orca**. 6 clips >=0.5 reviewed in 4 min (D. Edgington) = **2 dolphin_call, 4 other, 0 orca**, none unlabeled. Expected null: late July is outside the spring Bigg's window. Caveat: record ends midnight 7/31 — check early Aug 1. |
 | April 2026 | Apr 21 dominant (101 v4 detections) — all reviewed clips are humpback FP; consistent with Bigg's orca acoustic silence. Apr 17-24 CA51A/CA50B event window shows 129 detections but no confirmed orca vocalizations. |
 
 **Orca cross-month threshold validation (July 19 2026):**
