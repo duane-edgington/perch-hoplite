@@ -466,6 +466,38 @@ all expert-confirmed, finding #14.
 v44; pipeline fully documented; John has redirected priorities (finding #26). **The full-archive
 campaign (priority #1) has STARTED — July 2015 is done, zero orca (finding #29).**
 
+### MACHINES — four of them; ALWAYS `git pull` first (Duane keeps all four synced by hand)
+
+| Machine | Role | perch-hoplite clone |
+|---|---|---|
+| **DuaneEM1** | home, M1 MacBook Pro (DuaneE + M1) | `/Users/duane/perch-hoplite` |
+| **PERCH** | work MacBook Pro | `/Users/duane/Projects/perch-hoplite` |
+| **spark-ae0e** | GB10 compute, NVIDIA DGX | `/home/duane/perch-hoplite` |
+| **spark-0626** | GB10 compute, NVIDIA DGX — near-identical to ae0e | `/home/duane/perch-hoplite` |
+
+Both laptops are portable, so **Duane will say which machine he is on** — the clone paths differ
+and a copy-paste command for the wrong laptop fails. **Always `git pull` on the machine in use
+before any repo action**; Duane syncs all four by hand and says so himself.
+- **Screenshots** originate in `~/Desktop` on whichever laptop, as
+  `Screenshot YYYY-MM-DD at H.MM.SS AM/PM.png` (macOS default). Staged files land in `~/Downloads`.
+  Yesterday's July figures were `mv`'d (not `cp`'d), so **the repo copy IS the archival copy** —
+  each sidecar preserves `original_name` + parsed `capture_timestamp`, and git history is the only
+  recovery path if a figure file is ever lost.
+- **`--computer` in `register_figure.py` records where the SCREENSHOT was taken**, not where the
+  analysis ran (Gradio serves from a spark; the grab happens on a laptop). The spark side is
+  captured in the sidecar's `--command` field. Choices now include PERCH (added Aug 27 2026).
+- **VERSION SEAM CHECK — RESOLVED Aug 28 2026, no seam exists.** Both sparks:
+  **torch 2.12.1+cu130, CUDA 13.0**, `perch_hoplite==1.0.2` pinned on all four machines, and the
+  `/mnt` mounts are identical. So embeddings from either spark are interchangeable and there is no
+  need to record which box embedded which month. (`smb://thalassa.shore.mbari.org/PAM_Analysis/GoogleMultiSpeciesWhaleModel2/resampled_32kHz`
+  is the same store the sparks see at `/mnt/PAM_Analysis/...`.) Residual venv divergence is in
+  other pip packages only; torch was the one that could have affected embedding numerics.
+- **Suggested convention (not a rule):** **spark-0626 for resampling** (unattended, CPU/wall-clock
+  bound, ~1 day per full month) and **spark-ae0e for embed / infer / review / train** (where Duane
+  is at the keyboard, and where contention would actually be noticed). Keeps a long SoX run from
+  competing with a training job or making a Gradio session sluggish. If run concurrently, keep the
+  two boxes on different months so output paths never collide.
+
 ### FULL-ARCHIVE CAMPAIGN — running progress (start here next session)
 
 The loop, one month at a time, per `CLAUDE_embed.md`:
@@ -750,10 +782,17 @@ build handoff), thalassa_storage_survey.md, poster_v42_review.md, docs/agile_mod
     - **Data:** deployment begins **2015-07-28 18:05:24**; the month is only ~78 h. 469 files,
       469 raw = 469 resampled (exact match), **56,130 embeddings**, 4.3 min on spark-ae0e GB10 at
       219.4 windows/s. Coverage (DB) = 36 / 144 / 145 / 144 for Jul 28/29/30/31, matching disk.
-    - **Two recorder restarts** (not overlaps): `MARS_20150729_162524` = 242 s and
-      `MARS_20150730_031011` = 205 s. Total missing audio 753 s (12.6 min) in 78 h. Arithmetic
-      closes exactly (469x600 - 753 = 280,647 s measured), confirming **no duplicated audio**.
-      The 145-file day (7/30) is a restart artifact, not an overlap.
+    - **Two recorder restarts:** `MARS_20150729_162524` = 242 s and `MARS_20150730_031011`
+      = 205 s. **CORRECTED Aug 28 2026 by `tools/coverage_histogram.py`: total real gap is 62 s
+      (53 s + 9 s), NOT the 753 s originally recorded here.** 753 s was the duration *deficit*
+      vs 469 nominal 600 s files, wrongly reported as lost wall-clock time; the recorder
+      restarted promptly so almost nothing was lost. The predicted next-start `163019` (not the
+      cadence-implied `163524`) is why — **a restart shifts the filename cadence.** Also **one
+      8 s timestamp overlap** exists (`163019` -> `164011`), below one 5 s analysis window and
+      consistent with a clock nudge; the original "no duplicated audio" claim came from
+      arithmetic that could not see overlaps at all. Span reconciliation now exact:
+      Jul 28 18:05:24 -> Aug 1 00:03:45 = 280,701 s = 280,647 recorded + 62 gap - 8 overlap.
+      The 145-file day (7/30) is a restart artifact plus midnight spill, not an overlap.
     - **Inference (floor 0.0):** v4 = 42 detections, v10 = 27. **Nothing at >=2.31 (v10's own
       optimal cutoff) for either model.** Exactly one detection each in [1.16, 2.31) — and it is
       **the same window** in both: `MARS_20150731_222345`, 335-340 s, **v4 = 1.548, v10 = 2.002**.
@@ -796,6 +835,42 @@ build handoff), thalassa_storage_survey.md, poster_v42_review.md, docs/agile_mod
       canonical Stage 1 script designation, a new **Stage 1.5 resample-verification** procedure,
       and the **`ceil(duration/5)`** window-count reconciliation rule. `register_figure.py` gained
       **PERCH** as a `--computer` choice (ICEFISH is retired; PERCH is the current screenshot source).
+
+30. **Per-day recording-effort records are now MANDATORY per month — `tools/coverage_histogram.py` (Aug 28 2026).**
+    The full-archive campaign deletes bulk resampled WAV after each month is analyzed, so **hours
+    recorded per day is unrecoverable once the audio is gone.** August 2015 forced the issue:
+    coverage ranges from **2.7 h to 24 h per day**, so Aug 19 (16 files) and Aug 20 (145 files)
+    cannot be compared as raw counts. **Every seasonal/interannual figure must be detections per
+    hour of effort**, with hours-recorded carried alongside every count. Tool writes
+    `results/coverage/<YYYY>-<MM>_coverage.csv` (date, files, seconds, hours, expected_windows,
+    pct_of_day, short_files, note) — **committed to the repo, run at Stage 1.5 before embedding.**
+    Backfilled for all 7 months processed to date (see the coverage table in `CLAUDE_embed.md`).
+    - **Two 2018 months are perfect:** Apr 2018 = 720.00 h / 100.0%, May 2018 = 744.00 h / 100.0%,
+      zero short files. Fitting for the reference and held-out months.
+    - **October 2020 has 47 short files** — `files × 120` overcounts its windows by **5,185 (~1%)**.
+      Anyone reasoning from file counts in the orca-silent specificity month is off by that much.
+      Total time lost is only 0.50 h, so the specificity conclusion stands. One 761 s gap falls on
+      10/5 18:49, inside the confirmed Oct 5-12 silent cluster — immaterial but now on record.
+    - **April 2026 lost 17.7 h in a single dropout** after 4/13 00:20 — **outside** the Apr 17-24
+      CA51A/CA50B event window, so finding #17 is unaffected.
+    - **Sept 2024 reproduces finding #25 exactly:** 449.67 h, 62.5%, 9/20-9/30 absent.
+    - **METHOD LESSON (cost real time; do not repeat): a duration DEFICIT is not a GAP.** A short
+      file means that file ended early, not that time was lost — what matters is when the NEXT file
+      STARTED. And **never infer the next start from the filename cadence: a restart shifts it.**
+      Both errors were made on July 2015 (see #29, corrected) and are why the tool measures gaps
+      and overlaps directly from start-time + true-duration rather than by arithmetic.
+    - **Recorder CLOCK RESYNC produces small timestamp overlaps every month — NOT duplicated
+      audio.** Apr 2018: `075914` -> `080911`, 3 s overrun, on Apr **1/8/15/22/29** (strictly
+      weekly). May 2018: 2 s on May **6/13/20/27**. A weekly event at the same second of day is a
+      clock correction — oscillator drifts ~2-3 s/week, gets resynced, filename stamps compress
+      while the audio stays contiguous. At 2-3 s these cannot fill one 5 s window. Tool tiers them:
+      **<5 s negligible · <60 s minor · >=60 s MATERIAL** (genuine re-record; stop and investigate).
+      **ACTION: confirm the weekly resync with J. Ryan** — MARS clock discipline is his domain.
+      If confirmed, it is a one-line methods note.
+    - **A day's summed duration can legitimately exceed 24 h** — files are binned by START
+      timestamp, so the last file of a date runs past midnight (max spill = one file = 600 s).
+      An earlier version of the tool used a 24.05 h ceiling as an overlap proxy and **false-alarmed
+      on 2015-07-30**; replaced with the real timeline walk.
 
 ## Label Class Definitions
 

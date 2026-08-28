@@ -14,6 +14,16 @@ detections per hour of effort, which needs these hours.
 
 Run this at Stage 1.5, BEFORE embedding, and commit the CSV to the repo.
 
+A NOTE ON GAPS vs DURATION DEFICIT (learned the hard way, Aug 27-28 2026)
+------------------------------------------------------------------------
+A short file does NOT mean lost recording time -- it means that file ended early. What
+matters is when the NEXT file STARTED. July 2015 has two short files (242 s, 205 s); summing
+their shortfalls against 600 s gives 753 s, which was initially and WRONGLY reported as
+missing audio. The true gaps, measured from the timeline, are 53 s and 9 s = 62 s total.
+Never infer the next file's start time from the filename cadence either: a restart SHIFTS
+the cadence (the file after 162524 is 163019, not the predicted 163524). This tool measures
+gaps and overlaps directly from start-time + true-duration, which is the only reliable way.
+
 WHAT IT DOES
 ------------
 Reads durations directly from the audio (does NOT assume 600 s/file), then writes one row
@@ -228,16 +238,35 @@ def main():
         print(f"\nDATES WITH ZERO DATA ({len(absent)}): {', '.join(absent)}")
 
     overlaps, gaps = check_overlaps(files, durs)
-    if overlaps:
-        print(f"\n*** TIME OVERLAPS: {len(overlaps)} consecutive pair(s) double-cover "
-              f"wall-clock time.")
-        print("    This IS duplicated audio -- investigate before embedding.")
-        for a, b, sec in overlaps[:20]:
-            print(f"      {a} overruns {b} by {sec:.1f} s")
-        if len(overlaps) > 20:
-            print(f"      ... and {len(overlaps) - 20} more")
+    # Tier by MAGNITUDE. A 2-3 s timestamp discrepancy is not duplicated audio -- it is
+    # almost certainly a recorder CLOCK RESYNC (observed in Apr/May 2018 as a strictly
+    # WEEKLY event at the same second of day, e.g. 075914 -> 080911 on Apr 1/8/15/22/29).
+    # The oscillator drifts a couple of seconds a week, gets corrected, and the filename
+    # timestamps compress while the audio stream itself stays contiguous. Real duplicated
+    # audio comes from a recorder re-recording a stretch and is MINUTES, not seconds.
+    # An alarm that fires on every month is an alarm that gets ignored, so:
+    negligible = [o for o in overlaps if o[2] < WINDOW_S]        # < one analysis window
+    minor      = [o for o in overlaps if WINDOW_S <= o[2] < 60]
+    material   = [o for o in overlaps if o[2] >= 60]
+    if not overlaps:
+        print("\nTimeline             : strictly non-overlapping")
     else:
-        print("\nTime overlaps        : NONE (timeline is strictly non-overlapping)")
+        print(f"\nTimestamp overlaps   : {len(overlaps)} pair(s) -- "
+              f"{len(negligible)} negligible (<{WINDOW_S:.0f}s), "
+              f"{len(minor)} minor (<60s), {len(material)} MATERIAL (>=60s)")
+        if negligible and not (minor or material):
+            print(f"    All under one {WINDOW_S:.0f} s analysis window: cannot duplicate even a")
+            print("    single window. Consistent with clock resync, NOT duplicated audio.")
+        for a, b, sec in (material + minor)[:10]:
+            tag = "MATERIAL" if sec >= 60 else "minor"
+            print(f"      [{tag}] {a} overruns {b} by {sec:.1f} s")
+        for a, b, sec in negligible[:5]:
+            print(f"      [negligible] {a} -> {b}: {sec:.1f} s")
+        if len(negligible) > 5:
+            print(f"      ... and {len(negligible) - 5} more negligible")
+        if material:
+            print("    *** MATERIAL overlaps mean a recorder re-recorded wall-clock time.")
+            print("        The DB will contain duplicated audio. Investigate before embedding.")
 
     print(f"Recording gaps > 1 s : {len(gaps)}")
     if gaps:

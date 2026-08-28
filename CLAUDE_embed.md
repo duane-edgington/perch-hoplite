@@ -148,6 +148,46 @@ script; downstream tools match on it.
 
 ## Stage 1.5 — VERIFY THE RESAMPLE before spending GPU time (run EVERY month)
 
+### FIRST: run `tools/coverage_histogram.py` and COMMIT ITS CSV (mandatory, Aug 28 2026)
+
+```bash
+python3 tools/coverage_histogram.py \
+    --audio-dir /mnt/PAM_Analysis/GoogleMultiSpeciesWhaleModel2/resampled_32kHz/<YYYY>/<MM> \
+    --out results/coverage/<YYYY>-<MM>_coverage.csv
+```
+
+**Why it is mandatory:** the bulk resampled WAV is DELETED after each month is analyzed, and once
+it is gone there is no way to recover how many hours were recorded on a given day.
+**Per-day detection counts are uninterpretable without this file** — August 2015 ranges from 2.7 h
+to 24 h of coverage per day, so Aug 19 (16 files) cannot be compared with Aug 20 (145 files) as
+raw counts. Every seasonal/interannual figure needs **detections per hour of effort**.
+It also supersedes the hand-rolled duration scan below: it reads true durations, enumerates
+**every** calendar date (so a fully-absent date appears as an explicit `ABSENT` row instead of
+vanishing from a `uniq -c` histogram — 2015-08-16 is exactly this case), reports real gaps and
+overlaps from the timeline, and prints the **TRUE expected window count** for Stage 2.
+
+**Coverage of the 7 months processed as of Aug 28 2026** (`results/coverage/*.csv`):
+
+| Month | Files | Hours | % nominal | TRUE windows | vs files×120 | Short files | Notes |
+|---|---|---|---|---|---|---|---|
+| 2015-07 | 469 | 77.96 | 10.5 | 56,130 | −150 | 2 | partial deployment month (starts 7/28 18:05) |
+| 2015-08 | 3,793 | 629.34 | 84.6 | **453,137** | −2,023 | 21 | 8/16 absent; 5 long dropouts |
+| 2018-04 | 4,320 | 720.00 | **100.0** | 518,400 | 0 | 0 | perfect month |
+| 2018-05 | 4,464 | 744.00 | **100.0** | 535,680 | 0 | 0 | perfect month (held-out) |
+| 2020-10 | 4,504 | 743.42 | 99.9 | 535,295 | **−5,185** | 47 | many restarts; 0.50 h lost |
+| 2024-09 | 2,698 | 449.67 | 62.5 | 323,760 | 0 | 0 | 9/20–9/30 absent (finding #25) |
+| 2026-04 | 4,215 | 702.27 | 97.5 | 505,632 | −168 | 3 | one 17.7 h dropout after 4/13 00:20 |
+
+**Note October 2020:** 4,504 files but 47 short ones, so `files × 120` overcounts by **5,185
+windows (~1%)**. Any reasoning from file counts in that month is wrong by that much.
+
+**August 2015's 114.64 h of loss is FIVE LONG DROPOUTS, not scattered outages** — 58.6 h after
+8/15 04:35, 22.6 h after 8/18 22:44, 16.2 h after 8/12 23:45, 11.9 h after 8/7 06:38, 3.6 h
+after 8/21 17:03. So the partial days hold *contiguous* coverage blocks, which is much easier to
+interpret than swiss cheese.
+
+### Then the remaining checks
+
 Cheap, and it establishes the true expected window count for the Stage 2 check. Added Aug 27 2026
 after the July 2015 run, where a size-based check missed a short file and a start-to-start cadence
 check found only one of two recorder restarts.
@@ -192,27 +232,57 @@ so spacing between *starts* conflates "file was cut short" with "next file began
 not 214. Use the durations to get gaps right:
 `gap = next_start − (this_start + this_duration)`.
 
-**Sanity arithmetic (do this, it catches duplicated audio):**
-`files × 600 − Σ(600 − short_file_durations)` should equal the measured total. If the measured
-total is *higher* than that, files overlap in time and the DB will contain duplicated audio —
-investigate before embedding.
+**⚠️ A DURATION DEFICIT IS NOT A GAP (corrected Aug 28 2026 — this doc got it wrong first time).**
+A short file does not mean lost recording time; it means that file ended early. What matters is
+**when the next file STARTED.** Summing `Σ(600 − short_durations)` gives a *deficit*, and reporting
+it as missing audio is a mistake — July 2015's deficit is 753 s but its true gap is **62 s**.
+Nor can you infer the next start from the filename cadence: **a restart SHIFTS the cadence**
+(the file after `162524` is `163019`, not the predicted `163524`).
+**Use `tools/coverage_histogram.py`** — it walks the timeline from start-time + true-duration and
+reports real gaps and overlaps directly. Do not hand-derive either quantity.
+
+### Recorder CLOCK RESYNC — expect small timestamp overlaps every month (Aug 28 2026)
+
+`coverage_histogram.py` reports timestamp overlaps tiered by magnitude. **Small ones are normal
+and are NOT duplicated audio.** Observed pattern in April/May 2018:
+
+| Month | Pattern | Overrun | Dates |
+|---|---|---|---|
+| 2018-04 | `075914` → `080911` | 3 s | Apr 1, 8, 15, 22, 29 — **strictly weekly** |
+| 2018-05 | `075914` → `080912` | 2 s | May 6, 13, 20, 27 — **strictly weekly** |
+
+A weekly event at the same second of the day is a **clock correction**, not a recorder
+re-recording audio: the oscillator drifts ~2-3 s/week, gets resynced, and the filename stamps
+compress while the audio stream stays contiguous. At 2-3 s these cannot fill even one 5 s
+analysis window (5 affected windows out of 518,400 in April 2018, worst case).
+**Tiering:** `< 5 s` negligible · `< 60 s` minor · `>= 60 s` MATERIAL (a recorder genuinely
+re-recorded wall-clock time — stop and investigate).
+**TODO: confirm the weekly resync with J. Ryan** (MARS clock discipline is his domain). If
+confirmed it is a one-line methods note, not a data problem.
 
 ### Worked example — July 2015 (partial deployment month, verified Aug 27 2026)
 - MARS first deployed 2015-07-28; recording starts **18:05:24**, so the 28th has only 36 files.
 - **469 resampled = 469 raw**, no failures, no truncated-to-zero files.
 - Per-date: 28th = 36, 29th = 144, 30th = **145**, 31st = 144. The 145 is a restart artifact, not
   an overlap.
-- Two short files, both recorder restarts:
+- Two short files, both recorder restarts (**figures corrected Aug 28 2026** by
+  `tools/coverage_histogram.py`; the original hand-derived numbers were wrong):
 
-| File | Duration | Ends | Next starts | Real gap |
+| File | Duration | Ends | Next file starts | **Real gap** |
 |---|---|---|---|---|
-| `MARS_20150729_162524` | 242 s | 16:29:26 | 16:35:24 | 358 s |
-| `MARS_20150730_031011` | 205 s | 03:13:36 | 03:13:45 | 9 s |
+| `MARS_20150729_162524` | 242 s | 16:29:26 | `163019` | **53 s** |
+| `MARS_20150730_031011` | 205 s | 03:13:36 | `031345` | **9 s** |
 
-- Arithmetic closes exactly: 469×600 = 281,400; minus (358 + 395) = **280,647 s = 77.96 h**,
-  matching the measured total → **no duplicated audio**.
-- Total missing audio 753 s (12.6 min) across 78 h. Consistent with the standing
-  "near-continuous, not gapless" description of MARS.
+- **Total real gap: 62 s** across 78 h — i.e. essentially continuous. (The earlier "753 s
+  missing" was the duration *deficit* vs 469 nominal 600 s files, wrongly reported as lost
+  wall-clock time. The recorder restarted promptly, so almost no time was actually lost.)
+- **One 8 s timestamp overlap** exists (`163019` overruns `164011`) — below one 5 s analysis
+  window, consistent with a clock nudge, not duplicated audio. The earlier claim of "no
+  overlap" came from arithmetic that could not see overlaps at all.
+- **Span reconciliation (the check that actually works):** Jul 28 18:05:24 → Aug 1 00:03:45
+  = 280,701 s. Recorded 280,647 + gap 62 − overlap 8 = 280,701. ✅ Exact.
+- Measured total 280,647 s = **77.96 h**. Consistent with the standing "near-continuous,
+  not gapless" description of MARS.
 - Each restart also shifted the filename cadence (`:x5:24` → `:x0:11` → `:x3:45`), which is why
   the month's last file is `MARS_20150731_235345`.
 
