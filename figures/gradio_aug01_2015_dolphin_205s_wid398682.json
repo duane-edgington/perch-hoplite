@@ -1,0 +1,20 @@
+{
+  "saved_filename": "gradio_aug01_2015_dolphin_205s_wid398682.png",
+  "original_filename": "Screenshot 2026-08-28 at 10.44.38 AM.png",
+  "capture_computer": "DuaneEM1",
+  "capture_timestamp": "2026-08-28 10:44:38",
+  "date_registered": "2026-08-30T07:01:08.748074",
+  "figure_type": "gradio_screenshot",
+  "caption": "Dolphin call confirmed by ear (D. Edgington), 2015-08-01 07:27 UTC, the first full day after the July 2015 deployment month. Mel/viridis, 5 s window with 30 s context.",
+  "command": "nohup python3 phase2_classify.py review --db-dir /mnt/PAM_Analysis/perch-hoplite/db/MARS_20150801_20150831_32kHz_norm --classifier /mnt/PAM_Analysis/perch-hoplite/models/orca_v10.pt --target-label orca_call --detections-csv /mnt/PAM_Analysis/perch-hoplite/results/review_aug2015_union16.csv --detections-offset 0 --num-results 16 --classes orca_call,humpback_song,dolphin_call,ship_noise,other,unlabeled --annotator-id duane --audio-dir /mnt/PAM_Analysis/GoogleMultiSpeciesWhaleModel2/resampled_32kHz/2015/08 --spectrogram-type mel --colormap viridis --serve --port 7878",
+  "script": null,
+  "source_wav": "MARS_20150801_072345_resampled_32kHz.wav",
+  "wav_offset_s": 205.0,
+  "spectrogram_type": "mel",
+  "colormap": "viridis",
+  "classifier": "orca_v10.pt",
+  "db": "MARS_20150801_20150831_32kHz_norm",
+  "score": 1.283,
+  "label_selected": "dolphin_call",
+  "notes": "Label #11, wid=398682. Displayed score 1.283 is the orca_v4 score; v10 scored 1.574 (3rd month-wide). Aug 1 is a COMPLETE day (144 files), which is what makes the July 2015 month-boundary question (finding #29) answerable. August 2015 orca review session, 14 clips = union of orca_v4 >=1.16 and orca_v10 >=1.00, presented score-descending. Session outcome: 13 dolphin_call, 1 orca_call, 0 unlabeled. NOTE the displayed score may be either model: the review set mixes v4 scores (for the 6 windows v4 flagged >=1.16) and v10 scores (for the 8 v10 contributed), so scores in this set are NOT on a single scale."
+}
