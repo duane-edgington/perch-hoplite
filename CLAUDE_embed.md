@@ -58,6 +58,46 @@ Progress checks while it runs:
 tail -5 /mnt/PAM_Analysis/perch-hoplite/logs/resample_32kHz_<YYYY>_<MM>.log
 ls /mnt/PAM_Analysis/GoogleMultiSpeciesWhaleModel2/resampled_32kHz/<YYYY>/<MM>/*.wav | wc -l
 ```
+
+### ⏱️ MEASURED THROUGHPUT — resampling is I/O-BOUND, not CPU-bound (Aug 30 2026)
+
+Measured on spark-0626 during the September 2015 run, 8 concurrent jobs, nothing else on the box:
+
+```
+16 files/min  (8 files per 30 s)  ->  ~960 files/hour  ->  ~4.5 h per full month
+```
+
+**⚠️ The old "~1 day of SoX per month" figure in earlier notes was never measured** — it came from
+starting a run at 5 PM, going home, and finding it done the next morning. **The real number is
+~4.5 hours.** Across ~130 months that is roughly **25 days of resampling wall-clock in total, not
+four months** — which materially changes what is practical to plan.
+
+**Why more parallelism will NOT help.** `top` during the run:
+
+```
+%Cpu(s):  2.6 us,  0.9 sy,  0.0 ni, 58.6 id, 37.0 wa
+load average: 8.00, 8.04, 7.59
+```
+
+**58.6% idle, 37% I/O wait, 2.6% user.** SoX spends nearly all its time waiting on thalassa (SMB),
+not computing. The load average of 8.00 looks saturated but is not: **Linux load counts processes
+in uninterruptible I/O wait**, so 8 jobs all blocked on network reads/writes give load 8.00 with an
+essentially idle CPU.
+- The GB10 Grace Blackwell has 20 CPU cores (10x Cortex-X925 performance + 10x Cortex-A725
+  efficiency), so raw core count is not the constraint — **the NAS and the network are.**
+- **Do not raise the job count.** 20 concurrent streams to one SMB share often produce *worse*
+  aggregate throughput than 8 (queueing, retransmits), and jobs past ~10 would land on the slower
+  efficiency cores anyway. The only experiment with real information value would be **lower** (e.g.
+  4), to find whether 8 is already past the knee.
+- **A telltale worth recognizing:** 8 files completing per 30 s with 8 jobs means each job takes
+  almost exactly 30 s and they finish in lockstep. That regularity is the signature of a shared
+  bottleneck. Genuinely CPU-bound work on asymmetric cores would finish raggedly, with X925 jobs
+  well ahead of A725 ones.
+
+**Consequence for scheduling:** at 2.6% user CPU, resampling barely touches the box. **Embedding
+(GPU-bound) and resampling (network-bound) can run on the SAME spark without meaningful
+contention.** The "resample on 0626, analyze on ae0e" convention is still a fine habit for keeping
+track of what is running where, but it is **not needed for contention reasons.**
 - Prints a `Starting (vol 3): ...` banner, a per-day file count, and a
   `Finished: N submitted, M failure(s)` report with any failed filenames listed. No `set -e`:
   one bad file does not kill the batch.
@@ -445,9 +485,11 @@ tail -12 /mnt/PAM_Analysis/perch-hoplite/logs/embed_<month>_norm.log   # "Window
 warmup was WRONG: ~220-226 win/s is simply the sustained rate on the GB10. **Sept 2024's ~302 win/s
 is the outlier that needs explaining**, not the norm. Budget ~30-35 min per full month.
 
-**Full-month planning figures (for the 11-year campaign):** ~4,464 files → ~535,680 windows →
-~30 min GPU, ~1 day SoX wall-clock, ~157 GB resampled WAV. The WAV footprint is the binding
-constraint (thalassa), not GPU time.
+**Full-month planning figures (for the 11-year campaign; MEASURED, corrected Aug 30 2026):**
+~4,320-4,464 files → ~520,000-536,000 windows → **~30-35 min GPU**, **~4.5 h SoX wall-clock**
+(NOT the unmeasured "~1 day" in earlier notes), **~125 GB resampled WAV** (873 GB measured across
+7 months; the earlier ~157 GB was high). The WAV footprint remains the binding constraint
+(thalassa at 92%, 4.6 TiB free), not GPU time and not SoX time.
 
 ---
 
