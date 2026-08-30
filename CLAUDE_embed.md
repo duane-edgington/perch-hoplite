@@ -30,24 +30,58 @@ ranges. This is the script to use going forward.
 - `start_day end_day` default 1–31; `max_jobs` defaults to `nproc`
 - `SAMPLE_RATE` env var overrides 32000 (output dir + filename suffix follow the rate)
 - Example (July 2015, the partial deployment month): `./tools/resample_sox_32k_batched_vol.sh 2015 7 28 31`
+
+**LOG NAMING CONVENTION (adopted Aug 30 2026 — Duane's, and it is the right one):** put the
+**sample rate** in the log filename, so a log read years later is self-describing and cannot be
+confused with a resample at another rate:
+
+```
+/mnt/PAM_Analysis/perch-hoplite/logs/resample_<RATE>_<YYYY>_<MM>.log
+```
+
+**Canonical full invocation** — September 2015, throttled to 8 concurrent jobs (the actual command
+run on spark-0626, Aug 30 2026):
+
+```bash
+cd ~/perch-hoplite
+nohup ./tools/resample_sox_32k_batched_vol.sh 2015 9 1 31 8 \
+  > /mnt/PAM_Analysis/perch-hoplite/logs/resample_32kHz_2015_09.log 2>&1 &
+
+sleep 10 && head -20 /mnt/PAM_Analysis/perch-hoplite/logs/resample_32kHz_2015_09.log
+```
+
+**Always eyeball the banner** before walking away — it must read `Starting (vol 3):`. Passing
+`1 31` for a 30-day month is fine; the script finds nothing on day 31 and moves on.
+
+Progress checks while it runs:
+```bash
+tail -5 /mnt/PAM_Analysis/perch-hoplite/logs/resample_32kHz_<YYYY>_<MM>.log
+ls /mnt/PAM_Analysis/GoogleMultiSpeciesWhaleModel2/resampled_32kHz/<YYYY>/<MM>/*.wav | wc -l
+```
 - Prints a `Starting (vol 3): ...` banner, a per-day file count, and a
   `Finished: N submitted, M failure(s)` report with any failed filenames listed. No `set -e`:
   one bad file does not kill the batch.
 
-**⚠️ DO NOT USE `tools/resample_sox_32k_batched_novol.sh` for pipeline data.** It is byte-for-byte
-identical except it omits `vol 3`, it takes the SAME arguments, and it writes to the SAME output
-directory with the SAME `_resampled_32kHz.wav` suffix — so **nothing in the filename or path
-records which variant produced a file.** The only in-band evidence is the log banner
-(`Starting (vol 3):` vs `Starting (no vol):`). `vol 3` is the volts calibration and is mandatory
-(J. Ryan); see the clipping note below. If a resample's provenance is ever in doubt, compare peak
+**`tools/resample_sox_32k_batched_novol.sh` was DELETED from the repo on Aug 30 2026.** It was
+byte-for-byte identical except it omitted `vol 3`, took the SAME arguments, and wrote to the SAME
+output directory with the SAME `_resampled_32kHz.wav` suffix — so **nothing in the filename or
+path recorded which variant produced a file**, and the only in-band evidence was the log banner
+(`Starting (vol 3):` vs `Starting (no vol):`). Across a ~130-month campaign that is a foot-gun
+with no upside: **`vol 3` is the volts calibration and is mandatory** (J. Ryan — always vol 3,
+clipping is not a concern for the signals of interest). Duane's reasoning for deleting rather than
+keeping it: *"If I really want to have no vol in the future that should be a parameter, not two
+almost identical scripts. And I don't think I ever will."* Recoverable from git history.
+
+If a resample's provenance is ever in doubt (e.g. data produced before Aug 30 2026), compare peak
 amplitude against the raw file — `vol 3` output should be ~3x raw:
 ```bash
 sox <raw>.wav       -n stat 2>&1 | grep -i "maximum amplitude"
 sox <resampled>.wav -n stat 2>&1 | grep -i "maximum amplitude"
 ```
-Also note the `_vol` script's own header comment block is a bad copy-paste of the `_novol` one
-(it correctly says "This variant DOES apply the `vol` gain adjustment", then continues with the
-novol rationale about clipping warnings). Do not trust that header; trust this doc.
+Note the `_vol` script's own header comment block is a bad copy-paste of the (now deleted)
+`_novol` one — it correctly says "This variant DOES apply the `vol` gain adjustment", then
+continues with the novol rationale about clipping warnings. Do not trust that header; trust this
+doc. (Lower priority now that there is no second script to choose between.)
 
 ### Original script (historical — produced the 2018/2020/2024/2026 data)
 
@@ -332,6 +366,28 @@ The auto-generated internal **Dataset name** may show the wrong end-date (Sept 2
 `MARS_20240901_20240919_32kHz`). This is an internal label only — the **db-dir path is what
 inference queries**, so it doesn't matter. Don't be alarmed by the dataset field.
 
+### ⚠️ BEFORE LAUNCHING: kill any Gradio review server (Aug 28 2026)
+
+The review server and the embedder share the **same GPU** on a spark. A forgotten review holding
+even ~228 MiB caused August 2015's first embed attempt to die at model load with
+`torch.AcceleratorError: CUDA error: out of memory` — before touching any audio.
+
+```bash
+nvidia-smi                                       # any python3 holding memory?
+ps aux | grep "[p]hase2_classify" | awk '{print $2, $12, $NF}'
+pkill -f "port <PORT>"                           # targeted; do NOT blanket-kill if a colleague may be reviewing
+sleep 3 && nvidia-smi                            # confirm "No running processes found"
+```
+
+This has now bitten twice in two days (Aug 27: a 3-day-old review blocked port 7878; Aug 28: a
+review blocked GPU memory). Make the `nvidia-smi` check a habit before every embed.
+
+If an embed does die, confirm it left no partial DB before relaunching:
+```bash
+ls -la /mnt/PAM_Analysis/perch-hoplite/db/<DBNAME>/
+```
+An empty dir is clean. A `hoplite.sqlite` or `usearch.index` means move it aside first.
+
 ### Sanity check after embedding
 
 **⚠️ The printed `Expected` figure is an approximation — do not treat a shortfall as a failure.**
@@ -339,16 +395,37 @@ inference queries**, so it doesn't matter. Don't be alarmed by the dataset field
 **assumes every file is exactly 600 s**. Any month containing a recorder restart will legitimately
 come in *under* the printed number.
 
-**Windowing rule (confirmed empirically, July 2015):** the perch-pytorch adapter **keeps the
-final partial window** — it is `ceil(duration / 5)`, not `floor`. So:
+**Windowing rule — CORRECTED Aug 28 2026. The adapter DROPS the final partial window:**
 
 ```
-true expected windows = Σ ceil(duration_i / 5)
+windows_per_file = max(1, floor(duration / 5))
+true expected windows = Σ max(1, floor(duration_i / 5))
 ```
 
-which is what the Stage 1.5 step-6 one-liner already computes. Reconcile against **that**, not
-against `files × 120`. A 600 s file gives exactly 120 either way, which is why this only surfaces
-on months with restarts.
+⚠️ **An earlier version of this doc said `ceil()`. That was WRONG.** July 2015 has only two short
+files (242 s, 205 s) and matched `ceil` by coincidence. August 2015, with 21 short files,
+discriminates the rules cleanly: `ceil` predicts 453,137, `floor` predicts 453,119, and the DB
+holds **453,123** = `max(1, floor(...))`. Verified per-file against the `windows` table.
+
+The `max(1, ...)` matters: a file **shorter than one 5 s window still produces one window**, mostly
+padding. August 2015 has three (1 s, 2 s, 1 s). Scores on those are not meaningful and nothing
+stops them scoring high — see `tools/audit_window_counts.py`, which lists them.
+
+**Verify every month with:**
+```bash
+python3 tools/audit_window_counts.py \
+    --audio-dir /mnt/PAM_Analysis/.../resampled_32kHz/<YYYY>/<MM> \
+    --db /mnt/PAM_Analysis/perch-hoplite/db/<DBNAME>/hoplite.sqlite
+```
+It reports predicted vs actual, every file that disagrees with the rule, any file on disk with no
+DB recording (a skipped embed), and the padded sub-window files.
+
+**KNOWN ANOMALY (unresolved, 1 file in 3,793):** `MARS_20150817_155951` (301.0 s) holds **61**
+windows where the rule predicts 60, while `MARS_20150803_153345` (476.0 s — the same 1 s remainder)
+correctly holds 95. Flagged, not explained. `soxi -D` prints only 3 decimals, so check `soxi -s`.
+
+Reconcile against the rule, not against `files × 120`. A 600 s file gives exactly 120 either way,
+which is why this only surfaces on months with restarts.
 
 ```bash
 tail -12 /mnt/PAM_Analysis/perch-hoplite/logs/embed_<month>_norm.log   # "Windows in DB" vs "Expected"
@@ -360,11 +437,13 @@ tail -12 /mnt/PAM_Analysis/perch-hoplite/logs/embed_<month>_norm.log   # "Window
 |---|---|---|---|---|---|---|
 | May 2018 | 2232 | 535,680 | 535,680 | — | — | all files 600 s |
 | Sept 2024 | 2698 | 323,760 | 323,760 | 17.9 min | ~302 win/s | month ends 9/19 (real outage) |
+| **August 2015** | **3,793** | **453,123** | 455,160 | **33.5 min** | **225.6 win/s** | first FULL month; 21 short files; rule `max(1,floor(d/5))` predicts 453,123 ✅ (one 301 s file off by +1) |
 | **July 2015** | **469** | **56,130** | 56,280 | **4.3 min** | **219.4 win/s** | partial month (deployment 7/28 18:05); 2 restarts → 150-window shortfall is CORRECT: 467×120 + ceil(242/5)=49 + ceil(205/5)=41 = 56,130 ✅ |
 
-**On throughput:** July 2015's 219.4 win/s vs Sept 2024's ~302 win/s is **not a regression** — it
-is `torch.compile` warmup amortized over a 4-minute run instead of an 18-minute one. Expect full
-months to land nearer 300 win/s. Judge throughput only on full-month runs.
+**On throughput (revised Aug 28 2026):** July 2015 ran 219.4 win/s and August 2015 — a full
+33.5-minute month — ran **225.6 win/s**. So the earlier guess that July's 219 was `torch.compile`
+warmup was WRONG: ~220-226 win/s is simply the sustained rate on the GB10. **Sept 2024's ~302 win/s
+is the outlier that needs explaining**, not the norm. Budget ~30-35 min per full month.
 
 **Full-month planning figures (for the 11-year campaign):** ~4,464 files → ~535,680 windows →
 ~30 min GPU, ~1 day SoX wall-clock, ~157 GB resampled WAV. The WAV footprint is the binding
@@ -442,8 +521,10 @@ raw `/mnt/PAM_Archive/<YYYY>/<MM>/`
 
 ## Open items (Aug 27 2026)
 - [ ] Fix the copy-pasted header comment block in `tools/resample_sox_32k_batched_vol.sh` — it
-      currently reproduces the `_novol` rationale (and has an unclosed paren), so a reader
-      choosing a script from the header gets the wrong answer. Doc-only; does not affect output.
-- [ ] Consider deleting or renaming `tools/resample_sox_32k_batched_novol.sh`. Identical arg
+      reproduces the `_novol` rationale (and has an unclosed paren). Doc-only; does not affect
+      output. Lower priority now that there is no second script to choose between.
+- [x] Delete `tools/resample_sox_32k_batched_novol.sh`. **DONE Aug 30 2026.** Identical arg
       signature + identical output path + no filename marker = a foot-gun across a ~130-month
-      campaign. `vol 3` is mandatory (J. Ryan), so the novol variant has no pipeline role.
+      campaign, with no upside since `vol 3` is mandatory. If a no-vol mode is ever wanted it
+      should be a **parameter on the one script**, not a second near-identical file. Recoverable
+      from git history.

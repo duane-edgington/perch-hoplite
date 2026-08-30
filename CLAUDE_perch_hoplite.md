@@ -507,7 +507,8 @@ infer v4+v10 (Stage 3) -> score-band triage -> Gradio review -> record finding -
 | Month | Status | Result |
 |---|---|---|
 | **2015-07** | ✅ COMPLETE (Aug 27 2026) | Zero orca. 469 files, 56,130 windows. 2 dolphin_call, 4 other. Finding #29. |
-| **2015-08** | ⬅️ **NEXT** | First FULL month (~4,464 files, ~535,680 windows, ~157 GB WAV, ~1 day SoX, ~30 min GPU). **Check the early hours of Aug 1** for anything spanning the 7/31 midnight boundary (finding #29). |
+| **2015-08** | ✅ COMPLETE (Aug 28 2026) | 3,793 files, **453,123 windows**, 629.34 h (84.6%), 8/16 absent, 5 long dropouts. Reviewed: **13 dolphin_call + 1 UNCONFIRMED orca candidate** (`MARS_20150828_212219` @325 s). 12 figures registered. Findings #31, #33. |
+| **2015-09** | 🔄 RESAMPLING (started Aug 30 2026, spark-0626, 8 jobs) | Day 01 shows **141 files**, so the month starts slightly short. **Duane expects a lot of humpbacks** — see the note below on what that implies. |
 
 **Canonical Stage 1 command** (day-range args; month WITHOUT leading zero):
 `./tools/resample_sox_32k_batched_vol.sh <year> <month> [start_day] [end_day] [max_jobs]`
@@ -515,7 +516,27 @@ infer v4+v10 (Stage 3) -> score-band triage -> Gradio review -> record finding -
 no filename marker, but omits the mandatory `vol 3` volts calibration (J. Ryan: always vol 3,
 clipping is not a concern for signals of interest).
 
-**Storage discipline is now the binding constraint, not GPU time.** thalassa was at 96%; Duane is
+**STORAGE — measured figures (Aug 30 2026).** thalassa `/mnt/PAM_Analysis`: 51 TB total,
+**4.6 TiB free (92% used)**, down from 96%. The seven 32 kHz months on disk total **873 GB →
+~125 GB per full month** (earlier ~157 GB estimate was high). ~36 months would fit if nothing were
+deleted; the whole 130-month archive resampled at once would be ~16 TB and does **NOT** fit — so
+analyze-then-archive is what makes the campaign possible, not merely tidy. **Permanent artifacts
+are tiny:** ~1.6 GB embeddings/month → **~210 GB for all 130 months**. Storage will never
+constrain the outputs, only the transient WAV.
+- **Reclaimed Aug 30 2026:** the 24 kHz tree (GoogleMultiSpeciesWhaleModel2) and the 48 kHz tree
+  (OrcAI) were deleted via `find ... -depth -delete`. Both covered only **a few selected months,
+  not the full archive**, so the freed space was small at this scale. Everything else under
+  `/mnt/PAM_Analysis/perch-hoplite/` stays: `db/`, `provenance/`, `labels/`, `json_labels/`,
+  `models/`, `results/`, `example_clips/` are small and hard to reproduce. **If storage pressure
+  ever forces the issue, the plan is rsync to a 2 TB external SSD** rather than spend time on
+  selective review — 2 TB holds all of it many times over.
+- **Selective 32 kHz purge rule** (for the ~130 repetitions): delete a month's resampled WAV once
+  its finding is written, figures registered, and coverage CSV committed — at that point
+  everything needed to interpret the month survives, and the WAV is regenerable from the raw
+  PAM_Archive anyway. **July 2015 is a deliberate exception**, kept as the reference month while
+  the loop is new.
+
+**Storage discipline is the binding constraint, not GPU time.** Duane is
 reclaiming space by deleting old 24 kHz / 48 kHz resamples for other models (frees more than
 Jul+Aug 2015 consume). **July 2015's resampled WAV is being KEPT** as the reference month while
 the loop is new. From August onward: analyze-then-archive — keep embeddings (usearch.index +
@@ -567,6 +588,33 @@ datasets (Palmer 2025). Focus = transient/Bigg's (CA140-associated) calls.
   are distinguishable in the pool. **At some point every humpback detection gets reviewed and a
   classification scheme decided** (open action item; interacts with the song/vocalization split below,
   and the humpback pool grows with every campaign month reviewed).
+- **ASK JOHN (Monday, week of Aug 31 2026): listen to the July 2015 Gradio set**, especially the
+  **four `other` clips Duane could not identify** — Duane is a software engineer / neurobiologist,
+  not (yet) a marine-mammal sound expert, and wants an expert ear on them. The two `dolphin_call`
+  calls are probably solid; "real sound, not orca, don't know what" is where John's ear is needed.
+  Highest value: `MARS_20150731_222345` @335 s — **both models' top hit and concordant** (v4 1.548 /
+  v10 2.002), which Duane judged not-orca. If John agrees, it is a clean calibration point for a
+  high-scoring non-orca in 2015-era audio; if not, finding #29 changes. Full clip table and context
+  in `docs/multi_annotator_design.md` §8.
+  **ALSO ASK HIM ABOUT THE AUGUST 2015 ORCA CANDIDATE** — `MARS_20150828_212219` @325 s, finding
+  #33. Spectrogram already posted to Slack (Aug 30 2026). This is the higher-stakes ask: it is the
+  campaign's first non-spring orca candidate, and Duane's ear is the only evidence for it.
+  Figure: `figures/gradio_aug28_2015_ORCA_325s_wid255405.png`.
+  **PREREQUISITE — now satisfied:** the Gradio label DELETE was unscoped and would have DESTROYED
+  Duane's 6 existing labels when John relabeled. Fixed Aug 28 2026 (scoped by provenance); see
+  finding #32.
+- **Also with John at that meeting:** how to handle multi-annotator blind + reconciling reviews.
+  Recommendation written up in `docs/multi_annotator_design.md` — one DB, additive rows, third
+  `consensus:` row for reconciliation, training selects a view under a recorded policy, and
+  inter-annotator agreement (Cohen's kappa) as the payoff.
+- **SEPTEMBER 2015 — Duane expects a lot of humpbacks, and that has a consequence worth acting on
+  BEFORE the review.** The orca classifier fires on humpback vocalizations, so a humpback-heavy
+  month yields more above-threshold windows that are not orca. **That is the known class confusion,
+  not model failure** — and September could be the month that makes the case concrete. But it also
+  means the pool of Duane's **working-grade** humpback labels grows fast, and the eventual
+  reannotation with John gets correspondingly larger. **SUGGESTED ASK AT THE MONDAY MEETING:**
+  does John want to set the song/vocalization scheme *before* another few hundred humpback labels
+  accumulate, rather than after?
 - Humpback song/vocalization split (tabled, needs John).
 - Cross-hydrophone comparison in Monterey Bay (later, finding #26).
 - Danelle: sent 3 annotation charts (total / training-only / F1-with-training-support, incl. the
@@ -854,6 +902,21 @@ build handoff), thalassa_storage_survey.md, poster_v42_review.md, docs/agile_mod
     - **April 2026 lost 17.7 h in a single dropout** after 4/13 00:20 — **outside** the Apr 17-24
       CA51A/CA50B event window, so finding #17 is unaffected.
     - **Sept 2024 reproduces finding #25 exactly:** 449.67 h, 62.5%, 9/20-9/30 absent.
+    - **WINDOWING RULE CORRECTED (Aug 28 2026): it is `max(1, floor(duration/5))`, NOT `ceil`.**
+      This finding originally recorded `ceil` (from July 2015, which has only 2 short files and
+      matched it by coincidence). **August 2015, with 21 short files, discriminates cleanly:**
+      `ceil` predicts 453,137, `floor` predicts 453,119, DB holds **453,123** = `max(1,floor(...))`.
+      The adapter DROPS the final partial window but never emits zero for a file. New tool
+      `tools/audit_window_counts.py` verifies this per file every month and reports disagreements,
+      skipped files, and padded windows. **Do not reintroduce `ceil`.**
+      - **PADDED WINDOWS — a real inference concern.** Because of the `max(1, ...)`, a file shorter
+        than one 5 s window still yields one window that is mostly empty. August 2015 has three
+        (1 s, 2 s, 1 s). **Nothing stops the classifier scoring one of these high**, and across
+        ~130 months of a restart-prone recorder there could be hundreds. OPEN QUESTION: exclude
+        sub-5 s files at inference, or just check any detection that lands on one?
+      - **KNOWN ANOMALY (1 file in 3,793, unresolved):** `MARS_20150817_155951` (301.0 s) holds 61
+        windows where the rule predicts 60, while `MARS_20150803_153345` (476.0 s, same 1 s
+        remainder) correctly holds 95. `soxi -D` prints 3 decimals only — check `soxi -s`.
     - **METHOD LESSON (cost real time; do not repeat): a duration DEFICIT is not a GAP.** A short
       file means that file ended early, not that time was lost — what matters is when the NEXT file
       STARTED. And **never infer the next start from the filename cadence: a restart shifts it.**
@@ -871,6 +934,119 @@ build handoff), thalassa_storage_survey.md, poster_v42_review.md, docs/agile_mod
       timestamp, so the last file of a date runs past midnight (max spill = one file = 600 s).
       An earlier version of the tool used a 24.05 h ceiling as an overlap proxy and **false-alarmed
       on 2015-07-30**; replaced with the real timeline walk.
+
+31. **August 2015 embedded — first FULL month of the campaign (Aug 28 2026).**
+    3,793 files, **453,123 windows**, 33.5 min, 225.6 windows/s on spark-ae0e. DB
+    `MARS_20150801_20150831_32kHz_norm`. Stage 2.5 coverage matches disk exactly (30 dates; no
+    8/16). Zero skips or errors in the embed log; all 3,793 files present in `recordings`.
+    - **Coverage 629.34 h = 84.6% of nominal**, with **five long dropouts** rather than scattered
+      loss: 58.6 h after 8/15 04:35, 22.6 h after 8/18 22:44, 16.2 h after 8/12 23:45, 11.9 h after
+      8/7 06:38, 3.6 h after 8/21 17:03. Partial days therefore hold *contiguous* blocks, which is
+      far easier to interpret than swiss cheese. **8/16 has zero data.**
+    - **Aug 1 is COMPLETE (144 files)** — so the July 2015 month-boundary question (#29) is
+      answerable: anything spanning midnight 7/31 will appear here.
+    - **RECORDER THRASHING on Aug 5:** eight files in under four minutes — 13:15:03 (90 s),
+      13:16:45 (17 s), 13:17:09 (6 s), 13:17:24 (11 s), 13:17:44 (9 s), 13:18:04 (7 s),
+      13:18:18 (14 s), 13:18:42 (20 s). This is why 8/5 shows 152 files. Not overlap — the tiered
+      timeline check found no material overlap. A recorder repeatedly restarting.
+    - **THROUGHPUT REVISED:** 225.6 win/s here vs 219.4 for July. The earlier claim that July's 219
+      was `torch.compile` warmup was **wrong** — ~220-226 win/s is the sustained GB10 rate.
+      **Sept 2024's ~302 win/s is the outlier needing explanation.** Budget 30-35 min/full month.
+    - **GPU CONTENTION — the first embed attempt DIED.** `torch.AcceleratorError: CUDA error: out
+      of memory` at model load, caused by a forgotten Gradio review server (July 2015's, on port
+      7881) holding 228 MiB. **The review server and the embedder share the same GPU.** Killed via
+      `pkill -f "port 7881"`, GPU returned to "No running processes found", relaunch succeeded.
+      Second review-server incident in two days (Aug 27 it blocked a port; Aug 28 the GPU).
+      **`nvidia-smi` before every embed** is now in `CLAUDE_embed.md` Stage 2.
+
+32. **Gradio label saving was DESTRUCTIVE across annotators — FIXED (Aug 28 2026).**
+    `phase2_classify.py` review autosave ran `DELETE FROM annotations WHERE recording_id=? AND
+    offsets=?` with **no provenance scope**, then inserted. So a second annotator did not add an
+    opinion — they **deleted the first annotator's label**. Worse, the review UI is **blind by
+    default**: the radio is hardcoded `value="unlabeled"` and never reads existing labels from the
+    DB, so an annotator overwrote labels they could not even see.
+    - **FIX (shipped):** scope the DELETE — `... AND provenance=?`, passing
+      `gradio_gui:<annotator_id>`. Changing your own mind still replaces your own label; another
+      annotator's label survives. **No schema change** — `provenance` already carried the annotator.
+      Applied via `tools/patch_scoped_delete.py` (idempotent, backs up, self-reverts on syntax error).
+    - **Caught just in time:** John was about to review July 2015, which would have destroyed
+      Duane's 6 labels.
+    - **Blind review is therefore already the default behavior**, accidentally. The missing feature
+      is the opposite — a `--show-existing-labels` mode for *reconciliation*. If added, show prior
+      labels as text, **not** as a pre-selected radio button, so a reviewer is not nudged into
+      agreement.
+    - **Design recommendation written up in `docs/multi_annotator_design.md`:** one DB with one row
+      per (window, annotator); never separate DBs per annotator (duplicates ~1.6 GB usearch index
+      per month and makes agreement uncomputable); reconciliation as a third `consensus:duane+john`
+      row rather than an edit; training selects a view under an explicitly recorded policy
+      (John's label wins where present, Duane's elsewhere); payoff is computable **Cohen's kappa**
+      plus a per-class confusion matrix, which reviewers ask for in expert-labeled acoustics work.
+    - **REMINDER: always pass `--annotator-id`** — the default is a generic `analyst`. The Aug 24
+      April 2026 review session lacked it.
+
+33. **August 2015 REVIEWED — 13 dolphin, 1 UNCONFIRMED ORCA CANDIDATE (Aug 28 2026).**
+    14 clips reviewed by ear (D. Edgington, `--annotator-id duane`): the union of **orca_v4 >=1.16**
+    (6 windows) and **orca_v10 >=1.00** (8 more), presented **score-descending**. Saved 14 labels,
+    0 unlabeled skipped. **Outcome: 13 `dolphin_call`, 1 `orca_call`.**
+    - **THE CANDIDATE: `MARS_20150828_212219` @325-330 s (wid=255405).** v10 **1.406** (5th
+      month-wide), v4 **0.512** (~20th; below the 1.16 cutoff, so it entered the set via v10).
+      **Below BOTH models' operating thresholds.** First non-spring orca candidate of the campaign —
+      every confirmed Monterey Bay Bigg's event to date is April-May.
+      - **Duane's call:** looks and sounds like an orca but **lacks the higher frequencies** and is
+        **isolated from other calls**. Spectrogram confirms: narrow harmonic stack **~2-4 kHz** with
+        a gentle upward inflection, ~1.8-3.0 s in, **nothing above ~5 kHz** — visually distinct from
+        all 11 dolphin clips in the same session, which sit at **4-16 kHz** with steep sweeps. A
+        different acoustic object, not a weaker version of the same thing.
+      - **Both readings remain open.** A DISTANT orca (range strips highs first; and **Bigg's are
+        acoustically cryptic** — long silences then a few isolated calls, so an isolated call is not
+        evidence against them) or a distant dolphin high-passed by the same propagation.
+      - **LOCAL CONTEXT** (from a `--logit-threshold -10` diagnostic run): the most anomalous window
+        in 3 hours. Within its own recording v10's next-highest is **-1.155** (median ~-5); across
+        20:00-23:00 (2,160 windows) v10 **p99 = -1.99**, next-highest **-0.452**. Neighbours at
+        320 s (-5.767) and 330 s (-3.378) are ordinary background — **the isolation is real, not an
+        artifact of the 0.0 cutoff.**
+      - **CAVEAT that keeps this honest:** local-outlier magnitude partly measures how quiet the
+        water was, and Aug 28 21:00 was quiet. **Month-wide the candidate is mid-pack** among
+        windows already labelled dolphin. Do NOT present it to John as "the anomaly of the month" —
+        the signal here is Duane's ear, not the score.
+      - **STATUS: UNCONFIRMED, pending J. Ryan.** Spectrogram posted to the Slack channel Aug 30 2026.
+    - **v4 vs v10 at their own operating points: v4 says 6 candidates, v10 says ZERO.** Nothing
+      reached v10's 2.31; its month-wide top is 1.993. **But all six of v4's >=1.16 windows also
+      appear in v10's top 14** — so the models substantially AGREE on which windows are interesting
+      and disagree only on whether any clears a bar. This is **threshold placement, not sensitivity**;
+      neither model is missing what the other found. Beyond the top few the ORDERINGS diverge
+      substantially, which matters: **the choice of model changes WHICH clips a fixed review budget
+      covers.**
+    - **Aug 8 is the month's acoustic hotspot** — 3 recordings (01:55, 12:45, 15:25) contribute 6 of
+      v4's top 15. All reviewed as dolphin. `MARS_20150808_124545` contributed two windows to v10's
+      top 14 (530 s, 550 s) — the only sub-bout structure in the month.
+    - **12 figures registered** (`figures/gradio_aug*_2015_*`), incl.
+      `gradio_aug28_2015_ORCA_325s_wid255405.png`. 15 grabs were taken for 14 clips; **3 were
+      duplicate pairs** where the first shot cut off the audio control (labels #6, #7, #10) — the
+      scrolled versions were kept. Labels #4 and #5 were never screenshotted. Every button
+      reconciled against the DB with no discrepancy.
+    - **⚠️ SCORE-SCALE WARNING for this review set:** it mixes **v4 scores** (the 6 windows v4
+      flagged) and **v10 scores** (the 8 v10 contributed), so the scores displayed in Gradio and
+      recorded in the 12 sidecars are **NOT on a single scale**. Each sidecar says which model's
+      score it carries. "Score-descending" is therefore not a single coherent ranking.
+    - **METHOD — the review protocol Duane wants (his reasoning, adopt it):**
+      - **Score-DESCENDING, not randomized.** If a session has orcas, the strongest clip establishes
+        what *this* encounter sounds like — this hydrophone, this range, this propagation, this
+        animal's repertoire that day — and every weaker/fractured clip is then heard against that
+        reference instead of a generic expectation. Sounds vary session to session for reasons not
+        yet understood. This calibration gain outweighs the ordering-bias concern.
+      - **Low scores are sometimes orcas and high scores are sometimes false positives.** Thresholds
+        exist to keep review tractable across 130 months, not because sub-threshold windows are
+        uninteresting.
+      - **ZOOM-IN on any confirmation.** Once a day/time has a verified orca the prior shifts
+        completely — an encounter means many calls, most scoring low. Second pass: drop the
+        threshold far, restrict to a time window around the confirmation. Two-stage design:
+        broad-and-shallow to find candidates, then narrow-and-deep around anything real.
+    - **⚠️ COST WARNING — do NOT rerun a full month at `--logit-threshold -10`.** It took **64
+      minutes per model** (vs **3.8 s** at the 0.0 floor) because writing and copying 453,123 CSV
+      rows dominates; the scoring is the same work. **Scope diagnostic runs to the one recording or
+      time range of interest.** The two 453K-row scratch CSVs were written to `/tmp` (deliberately
+      NOT `results/`, since they are diagnostic, not archival) and deleted after use.
 
 ## Label Class Definitions
 
