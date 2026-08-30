@@ -1,0 +1,20 @@
+{
+  "saved_filename": "gradio_sep17_2015_ORCA_65s_wid235698.png",
+  "original_filename": "Screenshot 2026-08-30 at 2.32.16 PM.png",
+  "capture_computer": "DuaneEM1",
+  "capture_timestamp": "2026-08-30 14:32:16",
+  "date_registered": "2026-08-30T16:26:56.958346",
+  "figure_type": "gradio_screenshot",
+  "caption": "ORCA CALL confirmed by ear (D. Edgington), 2015-09-17 06:41 UTC. Harmonic stack 2-4 kHz with a distinct pulse at ~1.9 s. Sits just 15 s before the campaign's highest-scoring window (wid=235701, 3.128) in the same recording -- the pair that first flagged this as bout structure rather than scattered false positives.",
+  "command": "nohup python3 phase2_classify.py review --db-dir /mnt/PAM_Analysis/perch-hoplite/db/MARS_20150901_20150930_32kHz_norm --classifier /mnt/PAM_Analysis/perch-hoplite/models/orca_v10.pt --target-label orca_call --detections-csv /mnt/PAM_Analysis/perch-hoplite/results/review_sep2015_clusters.csv --detections-offset 0 --num-results 27 --classes orca_call,humpback_song,dolphin_call,ROV_noise,ship_noise,other,unlabeled --annotator-id duane --audio-dir /mnt/PAM_Analysis/GoogleMultiSpeciesWhaleModel2/resampled_32kHz/2015/09 --spectrogram-type mel --colormap viridis --serve --port 7878",
+  "script": null,
+  "source_wav": "MARS_20150917_064020_resampled_32kHz.wav",
+  "wav_offset_s": 65.0,
+  "spectrogram_type": "mel",
+  "colormap": "viridis",
+  "classifier": "orca_v10.pt",
+  "db": "MARS_20150901_20150930_32kHz_norm",
+  "score": 2.446,
+  "label_selected": "orca_call",
+  "notes": "Label #20, wid=235698. v10 2.446 / v4 1.536. Above v10's 2.31 operating threshold. PASS 1 (27 clips, 14 min): union of orca_v4 >=1.16, orca_v10 >=2.31, the full MARS_20150916_181020 bout at v10>=0.50, and the Sept 28 cluster at v10>=1.00. Score-descending. SCORE SCALE: pass-1 clips carry a v4 score where v4 selected them and a v10 score otherwise; pass-2 clips are all v10. Not a single scale across the set."
+}
