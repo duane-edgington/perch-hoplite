@@ -220,6 +220,22 @@ script; downstream tools match on it.
 
 ---
 
+## ⚠️ TWO THINGS TO KNOW BEFORE ANY REVIEW SESSION (Aug 30 2026)
+
+**1. Use the full class list, including `ROV_noise`:**
+```
+--classes orca_call,humpback_song,dolphin_call,ROV_noise,ship_noise,other,unlabeled
+```
+`ROV_noise` was added Aug 30 2026. ROV servicing of the MARS science node produces a signature
+broad-band screech (J. Ryan). In September 2015 it accounted for **12 labels in a single recording**
+that initially looked like biological bout structure. See finding #35.
+**Always also pass `--annotator-id <name>`** — the default is a generic `analyst`.
+
+**2. AUTOSAVE DOES NOT SURVIVE A CONNECTION LOSS.** The pane says "Labels are also auto-saved on
+each click — reload is safe." **It is not.** A VPN drop 14 minutes into a 27-clip session left
+`SELECT COUNT(*) FROM annotations` = 0 and no JSON in `provenance/labels/` (that file is written on
+save/exit, not per click). **Press "Save Labels to DB" every ~8-10 clips.** See finding #36.
+
 ## Stage 1.5 — VERIFY THE RESAMPLE before spending GPU time (run EVERY month)
 
 ### FIRST: run `tools/coverage_histogram.py` and COMMIT ITS CSV (mandatory, Aug 28 2026)
@@ -428,6 +444,25 @@ ls -la /mnt/PAM_Analysis/perch-hoplite/db/<DBNAME>/
 ```
 An empty dir is clean. A `hoplite.sqlite` or `usearch.index` means move it aside first.
 
+### ⏱️ COST OF LOW-THRESHOLD DIAGNOSTIC INFERENCE RUNS (measured Aug 30 2026)
+
+Inference cost is dominated by **writing and copying CSV rows**, not by scoring. Measured on the
+September 2015 DB (517,984 windows), same hardware, same session:
+
+| `--logit-threshold` | Rows written | v4 time | v10 time |
+|---|---:|---:|---:|
+| **0.0** (normal) | 186 / 182 | **3.3 s** | **3.4 s** |
+| **−2.0** | 47,167 / 15,854 | **6.7 min** | **2.3 min** |
+| **−10.0** (Aug 2015, 453K windows) | 453,123 | **64 min** | **63 min** |
+
+That is roughly **117 rows/second** regardless of model, i.e. **linear in rows written**.
+**Do NOT run a full month at −10 to inspect one recording** — it costs an hour per model for data
+you will slice down to 120 rows. Use **−2.0**, which is deep enough to see everything meaningfully
+below the floor, and write to `/tmp` (diagnostic, not archival), then delete.
+
+Note also that **v4 puts ~3x as many windows above −2.0 as v10** (47K vs 16K on the same DB) —
+v10's score distribution sits lower and tighter, consistent with better calibration.
+
 ### Sanity check after embedding
 
 **⚠️ The printed `Expected` figure is an approximation — do not treat a shortfall as a failure.**
@@ -460,9 +495,18 @@ python3 tools/audit_window_counts.py \
 It reports predicted vs actual, every file that disagrees with the rule, any file on disk with no
 DB recording (a skipped embed), and the padded sub-window files.
 
-**KNOWN ANOMALY (unresolved, 1 file in 3,793):** `MARS_20150817_155951` (301.0 s) holds **61**
-windows where the rule predicts 60, while `MARS_20150803_153345` (476.0 s — the same 1 s remainder)
-correctly holds 95. Flagged, not explained. `soxi -D` prints only 3 decimals, so check `soxi -s`.
+**KNOWN ANOMALY — now TWO instances, both +1, never −1 (unresolved; ~1 per month):**
+
+| Month | File | Duration | Rule | DB | Samples (exact) |
+|---|---|---|---|---|---|
+| 2015-08 | `MARS_20150817_155951` | 301.0 s | 60 | **61** | 9,632,000 ✓ exact |
+| 2015-09 | `MARS_20150920_035020` | 244.0 s | 48 | **49** | 7,808,000 ✓ exact |
+
+**Rounding is ruled out** — `soxi -s` confirms both durations are exact sample counts, and
+`MARS_20150803_153345` (476.0 s, the same 1 s remainder as the 301 s file) correctly gets `floor`.
+So the +1 originates in the adapter's windowing, not the audio. **Two files in ~8,100; always +1.**
+Not worth chasing — `audit_window_counts.py` catches each occurrence. Revisit if a third makes the
+pattern clearer.
 
 Reconcile against the rule, not against `files × 120`. A 600 s file gives exactly 120 either way,
 which is why this only surfaces on months with restarts.
@@ -477,6 +521,7 @@ tail -12 /mnt/PAM_Analysis/perch-hoplite/logs/embed_<month>_norm.log   # "Window
 |---|---|---|---|---|---|---|
 | May 2018 | 2232 | 535,680 | 535,680 | — | — | all files 600 s |
 | Sept 2024 | 2698 | 323,760 | 323,760 | 17.9 min | ~302 win/s | month ends 9/19 (real outage) |
+| **September 2015** | **4,323** | **517,984** | 518,760 | **38.6 min** | **223.8 win/s** | 99.9% coverage; 10 short files; rule predicts 517,983 (one 244 s file +1) |
 | **August 2015** | **3,793** | **453,123** | 455,160 | **33.5 min** | **225.6 win/s** | first FULL month; 21 short files; rule `max(1,floor(d/5))` predicts 453,123 ✅ (one 301 s file off by +1) |
 | **July 2015** | **469** | **56,130** | 56,280 | **4.3 min** | **219.4 win/s** | partial month (deployment 7/28 18:05); 2 restarts → 150-window shortfall is CORRECT: 467×120 + ceil(242/5)=49 + ceil(205/5)=41 = 56,130 ✅ |
 

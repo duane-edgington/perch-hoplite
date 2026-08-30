@@ -508,7 +508,8 @@ infer v4+v10 (Stage 3) -> score-band triage -> Gradio review -> record finding -
 |---|---|---|
 | **2015-07** | ✅ COMPLETE (Aug 27 2026) | Zero orca. 469 files, 56,130 windows. 2 dolphin_call, 4 other. Finding #29. |
 | **2015-08** | ✅ COMPLETE (Aug 28 2026) | 3,793 files, **453,123 windows**, 629.34 h (84.6%), 8/16 absent, 5 long dropouts. Reviewed: **13 dolphin_call + 1 UNCONFIRMED orca candidate** (`MARS_20150828_212219` @325 s). 12 figures registered. Findings #31, #33. |
-| **2015-09** | 🔄 RESAMPLING (started Aug 30 2026, spark-0626, 8 jobs) | Day 01 shows **141 files**, so the month starts slightly short. **Duane expects a lot of humpbacks** — see the note below on what that implies. |
+| **2015-09** | ✅ COMPLETE (Aug 30 2026) | 4,323 files, **517,984 windows**, 719.43 h (**99.9%**). **TWO ORCA ENCOUNTERS, 18 confirmed calls** + 17 dolphin + 12 ROV_noise. 22 figures registered. Findings #34-37. |
+| **2015-10** | ⬅️ **NEXT** | |
 
 **Canonical Stage 1 command** (day-range args; month WITHOUT leading zero):
 `./tools/resample_sox_32k_batched_vol.sh <year> <month> [start_day] [end_day] [max_jobs]`
@@ -600,6 +601,11 @@ datasets (Palmer 2025). Focus = transient/Bigg's (CA140-associated) calls.
   #33. Spectrogram already posted to Slack (Aug 30 2026). This is the higher-stakes ask: it is the
   campaign's first non-spring orca candidate, and Duane's ear is the only evidence for it.
   Figure: `figures/gradio_aug28_2015_ORCA_325s_wid255405.png`.
+  **A COMPLETE WRITTEN BRIEF FOR JOHN COVERING ALL THREE MONTHS IS AT
+  `docs/BRIEF_john_ryan_2015_07-09.md`** — headline results, exact UTC timestamps for all 18
+  September orca calls (for navigating his Soundscape Visual Browser), the ROV finding, the ~17%
+  recall number, the August candidate, the four July unknowns, coverage caveats, the two recorder
+  artifacts needing his confirmation, and six questions for the meeting.
   **PREREQUISITE — now satisfied:** the Gradio label DELETE was unscoped and would have DESTROYED
   Duane's 6 existing labels when John relabeled. Fixed Aug 28 2026 (scoped by provenance); see
   finding #32.
@@ -607,8 +613,12 @@ datasets (Palmer 2025). Focus = transient/Bigg's (CA140-associated) calls.
   Recommendation written up in `docs/multi_annotator_design.md` — one DB, additive rows, third
   `consensus:` row for reconciliation, training selects a view under a recorded policy, and
   inter-annotator agreement (Cohen's kappa) as the payoff.
-- **SEPTEMBER 2015 — Duane expects a lot of humpbacks, and that has a consequence worth acting on
-  BEFORE the review.** The orca classifier fires on humpback vocalizations, so a humpback-heavy
+- **SEPTEMBER 2015 PRODUCED NO HUMPBACK LABELS** — the expectation did not materialise in the
+  reviewed set (18 orca, 17 dolphin, 12 ROV_noise, 0 humpback). Note this only means no humpbacks
+  appeared among windows the ORCA classifier scored highly; it says nothing about humpback presence
+  in the month. The concern below still stands for future months.
+- **[ORIGINAL NOTE, still applicable] Duane expects humpback-heavy months, with a consequence worth
+  acting on BEFORE the review.** The orca classifier fires on humpback vocalizations, so a humpback-heavy
   month yields more above-threshold windows that are not orca. **That is the known class confusion,
   not model failure** — and September could be the month that makes the case concrete. But it also
   means the pool of Duane's **working-grade** humpback labels grows fast, and the eventual
@@ -1047,6 +1057,89 @@ build handoff), thalassa_storage_survey.md, poster_v42_review.md, docs/agile_mod
       rows dominates; the scoring is the same work. **Scope diagnostic runs to the one recording or
       time range of interest.** The two 453K-row scratch CSVs were written to `/tmp` (deliberately
       NOT `results/`, since they are diagnostic, not archival) and deleted after use.
+
+34. **SEPTEMBER 2015 — TWO ORCA ENCOUNTERS, 18 CONFIRMED CALLS. First confirmed orcas of the
+    campaign (D. Edgington, Aug 30 2026).**
+    Cleanest month yet: **719.43 h = 99.9% coverage**, 4,323 files, **517,984 windows**, 38.6 min
+    embed at 223.8 win/s. Only 0.57 h missing, essentially all in one 32-min gap on 9/1 15:57.
+    DB `MARS_20150901_20150930_32kHz_norm`. Floor detections: v4 186, v10 182 — near-parity, unlike
+    August's 172 vs 99.
+    - **v10 CLEARED ITS OWN THRESHOLD FOR THE FIRST TIME:** 4 windows >= 2.31 (one >3.00), where
+      July and August produced zero. v4: 8 windows >= 1.16.
+    - **EPISODE A — 2015-09-16 23:47 -> 09-17 06:45, NINE calls.** `20150916_234019` @435 s (1), then
+      `20150917_062020` @320/370 s (2), then **SIX calls in `20150917_064020`** @10/65/80/95/100/295 s.
+      The @80 s window scored **3.128 — the highest anywhere in the campaign — and is a confirmed orca.**
+    - **EPISODE B — 2015-09-28 05:05 -> 07:54, NINE calls.** `050349` @95/170 s, `060349` @380 s,
+      **FOUR in `071349`** @290/400/435/560 s, `072349` @145 s, `075349` @25 s. Dolphins present the
+      same morning (06:23, 06:33, 07:43, 08:53, 09:03, 09:43, 10:52) — worth noting given Bigg's prey.
+    - **CALL SIGNATURE:** narrow harmonic stack ~1-4 kHz, gentle upward inflection, **no energy above
+      ~5 kHz.** Visibly distinct from same-session dolphins at 8-16 kHz with steep sweeps. Matches the
+      August candidate's signature (#33), which strengthens that candidate.
+    - **⚠️ RECALL AT THE OPERATING POINT IS ~17%.** Only 4 windows in the month cleared v10's 2.31 —
+      and **one of those four was a DOLPHIN** (`20150928_063349` @355 s, v10 2.349, the month's
+      2nd-highest score). So **3 true orca calls out of 18 present, at 75% precision.**
+      **More than half the confirmed calls came from the low-threshold second pass**; the lowest
+      confirmed call scored **v10 = 0.205**. The threshold is well suited to FINDING ENCOUNTERS (one
+      call above threshold locates the event) but would **badly undercount calls** for call-rate
+      statistics. Frame seasonal analysis accordingly.
+    - **TWO-PASS PROTOCOL VALIDATED.** Pass 1 (27 clips, 14 min): union of v4>=1.16, v10>=2.31, the
+      full `20150916_181020` bout at v10>=0.50, and the Sept 28 cluster at v10>=1.00. Pass 2 (21
+      clips, 15 min): every previously-unheard window at **v10 >= 0.20** inside the two episodes.
+      **11 of 21 pass-2 clips were orca.** Without the zoom-in the month reads as 7 scattered calls
+      instead of two encounters.
+    - **22 figures registered** (`figures/gradio_sep*_2015_*`), 16 of them ORCA. 27 grabs taken; 5
+      dropped (2 pre-click, 2 duplicates, 1 superseded by a clean re-grab of the 3.128 whose header
+      had been covered by a browser tooltip). One figure records a **deliberate `unlabeled` skip**
+      (`20150928_065349` @315 s) — verified against an empty DB row, i.e. a documented "listened,
+      could not tell", not a mistimed grab.
+    - **⚠️ SCORE-SCALE WARNING:** the pass-1 review set mixes v4 and v10 scores; pass-2 is all v10.
+      Sidecars record which model's score each figure carries.
+
+35. **`ROV_noise` IS NOW A LABEL CLASS — J. Ryan's warning, confirmed in the data (Aug 30 2026).**
+    John had warned that **ROV servicing of the MARS science node produces a signature broad-band
+    "screech" across many frequencies**. September 2015 is the first month Duane recognised one in
+    Gradio. **All 12 `ROV_noise` labels fall in ONE recording: `MARS_20150916_181020`** (18:10-18:20
+    UTC), which shows dense horizontal banding across the whole spectrum.
+    - **That recording alone produced 11 above-floor detections and initially looked like BOUT
+      STRUCTURE** — five minutes of near-continuous "activity". Without John's warning it would have
+      been read as a biological cluster. It is the single largest false-positive source found so far.
+    - **`ROV_noise` added to `--classes`** (placed next to `ship_noise`; both anthropogenic). Use
+      `--classes orca_call,humpback_song,dolphin_call,ROV_noise,ship_noise,other,unlabeled` from now on.
+    - **ASK JOHN: confirm an ROV service visit on 2015-09-16 ~18:10 UTC** from ship logs, and get the
+      other service dates for 2015-2026.
+    - **⚠️ EARLIER MONTHS MAY CONTAIN UNRECOGNISED ROV NOISE** filed as `other` or `ship_noise`.
+      Revisit once service dates are known.
+    - **CROSS-CHECK AVAILABLE:** the MBARI Soundscape Visual Browser
+      (https://www.mbari.org/data/soundscape-visual-browser/) — John's tool — lets Duane navigate to
+      any Y/M/D/time and inspect spectrograms independently of this pipeline. `tools/label_summary.py`
+      emits exact UTC timestamps for every confirmed label to drive that navigation.
+
+36. **⚠️ GRADIO AUTOSAVE DOES NOT SURVIVE A CONNECTION LOSS — 14 minutes of work lost (Aug 30 2026).**
+    The review pane states *"Labels are also auto-saved on each click — reload is safe."* **This is
+    misleading.** Duane's VPN dropped ~14 minutes into a 27-clip session; on reconnect the server
+    was still running (it was under `nohup`) but **`SELECT COUNT(*) FROM annotations` returned 0** and
+    **no JSON appeared** in `provenance/labels/`. Every clicked label was gone.
+    - The per-session JSON is written on **save/exit**, not per click, so it cannot capture a partial
+      session either.
+    - **MITIGATION: press "Save Labels to DB" every ~8-10 clips.** Duane's fair objection: the button
+      is at the top of the page, so this means scrolling up and back each time — real friction across
+      130 months. **TOOL WISHLIST: make the save button sticky, or add a keyboard shortcut.**
+    - Cost accounting: September's review was 29 min of listening **plus 14 min lost** — the drop cost
+      about a third of the month's review effort.
+
+37. **REVIEW-EFFORT TIMINGS — for agile loop planning (running record).**
+    | Session | Clips | Time | Rate |
+    |---|---|---|---|
+    | July 2015 | 6 | 4 min | ~40 s/clip |
+    | August 2015 | 14 | 4 min | ~17 s/clip |
+    | Sept 2015 pass 1 | 27 | **14 min** (LOST to VPN drop) | ~31 s/clip |
+    | Sept 2015 pass 2 | 21 | 15 min | ~43 s/clip |
+    Steady state ~30 s/clip; **marginal/faint clips run slower** (~43 s) because the dolphin-vs-orca
+    judgement is genuinely harder there. A month with an encounter needs ~45-50 clips across two
+    passes = **~25-30 min of listening**. Across ~130 months that is roughly **50 hours of review** —
+    tractable, but it is **the one pipeline stage that cannot be automated or split across the two
+    sparks.** (The Sept pass-1 rerun was faster than 14 min, but that number is not comparable —
+    Duane had already heard those clips.)
 
 ## Label Class Definitions
 
