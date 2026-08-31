@@ -530,11 +530,36 @@ tail -12 /mnt/PAM_Analysis/perch-hoplite/logs/embed_<month>_norm.log   # "Window
 warmup was WRONG: ~220-226 win/s is simply the sustained rate on the GB10. **Sept 2024's ~302 win/s
 is the outlier that needs explaining**, not the norm. Budget ~30-35 min per full month.
 
-**Full-month planning figures (for the 11-year campaign; MEASURED, corrected Aug 30 2026):**
-~4,320-4,464 files → ~520,000-536,000 windows → **~30-35 min GPU**, **~4.5 h SoX wall-clock**
-(NOT the unmeasured "~1 day" in earlier notes), **~125 GB resampled WAV** (873 GB measured across
-7 months; the earlier ~157 GB was high). The WAV footprint remains the binding constraint
-(thalassa at 92%, 4.6 TiB free), not GPU time and not SoX time.
+**Full-month planning figures (MEASURED; storage figure CORRECTED AGAIN Aug 31 2026):**
+~4,320-4,464 files → ~520,000-536,000 windows → **~30-40 min GPU**, **~4.5 h SoX wall-clock**,
+**~160 GB resampled WAV for a full 31-day month.**
+
+⚠️ **The ~125 GB figure recorded on Aug 30 was WRONG.** It came from a 873 GB total across 7 months,
+but that `du` crawl had not finished — it was the parallel crawl that later died with the VPN. A
+completed `du --max-depth=2` on Aug 31 gives **1.2 TB across 8 months**.
+
+**Resampled size is exactly predictable from coverage: 0.215 GB per hour recorded.** Measured
+per-month, and the constant holds to three digits — unsurprising, since it is just 32 kHz 16-bit
+mono:
+
+| Month | Size | Hours | GB/h |
+|---|---:|---:|---:|
+| 2015-07 | 17 GB | 77.96 | 0.218 |
+| 2015-08 | 136 GB | 629.34 | 0.216 |
+| 2015-09 | 155 GB | 719.43 | 0.215 |
+| 2015-10 | 150 GB | ~697 (est) | — |
+| 2018-04 | 155 GB | 720.00 | 0.215 |
+| 2018-05 | 160 GB | 744.00 | 0.215 |
+| 2020-10 | 160 GB | 743.42 | 0.215 |
+| 2024-09 | 97 GB | 449.67 | 0.216 |
+| 2026-04 | 151 GB | 702.27 | 0.215 |
+
+**To predict a month's footprint before running anything: `hours x 0.215 GB`.**
+
+**Revised campaign projection: ~160 GB/full month → ~20 TB for 130 months** (not 16 TB).
+Conclusion is unchanged — that does **not** fit in the available 4.3 TiB, so analyze-then-archive is
+what makes the campaign possible. Permanent artifacts remain trivial by comparison (~1.6 GB
+embeddings per month → ~210 GB for all 130).
 
 ---
 

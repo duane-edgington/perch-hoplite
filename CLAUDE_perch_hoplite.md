@@ -509,7 +509,8 @@ infer v4+v10 (Stage 3) -> score-band triage -> Gradio review -> record finding -
 | **2015-07** | ✅ COMPLETE (Aug 27 2026) | Zero orca. 469 files, 56,130 windows. 2 dolphin_call, 4 other. Finding #29. |
 | **2015-08** | ✅ COMPLETE (Aug 28 2026) | 3,793 files, **453,123 windows**, 629.34 h (84.6%), 8/16 absent, 5 long dropouts. Reviewed: **13 dolphin_call + 1 UNCONFIRMED orca candidate** (`MARS_20150828_212219` @325 s). 12 figures registered. Findings #31, #33. |
 | **2015-09** | ✅ COMPLETE (Aug 30 2026) | 4,323 files, **517,984 windows**, 719.43 h (**99.9%**). **TWO ORCA ENCOUNTERS, 18 confirmed calls** + 17 dolphin + 12 ROV_noise. 22 figures registered. Findings #34-37. |
-| **2015-10** | ⬅️ **NEXT** | |
+| **2015-10** | 🔄 RESAMPLED (overnight Aug 30-31, spark-0626, 8 jobs) — embed next | **4,293 files** = 4,293 raw, 0 failures, `vol 3` confirmed. **Oct 18 ABSENT entirely**; Oct 17 = 117 files and Oct 19 = 50 — an outage spanning ~Oct 17-19, ~171 files (~28 h) short of a full month. 150 GB. Restart days: 10/23 = 146, 10/30 = 145. **VPN dropped overnight and did not matter** — the job was under `nohup` and writes straight to thalassa. |
+| **2015-11** | ⬅️ NEXT after Oct | |
 
 **Canonical Stage 1 command** (day-range args; month WITHOUT leading zero):
 `./tools/resample_sox_32k_batched_vol.sh <year> <month> [start_day] [end_day] [max_jobs]`
@@ -517,13 +518,34 @@ infer v4+v10 (Stage 3) -> score-band triage -> Gradio review -> record finding -
 no filename marker, but omits the mandatory `vol 3` volts calibration (J. Ryan: always vol 3,
 clipping is not a concern for signals of interest).
 
-**STORAGE — measured figures (Aug 30 2026).** thalassa `/mnt/PAM_Analysis`: 51 TB total,
-**4.6 TiB free (92% used)**, down from 96%. The seven 32 kHz months on disk total **873 GB →
-~125 GB per full month** (earlier ~157 GB estimate was high). ~36 months would fit if nothing were
-deleted; the whole 130-month archive resampled at once would be ~16 TB and does **NOT** fit — so
-analyze-then-archive is what makes the campaign possible, not merely tidy. **Permanent artifacts
-are tiny:** ~1.6 GB embeddings/month → **~210 GB for all 130 months**. Storage will never
-constrain the outputs, only the transient WAV.
+**STORAGE — corrected measured figures (Aug 31 2026; supersedes the Aug 30 numbers).**
+thalassa `/mnt/PAM_Analysis`: **51 TB total, 47 TB used, 4.3 TiB free (92%)**.
+
+⚠️ **The Aug 30 figures were wrong.** "873 GB across 7 months → ~125 GB/month" came from a `du`
+crawl that had not finished (the parallel one that later died with the VPN). A completed
+`du --max-depth=2` on Aug 31 gives **1.2 TB across 8 months**, and:
+- **0.215 GB per HOUR RECORDED** — constant to three digits across all eight months, as expected
+  for 32 kHz 16-bit mono. **Predict any month with `hours x 0.215 GB`.**
+- **~160 GB for a full 31-day month** (2018-05 = 160 GB / 744 h; 2020-10 = 160 GB / 743 h).
+- Partial months scale down exactly: 2015-07 = **17 GB** for 78 h; 2024-09 = **97 GB** for 450 h.
+- **Revised projection: ~20 TB for 130 months**, not 16 TB. Still does not fit in 4.3 TiB, so the
+  conclusion stands: **analyze-then-archive is what makes the campaign possible, not merely tidy.**
+- **Permanent artifacts remain trivial:** ~1.6 GB embeddings/month → **~210 GB for all 130 months**.
+  Storage will never constrain the outputs, only the transient WAV.
+
+**Current live set (Aug 31 2026): 458 GB across four 2015 months** — Jul 17 GB, Aug 136 GB,
+Sep 155 GB, Oct 150 GB. **July, August and September are all COMPLETE** (findings written, figures
+registered, coverage CSVs committed) and therefore all qualify for WAV deletion under the standing
+rule. July was kept deliberately as the reference month while the loop was new; **that rationale is
+thinner now the loop has run four times.** Deleting Aug + Sep would free **291 GB** and take the
+live set back to two months. Not urgent at 4.3 TiB free, but **the discipline is easier to keep on
+schedule than to restart under pressure.**
+
+**What the 24 kHz / 48 kHz deletions actually bought (Aug 30 2026):** the share moved from **96% to
+92% used**. Both trees covered only a few selected months rather than the full archive, so at 51 TB
+scale the reclaim was modest — a few hundred GB, not TB. Worth knowing before assuming a similar
+cleanup could free campaign-scale space again: **there is nothing comparable left to delete.** From
+here, headroom comes from the 32 kHz purge rule, not from retiring old model artifacts.
 - **Reclaimed Aug 30 2026:** the 24 kHz tree (GoogleMultiSpeciesWhaleModel2) and the 48 kHz tree
   (OrcAI) were deleted via `find ... -depth -delete`. Both covered only **a few selected months,
   not the full archive**, so the freed space was small at this scale. Everything else under
@@ -1094,6 +1116,25 @@ build handoff), thalassa_storage_survey.md, poster_v42_review.md, docs/agile_mod
       could not tell", not a mistimed grab.
     - **⚠️ SCORE-SCALE WARNING:** the pass-1 review set mixes v4 and v10 scores; pass-2 is all v10.
       Sidecars record which model's score each figure carries.
+    - **PER-DAY RATES (effort-normalised, from `tools/label_summary.py`):** only four days in
+      September carry labels at all.
+
+      | Date | ROV_noise | dolphin | orca | hours | **orca/h** |
+      |---|---:|---:|---:|---:|---:|
+      | 2015-09-02 | 0 | 1 | 0 | 24.0 | 0.000 |
+      | 2015-09-16 | **12** | 2 | 1 | 24.0 | 0.042 |
+      | 2015-09-17 | 0 | 1 | **8** | 24.0 | **0.333** |
+      | 2015-09-28 | 0 | **13** | **9** | 23.9 | **0.376** |
+
+    - **DOLPHINS AND ORCAS WITHIN SECONDS OF EACH OTHER (Episode A).** `MARS_20150917_062020`
+      holds an **orca call at 06:26:30 (@370 s) and a dolphin call at 06:26:40 (@380 s)** —
+      adjacent windows, 10 s apart, both confirmed by ear. In Episode B the two interleave across
+      the morning instead: **13 dolphin calls against 9 orca calls on 2015-09-28**, from 06:06 to
+      10:56. Given Bigg's prey on marine mammals this may be worth more than a footnote; we have no
+      view on whether it is coincidence. **Raised with J. Ryan.**
+    - **Sept 28 is denser than the orca count alone suggests:** 22 labels on one day (9 orca,
+      13 dolphin), spanning 05:05-10:56. Two dolphin calls at 06:39:44 and 06:39:49 are adjacent
+      windows.
 
 35. **`ROV_noise` IS NOW A LABEL CLASS — J. Ryan's warning, confirmed in the data (Aug 30 2026).**
     John had warned that **ROV servicing of the MARS science node produces a signature broad-band
@@ -1105,8 +1146,10 @@ build handoff), thalassa_storage_survey.md, poster_v42_review.md, docs/agile_mod
       been read as a biological cluster. It is the single largest false-positive source found so far.
     - **`ROV_noise` added to `--classes`** (placed next to `ship_noise`; both anthropogenic). Use
       `--classes orca_call,humpback_song,dolphin_call,ROV_noise,ship_noise,other,unlabeled` from now on.
-    - **ASK JOHN: confirm an ROV service visit on 2015-09-16 ~18:10 UTC** from ship logs, and get the
-      other service dates for 2015-2026.
+    - **THE SCREECH IS TIGHTLY BOUNDED: 11 of the 12 labels fall between 18:14:55 and 18:16:50 —
+      under two minutes — with one straggler at 18:20:00.** A sharp target for a log check.
+    - **ASK JOHN: confirm an ROV service visit on 2015-09-16, 18:14-18:20 UTC** from ship logs, and
+      get the other service dates for 2015-2026.
     - **⚠️ EARLIER MONTHS MAY CONTAIN UNRECOGNISED ROV NOISE** filed as `other` or `ship_noise`.
       Revisit once service dates are known.
     - **CROSS-CHECK AVAILABLE:** the MBARI Soundscape Visual Browser
@@ -1140,6 +1183,62 @@ build handoff), thalassa_storage_survey.md, poster_v42_review.md, docs/agile_mod
     tractable, but it is **the one pipeline stage that cannot be automated or split across the two
     sparks.** (The Sept pass-1 rerun was faster than 14 min, but that number is not comparable —
     Duane had already heard those clips.)
+
+38. **`tools/label_summary.py` — per-day label histogram + exact UTC timestamps (Aug 30 2026).**
+    Emits, for one month's DB: (a) confirmed labels per day by class, **effort-normalised against the
+    coverage CSV** (`orca/h`), and (b) an **exact UTC timestamp for every confirmed label**, derived
+    as recording start (from the `MARS_YYYYMMDD_HHMMSS` filename) + the window offset unpacked from
+    the `annotations.offsets` blob. `--markdown` emits tables.
+    - **Purpose: let J. Ryan navigate directly to any confirmed call in the MBARI Soundscape Visual
+      Browser** (https://www.mbari.org/data/soundscape-visual-browser/) — his own tool, independent
+      of this pipeline — to inspect the spectrogram himself. Cross-checking our labels against that
+      browser is now a standing option, and is how the ROV_noise hypothesis can be verified.
+    - **Verified Aug 30 2026:** all 18 September orca timestamps produced by the tool match
+      hand-computed values to the second.
+    - **Offset blob recipe confirmed working:** `struct.unpack('<2d', blob)` on `annotations.offsets`.
+    - Note the `orca/h` column reads `0.000` (not blank) on days with labels but no orca — correct,
+      but do not misread it as a measurement of absence across the month.
+
+39. **SIGHTING-RECORD CORRELATION — a strong LEAD for the Sept 2015 encounters, UNVERIFIED
+    (Aug 30 2026). Do not treat as established.**
+    The three September acoustic detection days (**09-16, 09-17, 09-28**) coincide with claims of
+    notable Monterey Bay Bigg's activity in the same window — specifically **CA95A1 / the CA95A
+    matriline** around Sept 16-17, and a separate Sept 28 encounter described as Bigg's **hunting
+    dolphins**. Also claimed: the fish-eating **Southern Resident L-Pod** moving along the coast in
+    the same window.
+    - **⚠️ NONE OF IT IS SOURCED.** The material surfaced with **citations that did not match their
+      claims** (an orca "sighting" reference pointed at an unrelated news story; another at a
+      fashion-show page) — the signature of generated rather than retrieved text. A later CKWP-styled
+      record for CA95A1 was formatted like an AI info-card, with a "Notable Tracking Window" field
+      matching the query dates exactly. **Note also that CA95 was first attached to Sept 28 and then
+      CA95A1 to Sept 16-17** — the drift is itself a warning sign.
+    - **Claude could not verify any of it** — no web search in that session, and browsing restricted
+      to an allowlist that excludes news sites and CKWP. **Pod identifications are therefore kept OUT
+      of this record** until J. Ryan confirms them.
+    - **WHY IT MATTERS IF IT HOLDS.** (a) Three acoustic encounters matching three documented
+      sighting days would be **strong external validation of the whole pipeline** — every
+      confirmation so far rests on Duane's ear alone. (b) The **Sept 28 co-occurrence** (13 dolphin
+      calls interleaved with 9 orca calls, 05:05-10:56) would become a **documented predation event**
+      rather than an open question. (c) Same for the Sept 17 dolphin call **10 s after an orca call
+      in the same recording**.
+    - **⚠️ THE L-POD CLAIM NEEDS PARTICULAR SCRUTINY.** Southern Residents in Monterey Bay would be
+      notable in itself, and it matters technically: a **fish-eating ecotype vocalises very
+      differently from Bigg's, and `orca_v10` is trained on Bigg's.** If there is anything to it, it
+      changes how these detections read. Probably nothing, but not ruled out.
+    - **⚠️ 2015 MAY NOT BE A REPRESENTATIVE YEAR.** It was the peak of the North Pacific marine
+      heatwave ("the warm blob"); anomalous warm water and unusual marine mammal distribution in
+      Monterey Bay that autumn would need stating in any interannual comparison across the archive.
+    - **ACTION (top ask for the Monday meeting): get JOHN to connect Duane with whoever holds the
+      actual sighting logs.** Nancy Black / Monterey Bay Whale Watch / the California Killer Whale
+      Project are the authoritative record for Monterey Bay Bigg's, but **the logs are not findable
+      from outside** — Duane tried. **A warm introduction is worth more here than any amount of
+      searching.**
+    - **THE REAL PRIZE IS THE DATASET, NOT THE THREE DATES.** Ad-hoc per-date lookups do not scale to
+      ~130 months. **A joinable table of dated sightings is the JOIN KEY for the entire seasonal /
+      interannual analysis** (roadmap #1). Confirming three days is useful; having the whole log is
+      transformative. Ask for it as a dataset.
+    - Written up for the meeting in `docs/BRIEF_john_ryan_2015_07-09.md` §9, framed as questions
+      rather than claims.
 
 ## Label Class Definitions
 
