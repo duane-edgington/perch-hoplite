@@ -522,6 +522,9 @@ tail -12 /mnt/PAM_Analysis/perch-hoplite/logs/embed_<month>_norm.log   # "Window
 | May 2018 | 2232 | 535,680 | 535,680 | — | — | all files 600 s |
 | Sept 2024 | 2698 | 323,760 | 323,760 | 17.9 min | ~302 win/s | month ends 9/19 (real outage) |
 | **September 2015** | **4,323** | **517,984** | 518,760 | **38.6 min** | **223.8 win/s** | 99.9% coverage; 10 short files; rule predicts 517,983 (one 244 s file +1) |
+| **November 2015** | **3,685** | pending | 441,604 | pending | — | 85.2% coverage; Nov 15 absent; 9 short files |
+| **October 2015** | **4,293** | **502,871** | 502,869 | **38.0 min** | **220.5 win/s** | 93.9%; Oct 18 absent; 80 sub-5s padded windows |
+| **September 2015** | **4,323** | **517,984** | 517,983 | **38.6 min** | **223.8 win/s** | 99.9%; 10 short files |
 | **August 2015** | **3,793** | **453,123** | 455,160 | **33.5 min** | **225.6 win/s** | first FULL month; 21 short files; rule `max(1,floor(d/5))` predicts 453,123 ✅ (one 301 s file off by +1) |
 | **July 2015** | **469** | **56,130** | 56,280 | **4.3 min** | **219.4 win/s** | partial month (deployment 7/28 18:05); 2 restarts → 150-window shortfall is CORRECT: 467×120 + ceil(242/5)=49 + ceil(205/5)=41 = 56,130 ✅ |
 
