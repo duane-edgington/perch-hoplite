@@ -35,7 +35,9 @@ Columns:
     files             number of files whose name carries this date
     seconds           summed true duration
     hours             seconds / 3600, 2dp
-    expected_windows  sum(ceil(duration/5)) -- the Stage 2 reconciliation target
+    expected_windows  sum(max(1, floor(duration/5))) -- the Stage 2 reconciliation target
+                      (CORRECTED Aug 31 2026; this column previously used ceil() and was WRONG
+                      -- see windows_for() below)
     pct_of_day        hours / 24 * 100, 1dp
     short_files       count of files not exactly 600 s (restarts / truncations)
     note              COMPLETE | NEAR-COMPLETE | PARTIAL | ABSENT | OVER-24H
@@ -57,6 +59,30 @@ from pathlib import Path
 
 FNAME_RE = re.compile(r'MARS_(\d{4})(\d{2})(\d{2})_(\d{6})')
 WINDOW_S = 5.0
+
+
+def windows_for(duration_s, window_s=WINDOW_S):
+    """Windows the perch-pytorch adapter actually produces for a file of this duration.
+
+        windows = max(1, floor(duration / window_s))
+
+    The adapter DROPS the final partial window, but never emits zero windows for a file --
+    so a file shorter than one window still yields one, mostly-padded, window.
+
+    ⚠️ CORRECTED Aug 31 2026. This tool previously used ceil(), which is WRONG, and its
+    `expected_windows` column has therefore been slightly high in every coverage CSV written
+    between Aug 30 and Aug 31 2026 (2015-07 through 2015-10). The error only shows on months
+    containing short files -- a full 600 s file gives exactly 120 either way:
+
+        2015-09  ceil -> 517,992   correct -> 517,983   (DB held 517,984)
+        2015-10  ceil -> 502,893   correct -> 502,869   (DB held 502,871)
+
+    The rule was established empirically over ~12,400 files; `tools/audit_window_counts.py`
+    is the authority and verifies it per file after every embed. Do not reintroduce ceil().
+    """
+    if duration_s <= 0:
+        return 0
+    return max(1, int(duration_s // window_s))
 CHUNK = 200  # files per soxi invocation
 
 
@@ -189,7 +215,7 @@ def main():
     for day in range(1, ndays + 1):
         fl = by_date.get((year, month, day), [])
         secs = sum(durs.get(f, 0.0) for f in fl)
-        wins = sum(math.ceil(durs.get(f, 0.0) / WINDOW_S) for f in fl)
+        wins = sum(windows_for(durs.get(f, 0.0)) for f in fl)
         short = sum(1 for f in fl if abs(durs.get(f, 0.0) - 600.0) > 1e-6)
         hours = secs / 3600.0
         rows.append({

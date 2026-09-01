@@ -509,7 +509,8 @@ infer v4+v10 (Stage 3) -> score-band triage -> Gradio review -> record finding -
 | **2015-07** | ✅ COMPLETE (Aug 27 2026) | Zero orca. 469 files, 56,130 windows. 2 dolphin_call, 4 other. Finding #29. |
 | **2015-08** | ✅ COMPLETE (Aug 28 2026) | 3,793 files, **453,123 windows**, 629.34 h (84.6%), 8/16 absent, 5 long dropouts. Reviewed: **13 dolphin_call + 1 UNCONFIRMED orca candidate** (`MARS_20150828_212219` @325 s). 12 figures registered. Findings #31, #33. |
 | **2015-09** | ✅ COMPLETE (Aug 30 2026) | 4,323 files, **517,984 windows**, 719.43 h (**99.9%**). **TWO ORCA ENCOUNTERS, 18 confirmed calls** + 17 dolphin + 12 ROV_noise. 22 figures registered. Findings #34-37. |
-| **2015-10** | 🔄 RESAMPLED (overnight Aug 30-31, spark-0626, 8 jobs) — embed next | **4,293 files** = 4,293 raw, 0 failures, `vol 3` confirmed. **Oct 18 ABSENT entirely**; Oct 17 = 117 files and Oct 19 = 50 — an outage spanning ~Oct 17-19, ~171 files (~28 h) short of a full month. 150 GB. Restart days: 10/23 = 146, 10/30 = 145. **VPN dropped overnight and did not matter** — the job was under `nohup` and writes straight to thalassa. |
+| **2015-10** | ✅ COMPLETE (Aug 31 2026) | 4,293 files, **502,871 windows**, 698.38 h (93.9%), Oct 18 absent. **31 CONFIRMED ORCA — largest month yet**, incl. **10 calls in one recording**. Both episodes are **Oct 26 local**. 5 dolphin, 1 humpback, 8 unlabeled (multi-species overlap). Findings #41-42. |
+| **2015-11** | ⬅️ **NEXT** | |
 | **2015-11** | ⬅️ NEXT after Oct | |
 
 **Canonical Stage 1 command** (day-range args; month WITHOUT leading zero):
@@ -1239,6 +1240,205 @@ build handoff), thalassa_storage_survey.md, poster_v42_review.md, docs/agile_mod
       transformative. Ask for it as a dataset.
     - Written up for the meeting in `docs/BRIEF_john_ryan_2015_07-09.md` §9, framed as questions
       rather than claims.
+
+40. **★ SIGHTING CORRELATION CONFIRMED — Sept 16 2015 orca calls fall 17 MINUTES after a logged
+    predation event (Aug 31 2026). First external validation of the pipeline.**
+    Duane located the **Monterey Bay Whale Watch Marine Mammal Sightings List, September 2015**
+    (`montereybaywhalewatch.com/sightings/slst1509/`) — a real, citable, contemporaneous expert
+    record. It **supersedes the unverified material in finding #39**, which should not be repeated.
+    - **⚠️ COPYRIGHT — DO NOT COMMIT THE SIGHTINGS DATA.** The source states it "may not be used
+      without permission from Nancy Black" and that unauthorised use violates federal copyright law.
+      **`perch-hoplite` is PUBLIC.** `docs/sighting_correlation_sep2015.md` deliberately contains
+      only our own detection times plus the minimum date references needed to state the result.
+      **Get written permission before committing any transcription or derived CSV.**
+    - **⚠️⚠️ TIME BASE — THE THING THAT MADE THIS LEGIBLE. Our timestamps are UTC; sighting records
+      are LOCAL (PDT = UTC−7 in September; PST = UTC−8 otherwise).** Converting moved an entire
+      episode across a date boundary: Episode A looked like "09-16 23:47 then a cluster on 09-17
+      morning" in UTC, but in local time it is **one call at 16:47 and a cluster at 23:25-23:45,
+      ALL on Sept 16** — which is what aligns with the sightings. **ALWAYS CONVERT TO LOCAL BEFORE
+      COMPARING WITH ANY SIGHTING SOURCE.** This is now a standing step in the monthly loop.
+    - **THE HIT.** MBWW logged killer whales on **every trip on 9/16** — 7 animals at 8am, 9am, 1pm,
+      2pm — rising to **14 at 4:30 p.m., annotated "predation on Common Dolphins"**, with ~2,000
+      Long-beaked Common Dolphins present. **Our first confirmed orca call is 16:47:34 PDT — 17
+      minutes later.** Eight more follow at 23:25-23:45 PDT the same night.
+    - **The 10-second orca→dolphin co-occurrence now has context.** The dolphin call at 23:26:40 PDT
+      sits 10 s after an orca call in the same recording, on a day with documented predation on
+      common dolphins. Suggestive; not proof of predation at that moment.
+    - **EPISODE B IS THE STRONGER ARGUMENT FOR THE METHOD.** All nine calls fall **22:05-00:54 local
+      on the night of Sept 27→28**. **No killer whales are logged on 9/27 or 9/28 — but whale-watch
+      trips run in DAYLIGHT.** This is an apparent encounter the visual record could not have caught.
+      **Absence of sighting at night is not evidence of absence**, and passive acoustics is exactly
+      what fills that gap. (The log does show **2,500 common dolphins on both 9/28 trips**, the
+      month's largest counts, consistent with our 13 dolphin calls that night.)
+    - **THE FALSE NEGATIVES MATTER AS MUCH AS THE HIT. Killer whales were sighted on FOUR days
+      (9/1, 9/11, 9/14, 9/16); we detected them acoustically on ONE.** Coverage was ~24 h on all
+      four, so these are genuine non-detections. Three non-exclusive explanations:
+      (a) **RANGE** — MARS is ~25 km offshore in the canyon at ~890 m; the list covers the whole
+      region and boats often work inshore, so animals can be "in the bay" and out of detection range;
+      (b) **SILENCE** — Bigg's are acoustically cryptic; present ≠ audible;
+      (c) **RECALL** — already measured at ~17% at v10's operating point (#34).
+      **TESTABLE, AND WORTH DOING: run the pass-2 low-threshold zoom-in on 9/1, 9/11 and 9/14.**
+      Calls found there → (c) dominates and recall is worse than estimated. Nothing found → (a)/(b)
+      dominate and the pipeline is behaving correctly. **This is the single highest-value follow-up
+      the campaign has.**
+    - **WHAT IT DOES NOT ESTABLISH:** pod identity (the list gives counts, not IDs — CKWP photo-ID
+      needed); that the animals heard are the animals seen; ecotype (the predation-on-dolphins entry
+      is *consistent with* Bigg's, which is what v10 is trained on, but is not stated).
+    - **ASKS (for J. Ryan):** (1) permission from Nancy Black; (2) **the sightings record as a
+      DATASET** — MBWW appears to publish monthly at `/sightings/slst<YYMM>/`, so ~130 monthly pages
+      form a scrapable, joinable series, which is the **join key for the entire campaign**;
+      (3) CKWP photo-ID for 9/16 2015; (4) whether ecotype is recorded anywhere.
+    - Full write-up: `docs/sighting_correlation_sep2015.md`.
+
+41. **OCTOBER 2015 — 31 CONFIRMED ORCA CALLS, the campaign's largest month. One recording holds
+    TEN (Aug 31 2026).**
+    4,293 files, **502,871 windows**, 698.38 h = **93.9% coverage**, 38.0 min embed at 220.5 win/s.
+    DB `MARS_20151001_20151031_32kHz_norm`. **Oct 18 absent entirely**; Oct 17 and 19 partial (one
+    clean 44.2 h dropout from 19:31 on the 17th). Floor detections: v4 151, v10 134.
+    - **v10 cleared its threshold 11 times (3 above 3.00)** vs September's 4 — and **v4 16 times**.
+      The two models agreed closely on ranking; both put `20151026_084928` @320 s first
+      (**v10 3.732 — highest score in the campaign**).
+    - **PASS 1: 16 clips, 6 min → 15 orca + 1 dolphin (94% precision).** PASS 2 (v10 ≥0.20 on the
+      episode dates, 28 clips, 20 min) → **16 more orca**, 4 dolphin, 1 humpback, **8 unlabeled**.
+      Total **31 orca, 5 dolphin, 1 humpback_song** (the campaign's first humpback label).
+    - **⚠️⚠️ BOTH EPISODES ARE THE SAME DATE IN LOCAL TIME.** The UTC filenames split them across
+      Oct 26 and Oct 27, but in PDT: `20151026_07…09…` = **00:14–02:13 PDT Oct 26**, and
+      `20151027_055928` = **23:03–23:05 PDT Oct 26**. So Oct 26 local holds **29 of the 31 calls**,
+      in two bouts ~21 h apart. Only one call (00:15 PDT Oct 27) falls on the 27th.
+      **This is the second time the UTC/local distinction has reshaped an episode — see #40.**
+    - **THE MAIN ENCOUNTER — Oct 26, 00:14–02:13 PDT, 25 calls over 2 h**, with a clear profile:
+      1 call at 00:14, 1 at 00:29, 1 at 00:31, then **4 at 01:11–01:18**, **4 at 01:30–01:34**,
+      **3 at 01:51–01:54**, **TEN at 02:03–02:05**, then 1 at 02:13 and silence. Approach, peak,
+      departure. **`MARS_20151026_085928` holds 10 orca calls in 3 minutes — the densest
+      vocalisation the campaign has found** (September's best was 6 in one recording).
+      Note `073928`/`074928`/`075928` are empty: a quiet interval mid-encounter, or the animals
+      moved out of range and back.
+    - **MULTI-SPECIES SCENE.** `085928` also holds **2 dolphin_call** (02:01, 02:04 PDT) among its
+      10 orca calls; a **humpback_song** sits at 01:30 PDT in `082928` during the build-up. Three
+      species vocalising inside a two-hour window.
+    - **⚠️ TOOL LIMITATION FOUND: THE REVIEW UI CANNOT EXPRESS MULTI-LABEL WINDOWS.** Duane left
+      **8 clips unlabeled** because they appeared to contain **more than one vocalisation** (orca +
+      dolphin, or orca + humpback) in the same 5 s window. The radio button forces one class, so the
+      only honest options were "pick one, which is wrong" or "skip, which loses the information."
+      He chose to skip. **The specific recordings were not noted and are NOT worth re-listening to
+      recover** — the structural picture is established, and those windows become worth revisiting
+      only once multi-label support exists.
+      - **The DB can already represent this.** `annotations` is one row per label, and the scoped
+        DELETE fix (#32) means multiple rows per window are now safe. **The blocker is the UI**, not
+        the schema. Options: checkboxes, a `mixed` class, or simply allowing two clicks.
+      - This matters beyond bookkeeping: during a predation event on dolphins, **overlapping
+        vocalisations are exactly what you would expect**, so the tool is blindest precisely where
+        the science is most interesting.
+    - **Two isolated singles** outside the episodes: Oct 7 03:15 PDT (v10 2.475) and a dolphin on
+      Oct 5. **The Oct 7 window is at offset 5 s, near a file start** — worth a glance for boundary
+      artefact, though it scored well above threshold.
+    - **THE 80 PADDED SUB-5s WINDOWS SCORED NOTHING.** Oct 5's recorder thrashing produced 80 files
+      shorter than one analysis window (79 of them in a 90-minute block), each yielding one mostly
+      empty window. **Zero detections from either model in that block.** So the open question from
+      #30 has a first data point: near-empty windows tend to score LOW, and excluding them at
+      inference is not urgent.
+    - **Review effort: 26 min total** (6 + 20). Pass 2 ran ~43 s/clip, same as September's pass 2 —
+      marginal clips are consistently slower than clear ones.
+
+42. **OCTOBER 2015 SIGHTING CORRELATION — both detection days fall in the small hours FOLLOWING a
+    sighting day (Aug 31 2026).**
+    Source: Monterey Bay Whale Watch, *Marine Mammal Sightings List October 2015*
+    (`montereybaywhalewatch.com/sightings/slst1510/`). **⚠️ SAME COPYRIGHT RESTRICTION AS #40 — do
+    NOT commit the sightings data to this PUBLIC repo without Nancy Black's written permission.**
+
+    | Sighting (local) | Our confirmed orca |
+    |---|---|
+    | **10/6 all day — 15 Killer Whales** | **Oct 7, 03:15 PDT** (the following night) |
+    | 10/11 a.m. + p.m. — 6 KW, **"predation event"** | none |
+    | 10/14 a.m. — 6 KW; p.m. — 1 KW (**"Stumpy"**) | none |
+    | 10/23 p.m. — 3 KW | none |
+    | **10/25 all day — 1 Killer Whale (CA49B)** | **Oct 26, 00:14–02:13 PDT** (the following night), then again 23:03 PDT |
+
+    - **NEITHER of our detection days is itself a sighting day — both are the NIGHT AFTER one.**
+      Consistent with animals remaining in the area overnight and vocalising when no boats are out.
+      Combined with September's Episode B (also overnight, also unsighted), **the campaign is
+      repeatedly finding activity in exactly the window the visual record cannot cover.**
+    - **CA49B is the first individually-identified animal in either month's log**, named on 10/25 —
+      the day before our largest encounter. **Worth asking Josh McInnes / CKWP whether CA49B or
+      associates were photographed again on 10/26.**
+    - **THREE sighting days produced no acoustic detection — including the 10/11 predation event.**
+      Same three candidate explanations as #40 (range / silence / recall), still unseparated.
+      **Across September and October combined: killer whales sighted on NINE days, acoustically
+      detected on ZERO of them** — every one of our five detection days is a non-sighting day.
+      That is a strong and slightly uncomfortable pattern, and it sharpens the follow-up: **run the
+      low-threshold pass-2 protocol on the sighting days that produced nothing** (9/1, 9/11, 9/14,
+      10/6, 10/11, 10/14, 10/23, 10/25). If calls turn up, recall is the dominant explanation; if
+      not, range and silence are.
+    - **Photo captions in the October list are dated Oct 5, Oct 11 and Oct 25** ("Blackfin and Killer
+      Whales", "Killer Whale tail throw" — both Oct 5), **but the 10/5 sightings rows list no killer
+      whales.** Either the captions are dated differently from the trips or the row is incomplete.
+      **Worth querying**, since 10/5 would otherwise be another sighting day.
+    - **October ecotype note:** the 10/11 "predation event" and the 10/14 "Stumpy" and 10/25 "CA49B"
+      identifiers are consistent with Bigg's, which is what `orca_v10` is trained on — but as in #40,
+      **ecotype is not stated in the source.**
+
+43. **`coverage_histogram.py` was computing `expected_windows` with the WRONG RULE — fixed
+    Aug 31 2026.**
+    It used `ceil(duration/5)`; the confirmed adapter rule is **`max(1, floor(duration/5))`** (#30).
+    A full 600 s file gives 120 either way, so the error only appears on months with short files —
+    but every coverage CSV written Aug 30–31 2026 has a slightly high target:
+
+    | Month | tool said (ceil) | correct | DB actually held |
+    |---|---:|---:|---:|
+    | 2015-09 | 517,992 | **517,983** | 517,984 |
+    | 2015-10 | 502,893 | **502,869** | 502,871 |
+
+    - This is why October's embed "looked" 22 windows short when it was actually **+2** — the
+      discrepancy was in the reference, not the data. **`tools/audit_window_counts.py` is the
+      authority**; the coverage tool's column is a convenience.
+    - Fix: a documented `windows_for()` helper, validated against all twelve known duration cases
+      including sub-5 s files. **Regenerate the 2015-07…2015-10 coverage CSVs after pulling.**
+
+44. **★ RANGE, NOT RECALL — a public X post locates the 10/11 predation event ~24-28 km from the
+    hydrophone. First hard evidence separating the false-negative explanations (Aug 31 2026).**
+    **@MBayWhaleWatch (GoWhales) on X, posted Oct 12 2015:** *"Another dolphin toss! Killer Whales
+    hunted Common Dolphins just a few miles from Monterey Harbor 10/11/15 #Monterey"*, with video.
+    **This source is PUBLIC and citable** — unlike the MBWW sightings lists (#40, #42), it carries no
+    redistribution restriction, so it CAN go in this repo with attribution.
+    - **THE GEOMETRY.** MARS node = 36°42.75′N 122°11.21′W, ~891 m depth. Monterey Harbor =
+      ~36.605°N 121.888°W. **Harbor → MARS = 29.2 km (15.8 nmi / 18.2 statute miles).** So "a few
+      miles from Monterey Harbor" puts the animals **~24-28 km from the hydrophone**; even a generous
+      8 miles offshore still leaves ~16 km.
+
+      | miles from harbor | km to MARS (toward) | km to MARS (away) |
+      |---:|---:|---:|
+      | 1 | 27.6 | 30.8 |
+      | 3 | 24.4 | 34.0 |
+      | 5 | 21.2 | 37.3 |
+      | 8 | 16.3 | 42.1 |
+
+    - **CONCLUSION FOR 10/11: RANGE, not recall and not silence.** The animals were actively hunting
+      and vocal enough to be worth filming, but they were **inshore in the southern bay while MARS
+      sits far out in the canyon.** Of the three candidate explanations in #40/#42 — (a) range,
+      (b) Bigg's acoustic crypsis, (c) detector recall — **(a) is demonstrated for this day.**
+    - **⚠️ THIS REFRAMES THE WHOLE NINE-DAYS-ZERO-DETECTIONS PATTERN.** It is not obviously a
+      pipeline failure; it may be largely **geometry**. The MBWW list covers the **whole Monterey Bay
+      region**, including waters MARS cannot plausibly reach, and whale-watch boats work grounds that
+      are typically far closer to shore than the node. **A single hydrophone 29 km from the boats'
+      usual grounds should not be expected to hear most inshore activity.**
+    - **THE QUESTION CHANGES.** Not *"why did we miss nine sighting days?"* but **"what is the
+      effective detection radius, and which sightings fall inside it?"** That is answerable if
+      location data exists per sighting — and it converts the false negatives from an embarrassment
+      into a **calibration dataset for detection range.**
+    - **IT ALSO STRENGTHENS THE OVERNIGHT DETECTIONS.** Animals heard at 00:14 PDT from a node 29 km
+      off the harbor were either much closer than the boats' usual grounds or calling loudly. Either
+      way the acoustic record is carrying information the visual record did not have.
+    - **ACTIONS:**
+      1. **Ask J. Ryan and Josh McInnes for sighting LOCATIONS, not just dates.** Even a rough
+         position per encounter lets us compute range for every sighting day and test this properly.
+         **This is now a more valuable ask than the dates themselves.**
+      2. **Search @MBayWhaleWatch / GoWhales on X for other located encounters.** If they routinely
+         posted position detail, that is a **public, unrestricted source of exactly the missing
+         variable** — and it sidesteps the copyright problem entirely.
+      3. Re-frame the planned pass-2 test on sighting days: it is now a test of **(b) vs (c)** for
+         days where the animals were plausibly in range, not a blanket recall audit.
+    - **CAVEAT:** one located event does not establish that all nine misses were range-limited.
+      10/11 is demonstrated; the rest are inferred by analogy until locations exist.
 
 ## Label Class Definitions
 
