@@ -510,7 +510,7 @@ infer v4+v10 (Stage 3) -> score-band triage -> Gradio review -> record finding -
 | **2015-08** | ✅ COMPLETE (Aug 28 2026) | 3,793 files, **453,123 windows**, 629.34 h (84.6%), 8/16 absent, 5 long dropouts. Reviewed: **13 dolphin_call + 1 UNCONFIRMED orca candidate** (`MARS_20150828_212219` @325 s). 12 figures registered. Findings #31, #33. |
 | **2015-09** | ✅ COMPLETE (Aug 30 2026) | 4,323 files, **517,984 windows**, 719.43 h (**99.9%**). **TWO ORCA ENCOUNTERS, 18 confirmed calls** + 17 dolphin + 12 ROV_noise. 22 figures registered. Findings #34-37. |
 | **2015-10** | ✅ COMPLETE (Aug 31 2026) | 4,293 files, **502,871 windows**, 698.38 h (93.9%), Oct 18 absent. **31 CONFIRMED ORCA — largest month yet**, incl. **10 calls in one recording**. Both episodes are **Oct 26 local**. 5 dolphin, 1 humpback, 8 unlabeled (multi-species overlap). Findings #41-42. |
-| **2015-11** | 🔄 RESAMPLED + EMBEDDED (Sep 1 2026) — inference next | **3,685 files**, 613.33 h (85.2%). Nov 15 ABSENT. Five long dropouts (51.6 h, 23.0 h, 18.4 h, 5.9 h, 3.7 h). 9 short files. SoX EOF warning on 1 file (padded with silence). TRUE expected windows **441,604**. |
+| **2015-11** | 🔄 PASS 1 COMPLETE, pass 2 pending (Sep 1 2026) | **3,685 files, 441,598 windows**, 613.33 h (85.2%). **88 confirmed orca (pass 1), campaign largest.** Episode A: Nov 22-23 local, 5+ hours. Episode B: Nov 28. NEW CAMPAIGN HIGH: v10=4.662. Findings #45-46. |
 | **2015-12** | ⬅️ NEXT after Nov | |
 | **2015-11** | ⬅️ NEXT after Oct | |
 
@@ -1440,6 +1440,78 @@ build handoff), thalassa_storage_survey.md, poster_v42_review.md, docs/agile_mod
          days where the animals were plausibly in range, not a blanket recall audit.
     - **CAVEAT:** one located event does not establish that all nine misses were range-limited.
       10/11 is demonstrated; the rest are inferred by analogy until locations exist.
+
+45. **NOVEMBER 2015 — LARGEST ENCOUNTER YET, PASS 1 COMPLETE (Sep 1 2026). Pass 2 pending.**
+    3,685 files, **441,598 windows**, 613.33 h = **85.2% coverage**. Nov 15 absent; five long
+    dropouts. One 1-second padded file (Nov 27, SoX EOF warning). Audit: perfect +0 match.
+    DB `MARS_20151101_20151130_32kHz_norm`. Floor detections: v4 847, v10 909 — BOTH far larger
+    than any previous month (Sep had 186/182, Oct 151/134). v4>v10 pattern REVERSED: v10 leads.
+    - **DOMINANT SIGNAL IS HUMPBACK.** 90% of the 847/909 are humpback song firing the orca
+      classifier — the known class confusion. **The key discriminator: date distribution.**
+      83 of 90 v10 above-threshold windows fall on a single day, **Nov 23**, which is encounter
+      structure not humpback structure. Humpback would be spread across many days.
+    - **PASS 1 RESULTS (chunks 1-4 + 9, 117 clips, ~52 min total):**
+      - Chunk 1 (1.21–4.66, ~12 min): **21 orca, 3 humpback, 1 unlabeled**
+      - Chunk 2 (2.63–2.98, ~12 min): **25 orca, 0 humpback**
+      - Chunk 3 (2.40–2.63, ~12 min): **23 orca, 0 humpback, 2 unlabeled**
+      - Chunk 4 (2.18–2.39, ~8 min): **2 orca, 23 humpback** ← HUMPBACK CROSSOVER ~v10=2.4
+      - Chunk 9 (1.18–3.48, ~8 min): **17 orca, 0 humpback** (Nov 28 + Nov 26 + Nov 23 tail)
+      - **Chunks 5–8 SKIPPED** (scores 1.16–2.17, all Nov 23) — at the crossover threshold,
+        expected to be predominantly humpback. Can be reviewed if humpback labels are needed.
+      - **DB totals after pass 1: 88 orca_call, 3 humpback_song** — campaign's largest month.
+    - **CAMPAIGN'S NEW HIGH SCORE: v10 = 4.662** (`MARS_20151123_061447` @480s), beating Oct's
+      3.732. Top 8 windows all exceed 3.7. `MARS_20151123_062447` alone contributes 4 windows
+      scoring 3.541–4.118 — a single 10-minute recording with extraordinary density.
+    - **EPISODE A — Nov 22–23 local (PST=UTC-8), overnight:** `032447` through `083447` UTC
+      = **19:24 PST Nov 22 to 00:34 PST Nov 23**. More than 5 hours of continuous high-scoring
+      activity. 83 of 90 above-threshold windows on this one day.
+    - **EPISODE B — Nov 28:** `114409` through `161409` UTC = **03:44–08:14 PST**. Six windows
+      above threshold, scores 2.367–3.478. Clean second encounter.
+    - **⚠️ PASS 2 ZOOM-IN PENDING** — at 88 orca in pass 1, October's equivalent pass added 16
+      more. Expect another 20–30 calls in the sub-threshold windows on Nov 22-23 and Nov 28.
+    - **HUMPBACK-ORCA COCKTAIL PARTY (D. Edgington's observation, Sep 1 2026):** Some Nov 23
+      spectrograms show both humpback harmonics AND orca low-frequency elements simultaneously
+      in the same 5-second window. These are left unlabeled (radio button cannot express
+      multi-label). **Not useful for training but ecologically significant:** multiple species
+      vocalizing simultaneously from a hydrophone 900m deep in Monterey Canyon. This problem
+      recurs and sharpens the case for multi-label UI support (finding #41).
+    - **ANNOTATION TIMINGS (running record):**
+      - Chunks 1–3: ~12 min each (~29 s/clip) — high-confidence orca, some careful listening
+      - Chunk 4: ~8 min (~19 s/clip) — humpback, faster to dispatch
+      - Chunk 9: ~8 min (~28 s/clip) — mixed, Nov 28 episode required care
+    - **Some calls were weak** — detectable by trained ear only, below any publishable
+      threshold. Reinforces that operational recall (~17% at v10's threshold) understates
+      actual presence. The zoom-in pass exists precisely to recover these.
+
+46. **★ FOUR-MONTH SIGHTING PATTERN — every acoustic encounter is overnight, every daytime
+    sighting produces no detection (Sep 1 2026).**
+    Across September, October, and November 2015 — three consecutive months with both acoustic
+    data and MBWW sighting lists:
+
+    | Month | Sighting days | Acoustic detection on sighting days | Overnight acoustic |
+    |---|---|---|---|
+    | Sep 2015 | 4 | 1 (9/16, 17 min after predation event) | 2 (9/27–28) |
+    | Oct 2015 | 5 | 0 | 2 (10/7, 10/26) |
+    | Nov 2015 | 3 (11/5, 11/12, 11/13) | 0 | 2 (11/22-23, 11/28) |
+
+    **November sighting days:** 11/5 (20+5 KW), 11/12 (7 KW), 11/13 (7 KW). No acoustic
+    detection on any of them. 11/5 had only 5.67 h coverage — partly a gap; 11/12 and 11/13
+    had good coverage (~18 h and ~24 h) and are genuine misses.
+
+    **Nov 2015 source:** MBWW sightings list `montereybaywhalewatch.com/sightings/slst1511/`.
+    ⚠️ SAME COPYRIGHT RESTRICTION — do not commit data to the public repo.
+
+    **What this pattern means:**
+    - **Bigg's acoustic crypsis during daylight hunting** — they go quiet when prey has
+      acute hearing; a hydrophone may simply not hear them even when boats can see them
+    - **Range geometry** — Oct 11 demonstrated animals can be "in the bay" and 24–28 km from
+      MARS (finding #44); the daytime sighting grounds may simply be out of range
+    - **The acoustic record fills the overnight gap the visual record structurally cannot cover**
+      — this is the clearest statement of what passive acoustics adds to the survey program
+
+    **TESTABLE:** run pass-2 low-threshold zoom-in on the nine sighting-day non-detections
+    (9/1, 9/11, 9/14, 10/6, 10/11, 10/14, 10/23, 10/25, 11/12, 11/13). If calls appear,
+    recall is the dominant explanation; if not, range and crypsis dominate.
 
 ## Label Class Definitions
 
