@@ -1,0 +1,20 @@
+{
+  "saved_filename": "gradio_oct07_2015_ORCA_5s_wid59774.png",
+  "original_filename": "Screenshot 2026-08-31 at 8.57.09 AM.png",
+  "capture_computer": "DuaneEM1",
+  "capture_timestamp": "2026-08-31 08:57:09",
+  "date_registered": "2026-09-01T04:53:52.470921",
+  "figure_type": "gradio_screenshot",
+  "caption": "ORCA CALL confirmed by ear (D. Edgington), 2015-10-07 03:15 PDT. v10=2.475. An ISOLATED SINGLE, the day after MBWW logged 15 killer whales (10/6). NOTE this is at OFFSET 5s -- the very start of the file; the 30 s context begins at 0 s. Mel/viridis, 5 s window with 30 s context.",
+  "command": "nohup python3 phase2_classify.py review --db-dir /mnt/PAM_Analysis/perch-hoplite/db/MARS_20151001_20151031_32kHz_norm --classifier /mnt/PAM_Analysis/perch-hoplite/models/orca_v10.pt --target-label orca_call --detections-csv /mnt/PAM_Analysis/perch-hoplite/results/review_oct2015_pass1.csv --detections-offset 0 --num-results 16 --classes orca_call,humpback_song,dolphin_call,ROV_noise,ship_noise,other,unlabeled --annotator-id duane --audio-dir /mnt/PAM_Analysis/GoogleMultiSpeciesWhaleModel2/resampled_32kHz/2015/10 --spectrogram-type mel --colormap viridis --serve --port 7878",
+  "script": null,
+  "source_wav": "MARS_20151007_101524_resampled_32kHz.wav",
+  "wav_offset_s": 5.0,
+  "spectrogram_type": "mel",
+  "colormap": "viridis",
+  "classifier": "orca_v10.pt",
+  "db": "MARS_20151001_20151031_32kHz_norm",
+  "score": 2.475,
+  "label_selected": "orca_call",
+  "notes": "Label #5, wid=59774. Offset 5s is the minimum non-zero offset and sits near the file boundary; worth checking for boundary artefact, though the score is well above threshold. Sighting-day context: 10/6 MBWW = 15 killer whales, no acoustic detection; our detection is the following night at 03:15 PDT -- consistent with animals present but silent during daylight, vocalizing after dark. PASS 1 (16 clips, 6 min, 94% precision): union of v4>=1.16 and v10>=2.31, score-descending. Scores are v10 throughout (review set built from v10 CSV)."
+}

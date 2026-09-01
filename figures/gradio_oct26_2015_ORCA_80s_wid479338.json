@@ -1,0 +1,20 @@
+{
+  "saved_filename": "gradio_oct26_2015_ORCA_80s_wid479338.png",
+  "original_filename": "Screenshot 2026-08-31 at 8.56.49 AM.png",
+  "capture_computer": "DuaneEM1",
+  "capture_timestamp": "2026-08-31 08:56:49",
+  "date_registered": "2026-09-01T04:53:52.540679",
+  "figure_type": "gradio_screenshot",
+  "caption": "ORCA CALL confirmed by ear (D. Edgington), 2015-10-26 01:31 PDT. v10=2.387. Build-up phase. Mel/viridis, 5 s window with 30 s context.",
+  "command": "nohup python3 phase2_classify.py review --db-dir /mnt/PAM_Analysis/perch-hoplite/db/MARS_20151001_20151031_32kHz_norm --classifier /mnt/PAM_Analysis/perch-hoplite/models/orca_v10.pt --target-label orca_call --detections-csv /mnt/PAM_Analysis/perch-hoplite/results/review_oct2015_pass1.csv --detections-offset 0 --num-results 16 --classes orca_call,humpback_song,dolphin_call,ROV_noise,ship_noise,other,unlabeled --annotator-id duane --audio-dir /mnt/PAM_Analysis/GoogleMultiSpeciesWhaleModel2/resampled_32kHz/2015/10 --spectrogram-type mel --colormap viridis --serve --port 7878",
+  "script": null,
+  "source_wav": "MARS_20151026_082928_resampled_32kHz.wav",
+  "wav_offset_s": 80.0,
+  "spectrogram_type": "mel",
+  "colormap": "viridis",
+  "classifier": "orca_v10.pt",
+  "db": "MARS_20151001_20151031_32kHz_norm",
+  "score": 2.387,
+  "label_selected": "orca_call",
+  "notes": "Label #6, wid=479338. PASS 1 (16 clips, 6 min, 94% precision): union of v4>=1.16 and v10>=2.31, score-descending. Scores are v10 throughout (review set built from v10 CSV)."
+}
