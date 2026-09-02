@@ -511,7 +511,8 @@ infer v4+v10 (Stage 3) -> score-band triage -> Gradio review -> record finding -
 | **2015-09** | ✅ COMPLETE (Aug 30 2026) | 4,323 files, **517,984 windows**, 719.43 h (**99.9%**). **TWO ORCA ENCOUNTERS, 18 confirmed calls** + 17 dolphin + 12 ROV_noise. 22 figures registered. Findings #34-37. |
 | **2015-10** | ✅ COMPLETE (Aug 31 2026) | 4,293 files, **502,871 windows**, 698.38 h (93.9%), Oct 18 absent. **31 CONFIRMED ORCA — largest month yet**, incl. **10 calls in one recording**. Both episodes are **Oct 26 local**. 5 dolphin, 1 humpback, 8 unlabeled (multi-species overlap). Findings #41-42. |
 | **2015-11** | ✅ REVIEW COMPLETE (Sep 2 2026) | **3,685 files, 441,598 windows**, 613.33 h (85.2%). **236 orca confirmed** (DB authoritative; pass-2 chunks 8-24 skipped — diminishing returns). Episode A: Nov 22-23 local (~215 night). Episode B: Nov 28. Campaign high v10=4.662. Findings #45-51. |
-| **2015-12** | ⬅️ NEXT after Nov | |
+| **2015-12** | ✅ COMPLETE (Sep 2 2026) | **4,403 files, 526,642 windows**, 731.45 h (98.3%). **4 confirmed orca** — sharp seasonal decline from Nov's 236. Two overnight episodes (Dec 6 and Dec 19 local). Finding #52. |
+| **2016-01** | ⬅️ NEXT | |
 | **2015-11** | ⬅️ NEXT after Oct | |
 
 **Canonical Stage 1 command** (day-range args; month WITHOUT leading zero):
@@ -1641,6 +1642,35 @@ build handoff), thalassa_storage_survey.md, poster_v42_review.md, docs/agile_mod
     result for the J. Ryan / Nancy Black collaboration: passive acoustics and daytime visual survey
     are sampling almost disjoint parts of the diel cycle, so pooling the records is strictly
     additive. (Nov still partial; ratio expected to hold as chunks 7-24 are reviewed.)
+
+52. **DECEMBER 2015 — COMPLETE. 4 confirmed orca calls — the seasonal decline (Sep 2 2026).**
+    4,403 files, **526,642 windows**, 731.45 h = **98.3% coverage** — cleanest month of the 2015
+    campaign. Dec 11 partial (79.9%), Dec 31 partial (80.0%). 7 sub-5s padded files on Dec 18
+    (recorder glitch block, same pattern as Oct 5). Audit: perfect +0 match. PST (UTC-8) throughout.
+    DB `MARS_20151201_20151231_32kHz_norm`. Floor detections: v4 210, v10 202.
+    - **Only 6 windows above the v10 operating threshold (2.31)** — 1 above 3.00, 5 between 2.31-3.00.
+      Two dates: Dec 7 (2 windows, scores 3.628 and 2.588) and Dec 20 (4 windows, scores 2.744/2.508/2.508/2.337).
+    - **Pass-1 review: 6 clips, 5 min → 4 orca_call, 2 humpback_song.**
+      DB final: 4 orca_call, 2 humpback_song.
+    - **EPISODE A — Dec 6 local (PST):** `075815` UTC Dec 7 @570s → **23:58 PST Dec 6** (score 3.628);
+      `063815` UTC Dec 7 @275s → **22:38 PST Dec 6** (score 2.588). Two calls, both overnight.
+    - **EPISODE B — Dec 19 local:** `072505`/`073505` UTC Dec 20 → **23:25–00:35 PST Dec 19-20**.
+      4 candidate windows, 2 confirmed orca. The Dec 20 @540s window was **orca call in a 30-second
+      context of humpback song** — another multi-species co-occurrence (finding #41, #45).
+    - **THE SEASONAL DECLINE IS CONFIRMED.** Nov 2015: 236 orca. Dec 2015: 4.
+      The 2015 campaign is complete:
+
+      | Month | Orca | Coverage | Notes |
+      |---|---:|---:|---|
+      | Jul 2015 | 0 | 77.96 h | partial deployment |
+      | Aug 2015 | 0 | ~630 h | candidate reclassified dolphin |
+      | Sep 2015 | 18 | 99.9% | two episodes; first external validation |
+      | Oct 2015 | 31 | 93.9% | campaign high v10=3.732 (at time) |
+      | Nov 2015 | 236 | 85.2% | new campaign high v10=4.662; peak month |
+      | Dec 2015 | 4 | 98.3% | sharp seasonal decline |
+      | **2015 total** | **289** | | **first complete campaign year** |
+
+    - **2016 is next** — expected to be the first full 12-month year in the archive.
 
 ## Label Class Definitions
 
