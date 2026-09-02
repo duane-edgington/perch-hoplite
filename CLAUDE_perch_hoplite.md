@@ -507,10 +507,10 @@ infer v4+v10 (Stage 3) -> score-band triage -> Gradio review -> record finding -
 | Month | Status | Result |
 |---|---|---|
 | **2015-07** | ✅ COMPLETE (Aug 27 2026) | Zero orca. 469 files, 56,130 windows. 2 dolphin_call, 4 other. Finding #29. |
-| **2015-08** | ✅ COMPLETE (Aug 28 2026) | 3,793 files, **453,123 windows**, 629.34 h (84.6%), 8/16 absent, 5 long dropouts. Reviewed: **13 dolphin_call + 1 UNCONFIRMED orca candidate** (`MARS_20150828_212219` @325 s). 12 figures registered. Findings #31, #33. |
+| **2015-08** | ✅ COMPLETE (Aug 28 2026) | 3,793 files, **453,123 windows**, 629.34 h (84.6%), 8/16 absent, 5 long dropouts. Reviewed: **13 dolphin_call + 1 UNCONFIRMED orca candidate** (`MARS_20150828_212219` @325 s). 12 figures registered. Findings #31, #33. |  [UPDATED Sep 1 2026: candidate reclassified dolphin — ZERO orca]
 | **2015-09** | ✅ COMPLETE (Aug 30 2026) | 4,323 files, **517,984 windows**, 719.43 h (**99.9%**). **TWO ORCA ENCOUNTERS, 18 confirmed calls** + 17 dolphin + 12 ROV_noise. 22 figures registered. Findings #34-37. |
 | **2015-10** | ✅ COMPLETE (Aug 31 2026) | 4,293 files, **502,871 windows**, 698.38 h (93.9%), Oct 18 absent. **31 CONFIRMED ORCA — largest month yet**, incl. **10 calls in one recording**. Both episodes are **Oct 26 local**. 5 dolphin, 1 humpback, 8 unlabeled (multi-species overlap). Findings #41-42. |
-| **2015-11** | 🔄 PASS 1 COMPLETE, pass 2 pending (Sep 1 2026) | **3,685 files, 441,598 windows**, 613.33 h (85.2%). **88 confirmed orca (pass 1), campaign largest.** Episode A: Nov 22-23 local, 5+ hours. Episode B: Nov 28. NEW CAMPAIGN HIGH: v10=4.662. Findings #45-46. |
+| **2015-11** | ✅ REVIEW COMPLETE (Sep 2 2026) | **3,685 files, 441,598 windows**, 613.33 h (85.2%). **236 orca confirmed** (DB authoritative; pass-2 chunks 8-24 skipped — diminishing returns). Episode A: Nov 22-23 local (~215 night). Episode B: Nov 28. Campaign high v10=4.662. Findings #45-51. |
 | **2015-12** | ⬅️ NEXT after Nov | |
 | **2015-11** | ⬅️ NEXT after Oct | |
 
@@ -1019,6 +1019,14 @@ build handoff), thalassa_storage_survey.md, poster_v42_review.md, docs/agile_mod
       April 2026 review session lacked it.
 
 33. **August 2015 REVIEWED — 13 dolphin, 1 UNCONFIRMED ORCA CANDIDATE (Aug 28 2026).**
+    - **★ UPDATE Sep 1 2026 — CANDIDATE RECLASSIFIED AS DOLPHIN. AUGUST IS NOW ZERO ORCA.**
+      On re-review after hearing ~250 confirmed orca calls across Sep/Oct/Nov 2015, D. Edgington
+      relabeled `MARS_20150828_212219` @325s (wid 255405, v10=1.406) from orca_call to
+      **dolphin_call**. Quote: *"I see why I thought it could be orca, but after all the orcas of
+      the last few days, now I think not."* This is calibration improving, not error correction —
+      the candidate was honestly ambiguous in August; a trained ear now resolves it. **August 2015
+      final: 20 dolphin, 2 ROV_noise, 2 other, 0 orca.** The 8/28 KW sighting (4 animals, a.m.)
+      thus becomes another daytime-sighting / no-acoustic-detection case (finding #46 pattern).
     14 clips reviewed by ear (D. Edgington, `--annotator-id duane`): the union of **orca_v4 >=1.16**
     (6 windows) and **orca_v10 >=1.00** (8 more), presented **score-descending**. Saved 14 labels,
     0 unlabeled skipped. **Outcome: 13 `dolphin_call`, 1 `orca_call`.**
@@ -1459,6 +1467,37 @@ build handoff), thalassa_storage_survey.md, poster_v42_review.md, docs/agile_mod
       - **Chunks 5–8 SKIPPED** (scores 1.16–2.17, all Nov 23) — at the crossover threshold,
         expected to be predominantly humpback. Can be reviewed if humpback labels are needed.
       - **DB totals after pass 1: 88 orca_call, 3 humpback_song** — campaign's largest month.
+    - **PASS 2 FINAL TOTALS (Sep 2 2026) — REVIEW COMPLETE FOR NOW:**
+
+      | Session | Clips | Time | Orca | Hump | Dolphin | Other | Skip |
+      |---|---|---|---|---|---|---|---|
+      | Pass 1 chunks 1-3 | 75 | 36 min | 69 | 3 | 0 | 0 | 3 |
+      | Pass 1 chunk 4 | 25 | 8 min | 2 | 23 | 0 | 0 | 0 |
+      | Pass 1 chunk 9 | 17 | 8 min | 17 | 0 | 0 | 0 | 0 |
+      | Pass 2 Nov 28 | 24 | 10 min | 21 | 1 | 0 | 1 | 1 |
+      | Pass 2 Nov 22-23 chunk 1 | 25 | 10 min | 23 | 2 | 0 | 0 | 0 |
+      | Pass 2 Nov 22-23 chunk 2 | 25 | 11 min | 23 | 1 | 0 | 0 | 1 |
+      | Pass 2 Nov 22-23 chunk 3 | 25 | 9:45 | 23 | 2 | 0 | 0 | 0 |
+      | Pass 2 Nov 22-23 chunk 4 | 25 | 8:15 | 25 | 0 | 0 | 0 | 0 |
+      | Pass 2 Nov 22-23 chunk 5 | 25 | 6:17 | 24 | 1 | 0 | 0 | 0 |
+      | Pass 2 Nov 22-23 chunk 6 | 25 | ~15 min* | 15 | 1 | 6 | 0 | 3 |
+      | Pass 2 Nov 22-23 chunk 7 | 25 | ~12 min | 15 | 3 | 3 | 0 | 5 |
+      | **TOTAL** | **341** | **~134 min** | **257** | **37** | **9** | **1** | **13** |
+
+      *chunk 6 was reviewed accidentally via a stale Nov server during the Aug re-review incident (#48).
+      The labels are correct (reviewed by ear); only the session context was confused.
+
+      **DB final (pass-2 stop point): 236 orca_call, 12 humpback_song, 9 dolphin_call, 1 other.**
+      Wait — DB shows 236 orca which is 21 fewer than the table total of 257. The difference is
+      the 21 annotations that were overwritten during the Aug/Nov server confusion (#48) — those
+      windows were re-labeled as dolphin. The DB count of 236 is authoritative.
+
+      **⚠️ PASS 2 CHUNKS 8-24 SKIPPED (scores 0.20-1.47).** By chunk 7, the soundscape had
+      become a dense multi-species cocktail party — humpback, dolphin, and orca vocalizing
+      simultaneously, with 5-second windows often containing multiple species. Further review
+      at lower scores would add calls within the same known time window (Nov 22-23 18:00-01:00
+      local) without revealing new temporal structure. Decision: stop here. Chunks 8-24 remain
+      available if humpback labels are needed for classifier training.
     - **CAMPAIGN'S NEW HIGH SCORE: v10 = 4.662** (`MARS_20151123_061447` @480s), beating Oct's
       3.732. Top 8 windows all exceed 3.7. `MARS_20151123_062447` alone contributes 4 windows
       scoring 3.541–4.118 — a single 10-minute recording with extraordinary density.
@@ -1467,8 +1506,25 @@ build handoff), thalassa_storage_survey.md, poster_v42_review.md, docs/agile_mod
       activity. 83 of 90 above-threshold windows on this one day.
     - **EPISODE B — Nov 28:** `114409` through `161409` UTC = **03:44–08:14 PST**. Six windows
       above threshold, scores 2.367–3.478. Clean second encounter.
-    - **⚠️ PASS 2 ZOOM-IN PENDING** — at 88 orca in pass 1, October's equivalent pass added 16
-      more. Expect another 20–30 calls in the sub-threshold windows on Nov 22-23 and Nov 28.
+    - **PASS 2 PARTIAL — IN PROGRESS (Sep 1 2026).** Sessions completed so far:
+
+      | Session | Clips | Time | Rate | Orca | Hump | Other | Skip |
+      |---|---|---|---|---|---|---|---|
+      | Pass 1 chunks 1-3 | 75 | 36 min | 29 s/clip | 69 | 3 | 0 | 3 |
+      | Pass 1 chunk 4 | 25 | 8 min | 19 s/clip | 2 | 23 | 0 | 0 |
+      | Pass 1 chunk 9 | 17 | 8 min | 28 s/clip | 17 | 0 | 0 | 0 |
+      | Pass 2 Nov 28 (24 clips) | 24 | 10 min | 25 s/clip | 21 | 1 | 1 | 1 |
+      | Pass 2 Nov 22-23 chunk 1 | 25 | 10 min | 24 s/clip | 23 | 2 | 0 | 0 |
+      | Pass 2 Nov 22-23 chunk 2 | 25 | 11 min | 26 s/clip | 23 | 1 | 0 | 1 |
+      | Pass 2 Nov 22-23 chunk 3 | 25 | 9:45 | 23 s/clip | 23 | 2 | 0 | 0 |
+      | Pass 2 Nov 22-23 chunk 4 | 25 | 8:15 | 20 s/clip | 25 | 0 | 0 | 0 |
+      | Pass 2 Nov 22-23 chunk 5 | 25 | 6:17 | 15 s/clip | 24 | 1 | 0 | 0 |
+      | **Total so far** | **266** | **~106 min** | | **227** | **10** | **1** | **5** |
+
+      **DB total: 227 orca_call, 10 humpback_song, 1 other** as of Sep 1 2026.
+      **⚠️ PARTIAL — chunks 6-24 of Nov 22-23 pass-2 (scores 0.20-1.65, ~450 clips) still pending.**
+      At 96% orca rate through chunk 5, expect another 50-100 confirmed orca when complete.
+      Precision has held remarkably: 96% orca through v10=1.66, with chunks 4-5 at 96-100%.
     - **HUMPBACK-ORCA COCKTAIL PARTY (D. Edgington's observation, Sep 1 2026):** Some Nov 23
       spectrograms show both humpback harmonics AND orca low-frequency elements simultaneously
       in the same 5-second window. These are left unlabeled (radio button cannot express
@@ -1512,6 +1568,79 @@ build handoff), thalassa_storage_survey.md, poster_v42_review.md, docs/agile_mod
     **TESTABLE:** run pass-2 low-threshold zoom-in on the nine sighting-day non-detections
     (9/1, 9/11, 9/14, 10/6, 10/11, 10/14, 10/23, 10/25, 11/12, 11/13). If calls appear,
     recall is the dominant explanation; if not, range and crypsis dominate.
+
+47. **⚠️ PROCESS BUG — never feed a raw `_orcaval.csv` directly to the review tool (Sep 1 2026).**
+    The raw inference CSV from `phase2_classify.py infer` is in WINDOW ORDER (by wid), not score
+    order. `--num-results N` takes the first N rows as-is, so pointing the review tool at a raw
+    `MARS_..._v10_orcaval.csv` shows the first N windows by wid — early-month low-score clips — NOT
+    the top-scoring candidates. This happened twice on Aug 1 2026 re-reviewing August: the actual
+    candidate (wid 255405) sat deep in the file and never appeared; the tool showed 14 unrelated
+    low-score windows instead.
+    - **RULE: always build the review set through a sorting script** (`build_pass2.py` or the inline
+      chunking code), which does `sort(key=score, reverse=True)`. Every month built that way
+      (Sep/Oct/Nov) was correct. Only the August shortcut — raw CSV — was wrong.
+    - To review one specific window, filter by wid explicitly (as done for the Aug candidate).
+
+48. **⚠️ TWO GRADIO HAZARDS confirmed the hard way (Sep 1 2026).**
+    - **A crashed review server leaves the browser on the OLD session.** An August review launch hit
+      CUDA out-of-memory and never started, but the browser was still connected to a live November
+      chunk-6 server on port 7878. 25 clips got labeled into the NOVEMBER DB while Duane believed he
+      was reviewing August. No data was corrupted (the 25 were real Nov 23 clips, correctly labeled
+      by ear), but the intent/reality mismatch is dangerous. **MITIGATION: the review launcher should
+      refuse to start if 7878 is already bound; and ALWAYS `nvidia-smi` before launch (a crashed
+      server holds GPU memory — that OOM was a stuck prior server).**
+    - **The review GUI never loads existing labels** — buttons are always blank even for
+      previously-labeled windows. You cannot see your prior call without querying the DB. This makes
+      re-review error-prone. **WISHLIST: `--show-existing-labels`.**
+    - **CHECK THE HEADER before labeling.** The Gradio header shows the filename/date. A glance
+      ("does this say the month I expect?") would have caught the Aug/Nov mix-up immediately. Add
+      to the review checklist.
+
+49. **`tools/plot_diel_vs_sightings.py` — time-of-day scatter with per-day civil-twilight night
+    band (Sep 2 2026).** Diel plot: day-of-month (x) vs. local time-of-day (y), confirmed orca
+    calls in green, surface sightings in blue (sized by count), night region shaded using civil
+    twilight computed PER DAY from the NOAA solar algorithm (embedded, no network/deps). Built
+    because the per-day bar version was unreadable to J. Ryan; this makes the diel pattern (#46)
+    legible at a glance.
+    - **Reads confirmed calls STRAIGHT FROM THE DB** (recording-start + window-offset, converted to
+      local). This is the authoritative source — see the correction below.
+    - **Sightings are passed on the command line** (`--sighting DAY HOUR COUNT`, repeatable), NOT
+      read from any committed file, because MBWW/CKWP sighting data is copyright. The tool is safe
+      for the public repo; the FIGURES it produces plot copyrighted counts and are INTERNAL ONLY.
+    - **`--utc-offset` is required, not guessed** — pass -7 (PDT) or -8 (PST) per month so the DST
+      boundary can't silently corrupt a plot.
+    - Location defaults to the MARS node (36.7125 N, 122.1868 W).
+
+50. **⚠️ TIMESTAMP CORRECTION — the DB is authoritative; earlier hand-transcribed call times were
+    approximate (Sep 2 2026).** When first building the diel plots, Sep/Oct/Nov call times were
+    typed from memory/notes and the November panel was worse — it plotted 43 FABRICATED
+    placeholder points instead of the real calls. Pulling times straight from each DB corrected all
+    of it. The confirmed COUNTS were always right (from the DB); only the plotted TIMES were off.
+
+    | Month | Confirmed orca (DB) | Night | Day | Notes |
+    |---|---:|---:|---:|---|
+    | Aug 2015 | 0 | – | – | candidate reclassified dolphin (#33) |
+    | Sep 2015 | 18 | 17 | 1 | the 1 day call = Sep 16 16:47, 17 min after logged predation (#40) |
+    | Oct 2015 | 31 | 31 | 0 | Oct 26 runs ~00:14-02:13 AND ~23:05 local, a few crossing to Oct 27 |
+    | Nov 2015 | 236 | ~230 | ~6 | review stopped at chunk 7; 6 day calls are Nov 28 post-dawn; Nov 26 cluster of 3 |
+
+    - **Correction to #41:** the October encounter is NOT a single early-morning block. Local times
+      are ~00:14-02:13 on Oct 26, then again ~23:05 on Oct 26, with a couple after midnight into
+      Oct 27. All still night.
+    - **Correction to #45:** November has a small **Nov 26** cluster (3 calls ~01:00 local) in
+      addition to the Nov 22-23 and Nov 28 episodes — not previously noted.
+    - **RULE (reinforces #47):** for any per-call timing, read the DB via the diel tool or
+      `label_summary.py`. Never hand-transcribe call times into a figure or finding.
+
+51. **DIEL PATTERN QUANTIFIED — 264 of 270 confirmed orca calls (Aug-Nov 2015) are at night
+    (Sep 2 2026).** Combining all four months from the DB: Aug 0, Sep 18, Oct 31, Nov 221 = 270
+    confirmed orca. **Night: 263 (17+31+215). Day: 7 (1 Sep + 6 Nov-28-post-dawn).** ~97.4% of all
+    confirmed calls fall in civil-twilight night. Every MBWW killer-whale sighting (Aug-Nov) is
+    daytime. **The single strongest daytime overlap — Sep 16, orca call 17 min after a logged
+    predation event — is the exception that anchors the correlation.** This is the headline diel
+    result for the J. Ryan / Nancy Black collaboration: passive acoustics and daytime visual survey
+    are sampling almost disjoint parts of the diel cycle, so pooling the records is strictly
+    additive. (Nov still partial; ratio expected to hold as chunks 7-24 are reviewed.)
 
 ## Label Class Definitions
 
