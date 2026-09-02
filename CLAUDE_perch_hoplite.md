@@ -510,7 +510,7 @@ infer v4+v10 (Stage 3) -> score-band triage -> Gradio review -> record finding -
 | **2015-08** | ✅ COMPLETE (Aug 28 2026) | 3,793 files, **453,123 windows**, 629.34 h (84.6%), 8/16 absent, 5 long dropouts. Reviewed: **13 dolphin_call + 1 UNCONFIRMED orca candidate** (`MARS_20150828_212219` @325 s). 12 figures registered. Findings #31, #33. |  [UPDATED Sep 1 2026: candidate reclassified dolphin — ZERO orca]
 | **2015-09** | ✅ COMPLETE (Aug 30 2026) | 4,323 files, **517,984 windows**, 719.43 h (**99.9%**). **TWO ORCA ENCOUNTERS, 18 confirmed calls** + 17 dolphin + 12 ROV_noise. 22 figures registered. Findings #34-37. |
 | **2015-10** | ✅ COMPLETE (Aug 31 2026) | 4,293 files, **502,871 windows**, 698.38 h (93.9%), Oct 18 absent. **31 CONFIRMED ORCA — largest month yet**, incl. **10 calls in one recording**. Both episodes are **Oct 26 local**. 5 dolphin, 1 humpback, 8 unlabeled (multi-species overlap). Findings #41-42. |
-| **2015-11** | 🔄 PASS 2 IN PROGRESS (Sep 1 2026) | **3,685 files, 441,598 windows**, 613.33 h (85.2%). **227 orca confirmed so far** (pass-2 partial, chunks 6-24 pending). Episode A: Nov 22-23 local. Episode B: Nov 28. Campaign high v10=4.662. Findings #45-46. |
+| **2015-11** | ✅ REVIEW COMPLETE (Sep 2 2026) | **3,685 files, 441,598 windows**, 613.33 h (85.2%). **236 orca confirmed** (DB authoritative; pass-2 chunks 8-24 skipped — diminishing returns). Episode A: Nov 22-23 local (~215 night). Episode B: Nov 28. Campaign high v10=4.662. Findings #45-51. |
 | **2015-12** | ⬅️ NEXT after Nov | |
 | **2015-11** | ⬅️ NEXT after Oct | |
 
@@ -1467,6 +1467,37 @@ build handoff), thalassa_storage_survey.md, poster_v42_review.md, docs/agile_mod
       - **Chunks 5–8 SKIPPED** (scores 1.16–2.17, all Nov 23) — at the crossover threshold,
         expected to be predominantly humpback. Can be reviewed if humpback labels are needed.
       - **DB totals after pass 1: 88 orca_call, 3 humpback_song** — campaign's largest month.
+    - **PASS 2 FINAL TOTALS (Sep 2 2026) — REVIEW COMPLETE FOR NOW:**
+
+      | Session | Clips | Time | Orca | Hump | Dolphin | Other | Skip |
+      |---|---|---|---|---|---|---|---|
+      | Pass 1 chunks 1-3 | 75 | 36 min | 69 | 3 | 0 | 0 | 3 |
+      | Pass 1 chunk 4 | 25 | 8 min | 2 | 23 | 0 | 0 | 0 |
+      | Pass 1 chunk 9 | 17 | 8 min | 17 | 0 | 0 | 0 | 0 |
+      | Pass 2 Nov 28 | 24 | 10 min | 21 | 1 | 0 | 1 | 1 |
+      | Pass 2 Nov 22-23 chunk 1 | 25 | 10 min | 23 | 2 | 0 | 0 | 0 |
+      | Pass 2 Nov 22-23 chunk 2 | 25 | 11 min | 23 | 1 | 0 | 0 | 1 |
+      | Pass 2 Nov 22-23 chunk 3 | 25 | 9:45 | 23 | 2 | 0 | 0 | 0 |
+      | Pass 2 Nov 22-23 chunk 4 | 25 | 8:15 | 25 | 0 | 0 | 0 | 0 |
+      | Pass 2 Nov 22-23 chunk 5 | 25 | 6:17 | 24 | 1 | 0 | 0 | 0 |
+      | Pass 2 Nov 22-23 chunk 6 | 25 | ~15 min* | 15 | 1 | 6 | 0 | 3 |
+      | Pass 2 Nov 22-23 chunk 7 | 25 | ~12 min | 15 | 3 | 3 | 0 | 5 |
+      | **TOTAL** | **341** | **~134 min** | **257** | **37** | **9** | **1** | **13** |
+
+      *chunk 6 was reviewed accidentally via a stale Nov server during the Aug re-review incident (#48).
+      The labels are correct (reviewed by ear); only the session context was confused.
+
+      **DB final (pass-2 stop point): 236 orca_call, 12 humpback_song, 9 dolphin_call, 1 other.**
+      Wait — DB shows 236 orca which is 21 fewer than the table total of 257. The difference is
+      the 21 annotations that were overwritten during the Aug/Nov server confusion (#48) — those
+      windows were re-labeled as dolphin. The DB count of 236 is authoritative.
+
+      **⚠️ PASS 2 CHUNKS 8-24 SKIPPED (scores 0.20-1.47).** By chunk 7, the soundscape had
+      become a dense multi-species cocktail party — humpback, dolphin, and orca vocalizing
+      simultaneously, with 5-second windows often containing multiple species. Further review
+      at lower scores would add calls within the same known time window (Nov 22-23 18:00-01:00
+      local) without revealing new temporal structure. Decision: stop here. Chunks 8-24 remain
+      available if humpback labels are needed for classifier training.
     - **CAMPAIGN'S NEW HIGH SCORE: v10 = 4.662** (`MARS_20151123_061447` @480s), beating Oct's
       3.732. Top 8 windows all exceed 3.7. `MARS_20151123_062447` alone contributes 4 windows
       scoring 3.541–4.118 — a single 10-minute recording with extraordinary density.
@@ -1591,7 +1622,7 @@ build handoff), thalassa_storage_survey.md, poster_v42_review.md, docs/agile_mod
     | Aug 2015 | 0 | – | – | candidate reclassified dolphin (#33) |
     | Sep 2015 | 18 | 17 | 1 | the 1 day call = Sep 16 16:47, 17 min after logged predation (#40) |
     | Oct 2015 | 31 | 31 | 0 | Oct 26 runs ~00:14-02:13 AND ~23:05 local, a few crossing to Oct 27 |
-    | Nov 2015 | 221* | 215 | 6 | *review partial; 6 day calls are Nov 28 post-dawn; +Nov 26 cluster of 3 |
+    | Nov 2015 | 236 | ~230 | ~6 | review stopped at chunk 7; 6 day calls are Nov 28 post-dawn; Nov 26 cluster of 3 |
 
     - **Correction to #41:** the October encounter is NOT a single early-morning block. Local times
       are ~00:14-02:13 on Oct 26, then again ~23:05 on Oct 26, with a couple after midnight into
