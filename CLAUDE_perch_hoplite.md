@@ -512,7 +512,8 @@ infer v4+v10 (Stage 3) -> score-band triage -> Gradio review -> record finding -
 | **2015-10** | ✅ COMPLETE (Aug 31 2026) | 4,293 files, **502,871 windows**, 698.38 h (93.9%), Oct 18 absent. **31 CONFIRMED ORCA — largest month yet**, incl. **10 calls in one recording**. Both episodes are **Oct 26 local**. 5 dolphin, 1 humpback, 8 unlabeled (multi-species overlap). Findings #41-42. |
 | **2015-11** | ✅ REVIEW COMPLETE (Sep 2 2026) | **3,685 files, 441,598 windows**, 613.33 h (85.2%). **236 orca confirmed** (DB authoritative; pass-2 chunks 8-24 skipped — diminishing returns). Episode A: Nov 22-23 local (~215 night). Episode B: Nov 28. Campaign high v10=4.662. Findings #45-51. |
 | **2015-12** | ✅ COMPLETE (Sep 2 2026) | **4,403 files, 526,642 windows**, 731.45 h (98.3%). **4 confirmed orca** — sharp seasonal decline from Nov's 236. Two overnight episodes (Dec 6 and Dec 19 local). Finding #52. |
-| **2016-01** | ⬅️ NEXT | |
+| **2016-01** | 🔄 PASS-1 COMPLETE, pass-2 pending (Sep 3 2026) | **4,023 files, 479,020 windows**, 665.33 h (89.4%). **41 confirmed orca** (pass-2 pending). Jan 21-22 absent. New campaign high v10=4.692. Finding #53. |
+| **2016-02** | 🔄 RESAMPLING (Sep 3 2026, spark-0626) | 29 days (leap year), PST (UTC-8) |
 | **2015-11** | ⬅️ NEXT after Oct | |
 
 **Canonical Stage 1 command** (day-range args; month WITHOUT leading zero):
@@ -1671,6 +1672,30 @@ build handoff), thalassa_storage_survey.md, poster_v42_review.md, docs/agile_mod
       | **2015 total** | **289** | | **first complete campaign year** |
 
     - **2016 is next** — expected to be the first full 12-month year in the archive.
+
+53. **JANUARY 2016 — 41 confirmed orca, new campaign high score 4.692 (Sep 3 2026).**
+    4,023 files, **479,020 windows** (audit +4 vs floor rule — known fractional-second boundary
+    cases), 665.33 h = **89.4% coverage**. Jan 21-22 ABSENT (72.4 h gap — largest single dropout
+    in the campaign). Jan 8 partial (82.2%). 63 short files. 1 sub-5s padded file (Jan 8).
+    PST (UTC-8) throughout. DB `MARS_20160101_20160131_32kHz_norm`.
+    Floor detections: v4 284, v10 368.
+    - **44 above threshold (v10 ≥ 2.31):** 40 on Jan 12, 3 on Jan 9, 1 on Jan 29.
+    - **Pass-1: 44 clips, 22 min → 41 orca_call, 0 other, 3 unlabeled (too faint).** 93% precision.
+      All orca, no humpback labels — clean encounter. Dolphins present in 30-second context on some
+      clips but not in the 5-second window. **t-SNE of these against other months' orca detections
+      would be interesting** — do they cluster with Nov 2015, or occupy a different embedding region?
+    - **NEW CAMPAIGN HIGH SCORE: v10 = 4.692** (`MARS_20160112_034820` @250s), beating Nov 2015's
+      4.662. Score 4.220 and 4.194 also in the top 5.
+    - **JAN 12 ENCOUNTER — spans ~15 hours UTC:** `001820` through `145820` UTC Jan 12 =
+      **16:18 PST Jan 11 through 06:58 PST Jan 12**. Longest single encounter in the campaign.
+      High-score cluster at 02:58–06:18 UTC (18:58–22:18 PST Jan 11). Later cluster at 11:58–14:58
+      UTC (03:58–06:58 PST Jan 12). Both overnight in local time.
+    - **JAN 9 episode:** `020820` UTC (18:08 PST Jan 8) — 3 windows, scores 3.050/2.920/2.683.
+      Overnight.
+    - **JAN 29 single:** `011707` UTC (17:17 PST Jan 28) — score 2.427. Overnight.
+    - **PASS-2 PENDING** on Jan 9, 12, 29 at v10 ≥ 0.20.
+    - **SEASONAL CONTEXT:** Dec 2015 had 4 orca; January rebounds to 41. The Dec→Jan jump is sharp
+      and suggests the animals returned to the area in early-mid January.
 
 ## Label Class Definitions
 
