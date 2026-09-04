@@ -513,7 +513,8 @@ infer v4+v10 (Stage 3) -> score-band triage -> Gradio review -> record finding -
 | **2015-11** | ✅ REVIEW COMPLETE (Sep 2 2026) | **3,685 files, 441,598 windows**, 613.33 h (85.2%). **236 orca confirmed** (DB authoritative; pass-2 chunks 8-24 skipped — diminishing returns). Episode A: Nov 22-23 local (~215 night). Episode B: Nov 28. Campaign high v10=4.662. Findings #45-51. |
 | **2015-12** | ✅ COMPLETE (Sep 2 2026) | **4,403 files, 526,642 windows**, 731.45 h (98.3%). **4 confirmed orca** — sharp seasonal decline from Nov's 236. Two overnight episodes (Dec 6 and Dec 19 local). Finding #52. |
 | **2016-01** | 🔄 PASS-1 COMPLETE, pass-2 pending (Sep 3 2026) | **4,023 files, 479,020 windows**, 665.33 h (89.4%). **41 confirmed orca** (pass-2 pending). Jan 21-22 absent. New campaign high v10=4.692. Finding #53. |
-| **2016-02** | 🔄 RESAMPLING (Sep 3 2026, spark-0626) | 29 days (leap year), PST (UTC-8) |
+| **2016-02** | ✅ COMPLETE (Sep 4 2026) | **3,133 files, 342,029 windows**, 68.3% (Feb 4-8 + Feb 13 absent). **ZERO orca** despite 6 MBWW sighting days with full coverage — crypsis during gray whale hunt. Finding #54. |
+| **2016-03** | 🔄 RESAMPLING (Sep 3 2026, spark-0626) | DST starts Mar 13 → PDT (UTC-7) after |
 | **2015-11** | ⬅️ NEXT after Oct | |
 
 **Canonical Stage 1 command** (day-range args; month WITHOUT leading zero):
@@ -1696,6 +1697,36 @@ build handoff), thalassa_storage_survey.md, poster_v42_review.md, docs/agile_mod
     - **PASS-2 PENDING** on Jan 9, 12, 29 at v10 ≥ 0.20.
     - **SEASONAL CONTEXT:** Dec 2015 had 4 orca; January rebounds to 41. The Dec→Jan jump is sharp
       and suggests the animals returned to the area in early-mid January.
+
+54. **FEBRUARY 2016 — ZERO ORCA ACOUSTICALLY; SIX SIGHTING DAYS WITH FULL COVERAGE (Sep 4 2026).**
+    Inference: v4 30, v10 55. **Zero windows above operating threshold (v10 ≥ 2.31).** No review
+    needed. Coverage: 68.3%, 342,029 windows. Six absent days (Feb 4-8, Feb 13) — largest single
+    gap 126.8 h. PST (UTC-8) throughout.
+    - **MBWW February 2016 sightings (© Nancy Black — do not commit):**
+
+      | Local date | KW count | Coverage that day | Acoustic |
+      |---|---:|---:|---|
+      | Feb 12 | 13 | 66% (partial) | 0 |
+      | Feb 20 | 9 | 100% | **0** |
+      | Feb 21 | 6+6 | 100% | **0** |
+      | Feb 24 | 8+8 | 100% | **0** |
+      | Feb 25 | 6 | 100% | **0** |
+      | Feb 28 | 6+6 | 100% | **0** |
+
+    - **The late-February false negatives (Feb 20-28) cannot be explained by coverage** — all
+      those days were fully recorded. Range and Bigg's acoustic crypsis are the leading
+      explanations. **In late February the first gray whale calves are arriving in Monterey Bay
+      — precisely the foraging context in which Bigg's orca go acoustically silent during hunts.**
+    - **The interannual contrast within the season is striking:** January 2016 had 41 confirmed
+      orca (new campaign high 4.692); February has zero despite orcas being repeatedly present
+      and visually numerous. This is not absence of animals — it is acoustic silence of animals
+      that are present.
+    - **This month strengthens the crypsis hypothesis** over the range hypothesis. The Oct 11 2015
+      false negative was explained by range (finding #44). Feb 2016 animals were being observed
+      from boats — at inshore distances — and still produced nothing at the hydrophone 29 km out.
+      Bigg's go quiet when hunting marine mammals with acute hearing. Gray whale calves fit exactly.
+    - Source: MBWW Feb 2016 sightings list `montereybaywhalewatch.com/sightings/slst1602/`.
+      ⚠️ SAME COPYRIGHT RESTRICTION — do not commit data to public repo.
 
 ## Label Class Definitions
 

@@ -162,3 +162,32 @@ whale-watch operating hours. Every daytime sighting day produces no acoustic det
 Overnight presence with daytime silence is consistent with Bigg's acoustic crypsis during
 active hunting (they go quiet when prey has acute hearing) and/or animals moving offshore
 at night to the canyon where MARS sits.
+
+---
+
+## 2016-02 — Monterey Bay killer whale sightings (MBWW)
+
+**Source:** Monterey Bay Whale Watch, *Marine Mammal Sightings List February 2016*,
+`https://www.montereybaywhalewatch.com/sightings/slst1602/` (retrieved 2026-09-04).
+**⚠️ SAME COPYRIGHT RESTRICTION — do NOT commit to public repo without written permission.**
+
+| Local date | KW count | Note |
+|---|---|---|
+| Feb 12 | 13 | Partial coverage that day (66%) |
+| Feb 20 | 9 | Full coverage — **0 acoustic** |
+| Feb 21 | 6+6 | Full coverage — **0 acoustic** |
+| Feb 24 | 8+8 | Full coverage — **0 acoustic** |
+| Feb 25 | 6 | Full coverage — **0 acoustic** |
+| Feb 28 | 6+6 | Full coverage — **0 acoustic** |
+
+**Key finding:** Zero orca detected acoustically despite 5 fully-covered sighting days
+with 6-16 animals visible. This is the strongest false-negative case in the campaign —
+coverage cannot be the explanation. **Leading hypothesis: Bigg's acoustic crypsis during
+gray whale calf predation.** Late February is exactly when the first gray whale calves
+arrive in Monterey Bay — prey with acute hearing — and Bigg's are known to hunt silently
+in this context. The hydrophone at 29 km may simply be outside detection range for silent
+animals, even when whale-watch boats can see them inshore.
+
+**Interannual note:** January 2016 had 41 confirmed orca just weeks earlier. The Jan→Feb
+acoustic silence, with animals visually present throughout February, is a striking contrast
+that reinforces the behavioral/crypsis explanation over a seasonal-absence explanation.
