@@ -512,7 +512,7 @@ infer v4+v10 (Stage 3) -> score-band triage -> Gradio review -> record finding -
 | **2015-10** | ✅ COMPLETE (Aug 31 2026) | 4,293 files, **502,871 windows**, 698.38 h (93.9%), Oct 18 absent. **31 CONFIRMED ORCA — largest month yet**, incl. **10 calls in one recording**. Both episodes are **Oct 26 local**. 5 dolphin, 1 humpback, 8 unlabeled (multi-species overlap). Findings #41-42. |
 | **2015-11** | ✅ REVIEW COMPLETE (Sep 2 2026) | **3,685 files, 441,598 windows**, 613.33 h (85.2%). **236 orca confirmed** (DB authoritative; pass-2 chunks 8-24 skipped — diminishing returns). Episode A: Nov 22-23 local (~215 night). Episode B: Nov 28. Campaign high v10=4.662. Findings #45-51. |
 | **2015-12** | ✅ COMPLETE (Sep 2 2026) | **4,403 files, 526,642 windows**, 731.45 h (98.3%). **4 confirmed orca** — sharp seasonal decline from Nov's 236. Two overnight episodes (Dec 6 and Dec 19 local). Finding #52. |
-| **2016-01** | 🔄 PASS-1 COMPLETE, pass-2 pending (Sep 3 2026) | **4,023 files, 479,020 windows**, 665.33 h (89.4%). **41 confirmed orca** (pass-2 pending). Jan 21-22 absent. New campaign high v10=4.692. Finding #53. |
+| **2016-01** | ✅ COMPLETE (Sep 4 2026) | **4,023 files, 479,020 windows**, 665.33 h (89.4%). **163 confirmed orca** (pass-2 through chunk 5). Jan 21-22 absent. Campaign high v10=4.692. Jan 15: 300 KW sighted, 0 acoustic. Findings #53, #55. |
 | **2016-02** | ✅ COMPLETE (Sep 4 2026) | **3,133 files, 342,029 windows**, 68.3% (Feb 4-8 + Feb 13 absent). **ZERO orca** despite 6 MBWW sighting days with full coverage — crypsis during gray whale hunt. Finding #54. |
 | **2016-03** | 🔄 RESAMPLING (Sep 3 2026, spark-0626) | DST starts Mar 13 → PDT (UTC-7) after |
 | **2015-11** | ⬅️ NEXT after Oct | |
@@ -1727,6 +1727,45 @@ build handoff), thalassa_storage_survey.md, poster_v42_review.md, docs/agile_mod
       Bigg's go quiet when hunting marine mammals with acute hearing. Gray whale calves fit exactly.
     - Source: MBWW Feb 2016 sightings list `montereybaywhalewatch.com/sightings/slst1602/`.
       ⚠️ SAME COPYRIGHT RESTRICTION — do not commit data to public repo.
+
+55. **JANUARY 2016 — FINAL: 163 confirmed orca; sighting correlation complete (Sep 4 2026).**
+    Pass-2 complete through chunk 5 (scores 1.02–2.71). Chunks 6-10 skipped — signals faint,
+    diminishing returns below score 1.02. 5 "other" labels relabeled to orca_call after temporal
+    analysis confirmed all inside orca bouts (finding #53 — now updated).
+
+    **PASS-2 SESSION TABLE:**
+    | Session | Clips | Time | Orca | Hump | Dolphin | Notes |
+    |---|---:|---:|---:|---:|---:|---|
+    | Pass 1 | 44 | 22 min | 41 | 0 | 0 | scores 2.31–4.69 |
+    | Pass 2 chunk 1 | 25 | 6 min | 24 | 0 | 0 | scores 2.01–2.71 |
+    | Pass 2 chunk 2 | 25 | 10 min | 21+5* | 0 | 0 | scores 1.77–2.00 |
+    | Pass 2 chunk 3 | 25 | 7 min | 24 | 0 | 0 | scores 1.54–1.76 |
+    | Pass 2 chunk 4 | 25 | 7 min | 24 | 1 | 0 | scores 1.20–1.43 |
+    | Pass 2 chunk 5 | 25 | 18 min | 24 | 1 | 1 | scores 1.02–1.18 |
+    | **Total** | **169** | **~70 min** | **163** | **2** | **1** | |
+    *5 "other" relabeled to orca_call — all inside confirmed orca bouts
+
+    **DB final: 163 orca_call.** 144 of 163 (88%) are at night (civil twilight PST).
+
+    **SIGHTING CORRELATION — Jan 2016 (MBWW):**
+    | Local date | KW sighted | Acoustic | Coverage | Notes |
+    |---|---|---|---|---|
+    | Jan 1 | 5 | 0 | 100% | 1:30 PM daytime |
+    | Jan 11 PM | 100 (mother+calf) | 0 | 100% | Daytime — no acoustic |
+    | Jan 15 AM | **300** (mother+calf) | **0** | **100%** | Largest single-day count — total silence |
+    | Jan 16 AM | 7 (females) | 0 | 100% | Daytime — no acoustic |
+    | Jan 23 AM | unknown | 0 | 100% | Daytime — no acoustic |
+    | **Jan 8-9 night** | 0 sighted | **3** | 100% | Overnight only |
+    | **Jan 11-12 night** | 0 sighted | **153** | 100% | 15-hour encounter — overnight |
+    | **Jan 28-29 night** | 0 sighted | **7** | 100% | Overnight only |
+
+    **Jan 15 with 300 KW sighted + zero acoustic** is the most dramatic false-negative in the
+    campaign. Full coverage, massive aggregation visible from boats, complete acoustic silence
+    at the hydrophone. **The animals were present and visibly numerous — they simply were not
+    vocalizing.** Bigg's acoustic crypsis during gray whale calf hunting (first calves arrive
+    Monterey Bay mid-January) is the leading hypothesis.
+
+    Source: MBWW Jan 2016 sightings list. ⚠️ Copyright Nancy Black — do not commit to public repo.
 
 ## Label Class Definitions
 
