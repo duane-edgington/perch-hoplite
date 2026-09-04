@@ -435,6 +435,336 @@ saved to the DB on every click — restarting is safe.
 
 ---
 
+## Full-Archive Campaign Pipeline (added Sep 2026)
+
+After the classifier reaches production quality (v4, ROC-AUC 0.959), the workflow
+shifts from development to systematic detection across the full archive. Each month
+requires the following steps in order. Both sparks are used in parallel:
+spark-0626 for resampling (I/O-bound), spark-ae0e for GPU work.
+
+### Step 0 — Resample one month from the PAM Archive
+
+Run on **spark-0626** (I/O-bound; frees ae0e GPU for embedding):
+
+```bash
+cd ~/perch-hoplite && git pull
+nohup ./tools/resample_sox_32k_batched_vol.sh 2016 03 1 31 8 \
+  > /mnt/PAM_Analysis/perch-hoplite/logs/resample_32kHz_2016_03.log 2>&1 &
+
+sleep 10 && head -5 /mnt/PAM_Analysis/perch-hoplite/logs/resample_32kHz_2016_03.log
+```
+
+**CRITICAL:** Confirm the banner reads `Starting (vol 3): YYYY-MM` before walking
+away. The `vol 3` (SoX volume amplification factor 3) is mandatory — without it,
+the low-amplitude MARS recordings produce nearly empty windows that the classifier
+cannot score reliably.
+
+Expected: ~144 files/day × 31 days = ~4,464 files, ~4.5 hours, ~160 GB.
+
+### Step 1 — Coverage histogram (Stage 1.5)
+
+Run on either spark after resampling completes:
+
+```bash
+python3 tools/coverage_histogram.py \
+    --audio-dir /mnt/PAM_Analysis/GoogleMultiSpeciesWhaleModel2/resampled_32kHz/2016/03 \
+    --out results/coverage/2016-03_coverage.csv
+```
+
+This produces a per-day effort table, flags absent days, overlaps, and recorder
+gaps, and computes the **TRUE expected window count** using the confirmed adapter
+rule `max(1, floor(duration/5))` — NOT `ceil()`. Commit the CSV immediately:
+
+```bash
+git add results/coverage/2016-03_coverage.csv
+git commit -m "results: Mar 2016 coverage — XX.X%, NNNNNN windows"
+git push origin main
+```
+
+The coverage CSV is the reconciliation target for the embed audit in Step 3.
+
+### Step 2 — Embed on spark-ae0e (GPU)
+
+Check GPU is free first — always:
+
+```bash
+nvidia-smi | tail -4   # must show "No running processes found"
+```
+
+Then embed the full month:
+
+```bash
+source ~/perch-pytorch/venv/bin/activate   # GPU/embed venv
+
+nohup python3 phase1_embed_torch.py \
+    --audio-dir /mnt/PAM_Analysis/GoogleMultiSpeciesWhaleModel2/resampled_32kHz/2016/03 \
+    --db-dir /mnt/PAM_Analysis/perch-hoplite/db/MARS_20160301_20160331_32kHz_norm \
+    --device cuda --compile \
+    > /mnt/PAM_Analysis/perch-hoplite/logs/embed_mar2016_norm.log 2>&1 &
+
+sleep 45 && tail -5 /mnt/PAM_Analysis/perch-hoplite/logs/embed_mar2016_norm.log
+```
+
+Expected: ~35-40 minutes, ~225 windows/sec, ~520,000 windows for a full month.
+
+### Step 3 — Audit window counts
+
+Verify the DB matches the floor rule exactly:
+
+```bash
+python3 tools/audit_window_counts.py \
+    --audio-dir /mnt/PAM_Analysis/GoogleMultiSpeciesWhaleModel2/resampled_32kHz/2016/03 \
+    --db /mnt/PAM_Analysis/perch-hoplite/db/MARS_20160301_20160331_32kHz_norm/hoplite.sqlite
+```
+
+Expected output: `Difference : +0`. Discrepancies of +1 per file (fractional-second
+boundary cases) are documented and harmless. Discrepancies of +N where N > number
+of files indicate a genuine problem — re-embed.
+
+### Step 4 — Inference with both canonical models
+
+```bash
+DB=/mnt/PAM_Analysis/perch-hoplite/db/MARS_20160301_20160331_32kHz_norm
+R=/mnt/PAM_Analysis/perch-hoplite/results
+
+for model in v4 v10; do
+  python3 phase2_classify.py infer \
+    --db-dir $DB \
+    --classifier /mnt/PAM_Analysis/perch-hoplite/models/orca_${model}.pt \
+    --labels orca_call --logit-threshold 0.0 \
+    --output-csv $R/MARS_20160301_20160331_${model}_orcaval.csv
+done
+
+wc -l $R/MARS_20160301_20160331_v4_orcaval.csv \
+       $R/MARS_20160301_20160331_v10_orcaval.csv
+```
+
+Use logit-threshold 0.0 (not the operating threshold) so the full score
+distribution is captured for band-table analysis in Step 5.
+
+### Step 5 — Band table and date distribution
+
+```bash
+# Which dates have anything above the operating threshold?
+awk -F, 'NR>1 && $6=="orca_call" && $7>=2.31 {print substr($3,6,8)}' \
+  $R/MARS_20160301_20160331_v10_orcaval.csv | sort | uniq -c | sort -rn | head -15
+
+# Score band table
+f=$R/MARS_20160301_20160331_v10_orcaval.csv
+for lohi in "3.00:99" "2.31:3.00" "1.00:2.31" "0.00:1.00"; do
+  lo="${lohi%%:*}"; hi="${lohi##*:}"
+  printf "  [%s-%s): %s\n" "$lo" "$hi" \
+    "$(awk -F, -v lo=$lo -v hi=$hi 'NR>1 && $6=="orca_call" && $7>=lo && $7<hi' $f | wc -l)"
+done
+```
+
+If zero windows are above the operating threshold (v10 ≥ 2.31), the month is
+acoustically silent — no review needed. If dates cluster on 1-3 days with high
+scores, there is an encounter worth reviewing.
+
+### Step 6 — Build the pass-1 review set
+
+**Operating thresholds (confirmed):** v4 ≥ 1.16, v10 ≥ 2.31. The union of both:
+
+```bash
+cd $R
+python3 ~/perch-hoplite/tools/build_pass2.py \
+    --scores MARS_20160301_20160331_v10_orcaval.csv \
+    --dates 20160312 20160318 \
+    --min-score 2.31 \
+    --out review_mar2016_pass1.csv
+wc -l review_mar2016_pass1.csv
+```
+
+For the initial pass-1, `--min-score 2.31` (v10 operating threshold) is appropriate.
+The `--dates` argument restricts to dates where above-threshold windows were found
+in Step 5 — do not include all 31 days.
+
+Review sets > 25 clips should be split into 25-clip chunks to allow breaks:
+
+```bash
+python3 -c "
+import csv
+rows=list(csv.reader(open('review_mar2016_pass1.csv')))
+h=rows[0]; data=rows[1:]
+for i,chunk in enumerate([data[j:j+25] for j in range(0,len(data),25)],1):
+    f=f'review_mar2016_pass1_chunk{i}.csv'
+    csv.writer(open(f,'w',newline='')).writerows([h]+chunk)
+    sc=[float(r[6]) for r in chunk]
+    print(f'chunk{i}: {len(chunk)} clips  scores {min(sc):.2f}-{max(sc):.2f}')
+"
+```
+
+### Step 7 — Gradio review (pass 1)
+
+**venv note for spark-0626:** Gradio requires `perch-hoplite` venv, NOT
+`perch-pytorch`. Switch explicitly:
+
+```bash
+source ~/perch-hoplite/venv/bin/activate   # Gradio review venv (spark-0626)
+# OR
+source ~/perch-pytorch/venv/bin/activate   # GPU/embed venv (spark-ae0e, where venvs are unified)
+```
+
+Launch the review server:
+
+```bash
+nohup python3 ~/perch-hoplite/phase2_classify.py review \
+    --db-dir /mnt/PAM_Analysis/perch-hoplite/db/MARS_20160301_20160331_32kHz_norm \
+    --classifier /mnt/PAM_Analysis/perch-hoplite/models/orca_v10.pt \
+    --target-label orca_call \
+    --detections-csv $R/review_mar2016_pass1_chunk1.csv \
+    --detections-offset 0 --num-results 25 \
+    --classes orca_call,humpback_song,dolphin_call,ROV_noise,ship_noise,other,unlabeled \
+    --annotator-id duane \
+    --audio-dir /mnt/PAM_Analysis/GoogleMultiSpeciesWhaleModel2/resampled_32kHz/2016/03 \
+    --spectrogram-type mel --colormap viridis \
+    --serve --port 7878 \
+    > /mnt/PAM_Analysis/perch-hoplite/logs/review_mar2016_pass1_chunk1.log 2>&1 &
+
+sleep 5 && tail -3 /mnt/PAM_Analysis/perch-hoplite/logs/review_mar2016_pass1_chunk1.log
+```
+
+Access at: **http://134.89.11.107:7878** (ae0e) or **http://134.89.11.174:7878** (0626)
+
+**MANDATORY safety checks before labeling:**
+1. Confirm `nvidia-smi` shows no running processes before launch
+2. Check the Gradio header shows the expected filename/date — a crashed prior server
+   leaves the browser connected to the old session. Labels then go to the WRONG DB.
+3. Save every 8-10 clips — autosave does NOT survive a VPN drop or connection loss.
+
+To kill a running server: `pkill -f "port 7878"`
+
+### Step 8 — Pass-2 zoom-in (sub-threshold)
+
+After pass-1 confirms an encounter, run pass-2 to recover calls below the operating
+threshold that nonetheless fall within the known encounter window. This step
+typically recovers the majority of real calls — pass-1 recall at the operating
+threshold is ~17%.
+
+```bash
+python3 ~/perch-hoplite/tools/build_pass2.py \
+    --scores $R/MARS_20160301_20160331_v10_orcaval.csv \
+    --dates 20160312 20160318 \
+    --exclude-db /mnt/PAM_Analysis/perch-hoplite/db/MARS_20160301_20160331_32kHz_norm/hoplite.sqlite \
+    --min-score 0.20 \
+    --out $R/review_mar2016_pass2.csv
+wc -l $R/review_mar2016_pass2.csv
+```
+
+The `--exclude-db` flag excludes already-reviewed windows. The `--min-score 0.20`
+floor avoids genuinely empty windows while capturing the sub-threshold signal.
+Split into 25-clip chunks as in Step 6 and review with Gradio.
+
+**Stopping rule:** stop pass-2 when the orca confirmation rate drops to near zero
+across an entire chunk, OR when all windows at scores ≥ ~1.5 have been reviewed.
+Below 1.5, humpback interference makes the acoustic scene too complex to efficiently
+recover additional orca calls.
+
+### Step 9 — Get timestamps from DB and commit
+
+After review, pull authoritative timestamps from the DB for any analysis:
+
+```bash
+python3 -c "
+import sqlite3, struct
+from datetime import datetime, timedelta
+db='/mnt/PAM_Analysis/perch-hoplite/db/MARS_20160301_20160331_32kHz_norm/hoplite.sqlite'
+off=-7   # PDT after Mar 13; PST before
+con=sqlite3.connect(db)
+rows=con.execute('SELECT r.filename,a.offsets FROM annotations a JOIN recordings r ON r.id=a.recording_id WHERE a.label=\"orca_call\"').fetchall()
+for fn,blob in rows:
+    s=struct.unpack('<2d',blob)[0] if blob else 0.0
+    t=datetime.strptime(fn[5:20],'%Y%m%d_%H%M%S')+timedelta(seconds=s)+timedelta(hours=off)
+    print(f'{t.day},{t.hour+t.minute/60:.3f}')
+"
+```
+
+**TIME BASE — mandatory:** Our timestamps are UTC; all sighting records are LOCAL
+(PDT=UTC-7 March 13–November; PST=UTC-8 otherwise). Converting UTC→local is not
+cosmetic — it moves encounters across date boundaries and changes the day/night
+classification. Always convert before any sighting correlation.
+
+Commit inference CSVs to the repo:
+
+```bash
+cd ~/perch-hoplite
+cp $R/MARS_20160301_20160331_v{4,10}_orcaval.csv results/
+git add results/MARS_20160301_20160331_v4_orcaval.csv \
+        results/MARS_20160301_20160331_v10_orcaval.csv
+git commit -m "results: Mar 2016 — inference complete; N orca confirmed"
+git push origin main
+```
+
+### Step 10 — Diel analysis and sighting correlation
+
+Generate the time-of-day diel scatter with per-day civil twilight shading:
+
+```bash
+python3 tools/plot_diel_vs_sightings.py \
+    --db /mnt/PAM_Analysis/perch-hoplite/db/MARS_20160301_20160331_32kHz_norm/hoplite.sqlite \
+    --year 2016 --month 3 --utc-offset -7 \
+    --title "March 2016" \
+    --sighting 15 11 12 --sighting 22 14 8 \
+    --out figures/panel_march2016.png
+```
+
+Sighting data (MBWW / CKWP) is passed via `--sighting DAY HOUR COUNT` so no
+copyrighted data enters the repo. The tool reads confirmed calls from the DB
+directly — no hand-transcription.
+
+**⚠️ Sighting data copyright:** MBWW monthly sighting lists are © Nancy Black.
+Do NOT commit the sighting data or derived tables to this PUBLIC repo without
+written permission. The diel figures which plot MBWW counts are INTERNAL ONLY.
+
+### Step 11 — Delete resampled WAV after all findings are committed
+
+```bash
+# Verify everything is committed first
+git status  # must be clean
+
+# List what would be deleted (dry run)
+find /mnt/PAM_Analysis/GoogleMultiSpeciesWhaleModel2/resampled_32kHz/2016/03 \
+    -name "*.wav" | wc -l
+
+# Then delete (only after explicit go-ahead)
+# find ... -delete
+```
+
+The permanent artifact is the embedding DB (~1.6 GB/month). The resampled WAV
+(~160 GB/month) is regenerable from the PAM Archive and should be deleted once
+the month's findings are committed, to free thalassa space.
+
+---
+
+## Venv Reference (spark-0626 specific)
+
+spark-0626 has two separate venvs with different capabilities:
+
+| Task | Venv | Activate |
+|---|---|---|
+| Embed, inference (GPU) | `perch-pytorch` | `source ~/perch-pytorch/venv/bin/activate` |
+| Gradio review, tools | `perch-hoplite` | `source ~/perch-hoplite/venv/bin/activate` |
+
+spark-ae0e uses a unified venv (`~/perch-pytorch/venv`) for all tasks.
+
+---
+
+## Tools added since July 2026
+
+| Tool | Purpose |
+|---|---|
+| `tools/resample_sox_32k_batched_vol.sh` | Canonical resampler — SoX vol 3, 32kHz, N parallel jobs |
+| `tools/coverage_histogram.py` | Per-day effort, outage detection, TRUE expected windows |
+| `tools/audit_window_counts.py` | Verify DB window count matches floor rule post-embed |
+| `tools/build_pass2.py` | Build score-sorted, date-filtered, already-reviewed-excluded review set |
+| `tools/label_summary.py` | Per-day confirmed labels + exact UTC timestamps from DB |
+| `tools/plot_diel_vs_sightings.py` | Time-of-day scatter with per-day civil twilight (NOAA algorithm) |
+| `tools/register_figure.py` | Register a figure with JSON sidecar for provenance |
+
+
+---
+
 ## Current Status (as of July 19 2026)
 
 | Item | Status |
