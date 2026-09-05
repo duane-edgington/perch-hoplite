@@ -515,7 +515,8 @@ infer v4+v10 (Stage 3) -> score-band triage -> Gradio review -> record finding -
 | **2016-01** | ✅ COMPLETE (Sep 4 2026) | **4,023 files, 479,020 windows**, 665.33 h (89.4%). **163 confirmed orca** (pass-2 through chunk 5). Jan 21-22 absent. Campaign high v10=4.692. Jan 15: 300 KW sighted, 0 acoustic. Findings #53, #55. |
 | **2016-02** | ✅ COMPLETE (Sep 4 2026) | **3,133 files, 342,029 windows**, 68.3% (Feb 4-8 + Feb 13 absent). **ZERO orca** despite 6 MBWW sighting days with full coverage — crypsis during gray whale hunt. Finding #54. |
 | **2016-03** | ✅ COMPLETE (Sep 4 2026) | **4,460 files, 533,460 windows**, 740.93 h (99.6%). **4 confirmed orca + 4 other** (unknown ecotype). Mar 29 sighting correlation. Mar 7 mystery call. Finding #56. |
-| **2016-04** | 🔄 RESAMPLING (Sep 4 2026, spark-0626) | PDT (UTC-7) throughout |
+| **2016-04** | 🔄 PASS-1 COMPLETE, pass-2 pending (Sep 5 2026) | **4,299 files, 514,843 windows**, 715.07 h (99.3%). **182 confirmed orca** pass-1. New high v10=4.698. Apr 19-21 sighting correlation. Finding #57. |
+| **2016-05** | 🔄 RESAMPLED (Sep 5 2026), coverage running | PDT (UTC-7) throughout |
 | **2015-11** | ⬅️ NEXT after Oct | |
 
 **Canonical Stage 1 command** (day-range args; month WITHOUT leading zero):
@@ -1801,6 +1802,64 @@ build handoff), thalassa_storage_survey.md, poster_v42_review.md, docs/agile_mod
       The Mar 23-28 cluster — multiple sighting days with no acoustic detection — is consistent
       with the crypsis pattern during active gray whale calf predation.
     - Source: MBWW Mar 2016 sightings list. ⚠️ Copyright Nancy Black — do not commit.
+
+57. **APRIL 2016 — 182 confirmed orca pass-1; STRONGEST SIGHTING-ACOUSTIC CORRELATION IN CAMPAIGN (Sep 5 2026).**
+    4,299 files, **514,843 windows** (audit +0 — perfect), 715.07 h = **99.3% coverage**.
+    No absent days. PDT (UTC-7) throughout. DB `MARS_20160401_20160430_32kHz_norm`.
+    Floor: v4 1,072, v10 1,292 — second largest month at floor level.
+    New campaign high score: **v10 = 4.698** (`MARS_20160404_150039` @590s).
+
+    **PASS-1 SESSION TABLE (all above-threshold dates):**
+    | Session | Dates | Clips | Time | Orca | Notes |
+    |---|---|---:|---:|---:|---|
+    | Apr 19 | 20160419 | 41 | 18:30 | 37 | Overnight + 2 afternoon |
+    | Apr 20 | 20160420 | 39 | 15:00 | 38 | Overnight continuation |
+    | Apr 21 | 20160421 | 30 | ~12 min | 30 | Pure midday (11:41–12:41 PDT) |
+    | Apr 4-5 | 20160404-05 | 38 | 13:00 | 37 | Dawn + midday; new high 4.698 |
+    | Rest | 20160413,16,17,18,27,30 | 40 | 8:00 | 40 | 100% precision |
+    | **Total** | | **188** | **~67 min** | **182** | |
+
+    **DB after pass-1: 182 orca_call, 2 dolphin_call, 1 humpback_song.**
+    "The orca calls sometimes sound different." — D. Edgington. April 2016 may be a different
+    pod or behavioral context (active gray whale calf hunting) producing call variants.
+    **t-SNE of April 2016 vs April 2018 orca embeddings is a priority comparison.**
+
+    **ENCOUNTER STRUCTURE (UTC → PDT = UTC-7):**
+    - **Apr 4:** 09:50 UTC (02:50 PDT overnight) + 15:00-15:10 UTC (08:00-08:10 PDT dawn). New high 4.698.
+    - **Apr 13:** 18:30 + 21:40 UTC (11:30 + 14:40 PDT midday)
+    - **Apr 16:** 09:00-10:40 UTC (02:00-03:40 PDT overnight)
+    - **Apr 17:** 00:20 UTC (17:20 PDT Apr 16 evening)
+    - **Apr 18:** 01:30 UTC (18:30 PDT Apr 17 evening)
+    - **Apr 19-20:** 00:07-10:37 UTC (17:07 PDT Apr 18 – 03:37 PDT Apr 20) — multi-day encounter
+    - **Apr 21:** 18:41-19:41 UTC (11:41-12:41 PDT) — pure midday
+    - **Apr 27:** 09:34-17:44 UTC (02:34-10:44 PDT)
+    - **Apr 30:** 01:56-02:16 UTC (18:56-19:16 PDT Apr 29 evening)
+
+    **SIGHTING CORRELATION (MBWW Apr 2016 — © Nancy Black):**
+    | Sighting date | KW count | Acoustic same day | Notes |
+    |---|---|---|---|
+    | Apr 1 | 8 | 0 | No acoustic |
+    | Apr 3 | 11 | 0 | No acoustic |
+    | Apr 5 | 6 | 3 | ✓ Apr 5 acoustic |
+    | Apr 10 | 2-3 | 0 | No acoustic |
+    | Apr 11 | 2-400 | 0 | No acoustic |
+    | Apr 13 | 9-12 | 6 | ✓ Apr 13 acoustic |
+    | Apr 16 | 4-15 | 17 | ✓ Apr 16 acoustic (overnight PDT) |
+    | Apr 17 | 15-1520 | 2 | ✓ Apr 17 acoustic |
+    | Apr 18 | 1-15 | 1 | ✓ Apr 18 acoustic |
+    | **Apr 19** | **4+15** | **41** | **★ STRONG CORRELATION** |
+    | **Apr 20** | **8+100** | **39** | **★ STRONG CORRELATION** |
+    | **Apr 21** | **KW at sunset** | **30** | **★ STRONG CORRELATION — midday acoustic** |
+    | Apr 23 | 2-7 (hunting) | 0 | No acoustic |
+    | Apr 26 | 8 | 0 | No acoustic |
+
+    **Apr 19-21 is a 3-day sighting-acoustic correlation** — both visual and acoustic records show
+    orca on the same dates. The acoustic fills in the overnight hours; the sightings cover daytime.
+    Together they document a near-continuous 3-day encounter. This is the most compelling example
+    yet of the complementary nature of the two survey methods.
+
+    **PASS-2 PENDING** — at 182 confirmed from pass-1, expect substantial additional calls.
+    Source: MBWW Apr 2016 sightings list. ⚠️ Copyright Nancy Black — do not commit to public repo.
 
 ## Label Class Definitions
 
