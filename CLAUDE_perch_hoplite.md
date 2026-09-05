@@ -514,7 +514,8 @@ infer v4+v10 (Stage 3) -> score-band triage -> Gradio review -> record finding -
 | **2015-12** | ✅ COMPLETE (Sep 2 2026) | **4,403 files, 526,642 windows**, 731.45 h (98.3%). **4 confirmed orca** — sharp seasonal decline from Nov's 236. Two overnight episodes (Dec 6 and Dec 19 local). Finding #52. |
 | **2016-01** | ✅ COMPLETE (Sep 4 2026) | **4,023 files, 479,020 windows**, 665.33 h (89.4%). **163 confirmed orca** (pass-2 through chunk 5). Jan 21-22 absent. Campaign high v10=4.692. Jan 15: 300 KW sighted, 0 acoustic. Findings #53, #55. |
 | **2016-02** | ✅ COMPLETE (Sep 4 2026) | **3,133 files, 342,029 windows**, 68.3% (Feb 4-8 + Feb 13 absent). **ZERO orca** despite 6 MBWW sighting days with full coverage — crypsis during gray whale hunt. Finding #54. |
-| **2016-03** | 🔄 RESAMPLING (Sep 3 2026, spark-0626) | DST starts Mar 13 → PDT (UTC-7) after |
+| **2016-03** | ✅ COMPLETE (Sep 4 2026) | **4,460 files, 533,460 windows**, 740.93 h (99.6%). **4 confirmed orca + 4 other** (unknown ecotype). Mar 29 sighting correlation. Mar 7 mystery call. Finding #56. |
+| **2016-04** | 🔄 RESAMPLING (Sep 4 2026, spark-0626) | PDT (UTC-7) throughout |
 | **2015-11** | ⬅️ NEXT after Oct | |
 
 **Canonical Stage 1 command** (day-range args; month WITHOUT leading zero):
@@ -1766,6 +1767,40 @@ build handoff), thalassa_storage_survey.md, poster_v42_review.md, docs/agile_mod
     Monterey Bay mid-January) is the leading hypothesis.
 
     Source: MBWW Jan 2016 sightings list. ⚠️ Copyright Nancy Black — do not commit to public repo.
+
+56. **MARCH 2016 — 4 confirmed orca, 4 unconfirmed "other"; Mar 29 sighting correlation (Sep 4 2026).**
+    4,460 files, **533,460 windows** (audit +2), 740.93 h = **99.6% coverage** — excellent month.
+    3 MATERIAL overlaps on Mar 22 (recorder re-recorded wall-clock time — flagged CHECK-OVERLAP,
+    embedded and noted). 1 padded file (Mar 2). DST starts Mar 13 — PST (UTC-8) before, PDT (UTC-7) after.
+    DB `MARS_20160301_20160331_32kHz_norm`. Floor: v4 186, v10 219.
+    - **8 above threshold (v10 ≥ 2.31):** Mar 7 (1), Mar 13 (4), Mar 29 (3).
+    - **Pass-1: 8 clips, 10 min → 4 orca_call, 4 other. "This was hard."**
+      D. Edgington: *"Sort of orca-like but different. I only scored orca when I was sure."*
+
+    **LABELS BY RECORDING:**
+    | Recording (UTC) | Local time | Label | Notes |
+    |---|---|---|---|
+    | `20160307_122233` @295s | 04:27 PST Mar 7 | **other** | Unknown ecotype — "Dolphin school?" John to advise |
+    | `20160313_124227` @260s | 05:47 PDT Mar 13 | orca_call | Just after dawn, DST change day |
+    | `20160313_124227` @355s | 05:46 PDT Mar 13 | orca_call | |
+    | `20160313_124227` @400s | 05:47 PDT Mar 13 | orca_call | |
+    | `20160313_124227` @415s | 05:47 PDT Mar 13 | **other** | Ambiguous — inside orca bout |
+    | `20160329_212448` @545s | 14:33 PDT Mar 29 | orca_call | **DAYTIME — afternoon** |
+    | `20160329_232448` @80s  | 16:26 PDT Mar 29 | **other** | Afternoon, uncertain |
+    | `20160329_232448` @445s | 16:32 PDT Mar 29 | **other** | Afternoon, uncertain |
+
+    - **MAR 29 SIGHTING CORRELATION:** MBWW logged 6 KW at 10 AM PDT Mar 29. Our acoustic
+      record shows a confirmed orca call at 14:33 PDT — same day, 4.5 hours later, in daylight.
+      This is a rare daytime acoustic detection coinciding with a sighting day. The animals may
+      have been actively hunting (late March = gray whale calf season) and vocalizing in daylight.
+    - **MAR 7 "OTHER":** Tonal call with different character from confirmed Bigg's orca. Time is
+      04:27 PST (overnight). Could be: resident orca (different call structure), Pacific
+      white-sided dolphin, or another cetacean. **Flag for John Ryan's expert ear on Tuesday.**
+    - **MBWW MARCH 2016 SIGHTINGS:** Mar 1 (5 KW), Mar 10 (6 KW), Mar 23 (7), Mar 24 (5+6),
+      Mar 25 (4+6), Mar 26 (6), Mar 29 (6 — correlates), Mar 30 (5). All morning trips.
+      The Mar 23-28 cluster — multiple sighting days with no acoustic detection — is consistent
+      with the crypsis pattern during active gray whale calf predation.
+    - Source: MBWW Mar 2016 sightings list. ⚠️ Copyright Nancy Black — do not commit.
 
 ## Label Class Definitions
 
