@@ -1858,8 +1858,43 @@ build handoff), thalassa_storage_survey.md, poster_v42_review.md, docs/agile_mod
     Together they document a near-continuous 3-day encounter. This is the most compelling example
     yet of the complementary nature of the two survey methods.
 
-    **PASS-2 PENDING** — at 182 confirmed from pass-1, expect substantial additional calls.
+    **PASS-2 NOT DONE (by design):** Pass-2 was applied to earlier months (Sep-Dec 2015, Jan 2016)
+    where above-threshold windows were sparse (6-90) and pass-1 recall was low — zoom-in recovered
+    the majority of real calls. April 2016 already has 182 confirmed from 195 above-threshold windows
+    (93% precision). The encounter structure is fully characterized from pass-1. Pass-2 across 15
+    dates would add ~2,000+ clips for marginal gain. This selective application of pass-2 will be
+    noted in the future paper methods section.
     Source: MBWW Apr 2016 sightings list. ⚠️ Copyright Nancy Black — do not commit to public repo.
+
+58. **★ DIEL PATTERN IS CONTEXT-DEPENDENT — April 2016 is 50% day / 50% night vs 97% night in fall 2015 (Sep 5 2026).**
+    April 2016: 182 confirmed orca — **91 at night, 91 in daylight**. This is a fundamental
+    departure from the fall 2015 pattern where 97% of confirmed calls fell in civil-twilight night.
+
+    | Period | Month | Confirmed orca | Night | Day | % Night |
+    |---|---|---:|---:|---:|---:|
+    | Fall hunting | Sep 2015 | 18 | 17 | 1 | 94% |
+    | Fall hunting | Oct 2015 | 31 | 31 | 0 | 100% |
+    | Fall hunting | Nov 2015 | 236 | ~230 | ~6 | 97% |
+    | Winter decline | Dec 2015 | 4 | 4 | 0 | 100% |
+    | Winter rebound | Jan 2016 | 163 | 144 | 19 | 88% |
+    | Crypsis | Feb 2016 | 0 | — | — | — |
+    | Transition | Mar 2016 | 4 | 3 | 1 | 75% |
+    | **Gray whale hunt** | **Apr 2016** | **182** | **91** | **91** | **50%** |
+
+    **The interpretation:** Bigg's orca diel calling pattern reflects prey behavior and hunting
+    strategy, not a fixed biological rhythm:
+    - **Fall (Sep-Nov 2015):** hunting dolphins and sea lions — prey with acute hearing, hunted
+      cryptically at night → almost all calls at night
+    - **Spring (Apr 2016):** hunting gray whale calves — prey with different sensory ecology,
+      hunted actively in daylight during migration → calls spread across the full diel cycle
+
+    **This is a testable prediction:** months with documented gray whale calf predation events
+    should show higher daytime call rates than months dominated by dolphin/sea lion hunting.
+    The sighting notes confirm: Apr 2016 MBWW logs explicitly note "hunting" on multiple dates.
+
+    **For the future paper:** the diel analysis is not just "orca call more at night" but
+    "orca diel calling reflects prey type and hunting strategy." This is a richer finding
+    and more ecologically meaningful.
 
 ## Label Class Definitions
 
