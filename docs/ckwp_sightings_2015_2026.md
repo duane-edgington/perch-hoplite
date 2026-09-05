@@ -191,3 +191,23 @@ animals, even when whale-watch boats can see them inshore.
 **Interannual note:** January 2016 had 41 confirmed orca just weeks earlier. The Jan→Feb
 acoustic silence, with animals visually present throughout February, is a striking contrast
 that reinforces the behavioral/crypsis explanation over a seasonal-absence explanation.
+
+---
+
+## Media / Video References
+
+### BBC Big Blue Live — March 2015, Monterey Bay
+- **URL:** https://www.bbc.co.uk/programmes/p02xtr77/p031523y
+- **Caption:** "Fatfin the lone male Orca roaming Monterey Bay." Photo by Anne Gallagher.
+- **Context:** BBC camera crew footage of a named lone male Bigg's killer whale in Monterey
+  Bay, March 2015 — approximately one year before the acoustic detections that started this
+  project. "Fatfin" is a photo-ID'd individual; worth cross-referencing with CKWP records.
+  No acoustic data for Mar 2015 (campaign archive starts Jul 2015).
+
+### Princess Monterey Whale Watching — June 5, 2026
+- **URL:** https://www.facebook.com/watch/?v=1708504593505689
+- **Date:** June 5, 2026
+- **Description:** Public video of orca sighting near Atlantis Monterey from Princess
+  Monterey Whale Watching. "Unforgettable sighting as some orca whales surfaced."
+- **Context:** Well beyond current processing frontier (2016). Flag for future processing
+  of Jun 2026 when campaign reaches that date.
