@@ -177,6 +177,15 @@ def torch_train_linear_classifier(
     # Load training data once. add_weak_negatives=True may change the number of
     # materialized training rows, so memory is measured from the actual arrays,
     # not inferred from len(train_ids).
+    #
+    # This read is the slowest phase of training on a large database -- it can
+    # take several minutes while the GPU sits idle -- so announce it before
+    # starting. The measured payload is logged afterwards, once the arrays exist.
+    log.info(
+        "Materializing training examples from %d train IDs "
+        "(add_weak_negatives=True)...",
+        len(train_ids),
+    )
     train_emb_np, train_mh_np, train_ilm_np, _ = _load_ids_to_arrays(
         train_ids, True
     )
@@ -192,19 +201,25 @@ def torch_train_linear_classifier(
 
     if device.type == "cuda" and preload_bytes > _GPU_PRELOAD_WARN_BYTES:
         log.warning(
-            "Training-data preload is %s for %d materialized examples "
-            "(%d-D embeddings). This exceeds the 4 GiB warning threshold. "
-            "The value covers embedding/label/mask tensors only; total CUDA "
-            "memory will be higher because model, Adam state, activations, "
-            "CUDA context, and allocator overhead are not included.",
+            "Training-data preload is %s for %d materialized examples from "
+            "%d train IDs (%.2fx expansion, %d-D embeddings). This exceeds the "
+            "4 GiB warning threshold. The value covers embedding/label/mask "
+            "tensors only; total CUDA memory will be higher because model, "
+            "Adam state, activations, CUDA context, and allocator overhead are "
+            "not included.",
             preload_size,
             n_train,
+            len(train_ids),
+            n_train / len(train_ids),
             embedding_dim,
         )
     else:
         log.info(
-            "Pre-loading %d materialized training examples (%s payload) onto %s...",
+            "Pre-loading %d materialized training examples from %d train IDs "
+            "(%.2fx expansion, %s payload) onto %s...",
             n_train,
+            len(train_ids),
+            n_train / len(train_ids),
             preload_size,
             device,
         )
@@ -222,10 +237,13 @@ def torch_train_linear_classifier(
         )
 
     log.info(
-        "Loaded %d train examples onto %s and kept %d eval examples on CPU",
+        "Loaded %d train examples (from %d train IDs) onto %s and kept %d eval "
+        "examples (from %d eval IDs) on CPU",
         n_train,
+        len(train_ids),
         device,
         eval_emb.shape[0],
+        len(eval_ids),
     )
 
     # Training loop -- pure in-memory mini-batches.
