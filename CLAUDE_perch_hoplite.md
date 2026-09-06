@@ -516,7 +516,10 @@ infer v4+v10 (Stage 3) -> score-band triage -> Gradio review -> record finding -
 | **2016-02** | ✅ COMPLETE (Sep 4 2026) | **3,133 files, 342,029 windows**, 68.3% (Feb 4-8 + Feb 13 absent). **ZERO orca** despite 6 MBWW sighting days with full coverage — crypsis during gray whale hunt. Finding #54. |
 | **2016-03** | ✅ COMPLETE (Sep 4 2026) | **4,460 files, 533,460 windows**, 740.93 h (99.6%). **4 confirmed orca + 4 other** (unknown ecotype). Mar 29 sighting correlation. Mar 7 mystery call. Finding #56. |
 | **2016-04** | 🔄 PASS-1 COMPLETE, pass-2 pending (Sep 5 2026) | **4,299 files, 514,843 windows**, 715.07 h (99.3%). **182 confirmed orca** pass-1. New high v10=4.698. Apr 19-21 sighting correlation. Finding #57. |
-| **2016-05** | 🔄 RESAMPLED (Sep 5 2026), coverage running | PDT (UTC-7) throughout |
+| **2016-05** | ✅ COMPLETE (Sep 5-6 2026) | **4,474 files, 535,379 windows**, 743.59 h (99.9%). **141 confirmed orca**. New high v10=5.139. Finding #59. |
+| **2016-06** | ✅ COMPLETE (Sep 6 2026) | **3,597 files, 431,277 windows**, 599.00 h (83.2%). **48 confirmed orca**. New high v10=5.141. Jun 19-20: 400-500 KW sighted, 0 acoustic — strongest crypsis case. Finding #60. |
+| **2016-07** | 🔄 RESAMPLING (Sep 6 2026, spark-0626) | PDT (UTC-7) throughout; MBWW: zero KW sightings |
+| **2016-08** | ⬅️ NEXT after Jul | |
 | **2015-11** | ⬅️ NEXT after Oct | |
 
 **Canonical Stage 1 command** (day-range args; month WITHOUT leading zero):
@@ -1895,6 +1898,74 @@ build handoff), thalassa_storage_survey.md, poster_v42_review.md, docs/agile_mod
     **For the future paper:** the diel analysis is not just "orca call more at night" but
     "orca diel calling reflects prey type and hunting strategy." This is a richer finding
     and more ecologically meaningful.
+
+59. **MAY 2016 — 141 confirmed orca; new campaign high v10=5.139 (Sep 5-6 2026).**
+    4,474 files, **535,379 windows** (audit +2), 743.59 h = **99.9% coverage** — best month
+    in campaign. No absent days, no material overlaps. PDT (UTC-7) throughout.
+    DB `MARS_20160501_20160531_32kHz_norm`. Floor: v4 929, v10 1,095.
+    - **145 above threshold (v10 ≥ 2.31):** May 12 dominant (76), May 8 (31), May 5 (13),
+      May 25 (8), plus scattered singles on 8 other dates.
+    - **NEW CAMPAIGN HIGH: v10 = 5.139** (`MARS_20160512_065934` @95s) — significant margin
+      over previous high of 4.698 (Apr 2016).
+    - **Pass-1: 145 clips, ~45 min → 141 orca, 4 dolphin. Zero unlabeled.**
+      May 12 reviewed in 3 chunks (25+25+26); VPN dropped during chunk34 first attempt —
+      re-reviewed all 26; all saved correctly on second pass.
+      "Fabulous. All orca. Very clean spectrograms and recordings." — D. Edgington (May 12)
+      One clip on May 7 noted: "sounds different, almost like a rooster" — labeled orca.
+
+    **PASS-1 SESSION TABLE:**
+    | Session | Dates | Clips | Time | Orca | Dolphin |
+    |---|---|---:|---:|---:|---:|
+    | May 12 chunk 1 | 20160512 | 25 | 8 min | 25 | 0 |
+    | May 12 chunk 2 | 20160512 | 25 | 10 min | 25 | 0 |
+    | May 12 chunk 34 | 20160512 | 26 | 6 min | 25 | 1 |
+    | Rest chunk 1 | 20160504-25 | 25 | 7 min | 25 | 0 |
+    | Rest chunk 2 | 20160504-25 | 25 | 7:20 | 24 | 1 |
+    | Rest chunk 3 | 20160504-25 | 19 | 7 min | 17 | 2 |
+    | **Total** | | **145** | **~45 min** | **141** | **4** |
+
+    **DB final: 141 orca_call, 4 dolphin_call.**
+    **PASS-2 NOT DONE (by design)** — same rationale as April 2016 (finding #57).
+
+    **MBWW MAY 2016 SIGHTINGS:** Orca sighted almost daily — May 4 (20-30), May 5 (15+),
+    May 6 (22-25), May 8 (39), May 12 (40), May 13 (40), May 19 (80), May 22-27 multiple days.
+    May 12 acoustic (76 clips, score 5.139) coincides with the May 12 sighting day (40 KW).
+    Source: MBWW May 2016 sightings list. ⚠️ Copyright Nancy Black — do not commit.
+
+60. **JUNE 2016 — 48 confirmed orca; new campaign high v10=5.141; Jun 19-20 crypsis (Sep 6 2026).**
+    3,597 files, **431,277 windows** (audit +1), 599.00 h = **83.2% coverage**.
+    Jun 4-5-7 absent (largest gap 244,238 s = 67.8 h after Jun 3). Jun 15-30 complete.
+    PDT (UTC-7) throughout. DB `MARS_20160601_20160630_32kHz_norm`. Floor: v4 343, v10 327.
+    - **51 above threshold (v10 ≥ 2.31):** Jun 30 dominant (31), Jun 17 (10), Jun 1 (7),
+      Jun 8 (2), Jun 25 (1).
+    - **NEW CAMPAIGN HIGH: v10 = 5.141** (`MARS_20160630_231742` @385s) — beating May's 5.139.
+    - **Pass-1: 51 clips, 20 min → 48 orca, 3 dolphin, 1 other→orca.**
+      "Soundscape sometimes complicated with ship noise, dolphins, orcas, even humpbacks."
+      1 "other" label (`20160630_234742`) relabeled to orca_call — inside the Jun 30 bout.
+    - **DB final: 48 orca_call, 3 dolphin_call.**
+
+    **ENCOUNTER STRUCTURE (UTC → PDT = UTC-7):**
+    - **Jun 1:** `071357`–`092357` UTC (00:13–02:23 PDT) — overnight
+    - **Jun 8:** `225449` UTC (15:54 PDT) — afternoon
+    - **Jun 17:** `105746`–`133746` UTC (03:57–06:37 PDT) — pre-dawn overnight
+    - **Jun 25:** `120743` UTC (05:07 PDT) — pre-dawn
+    - **Jun 30:** `223742`–`234742` UTC (15:37–16:47 PDT) — **afternoon daylight**
+
+    **★ JUN 19-20 CRYPSIS — MBWW logged 400 KW (Jun 19) and 500 KW (Jun 20), both with
+    full acoustic coverage, yet ZERO above-threshold windows on either day.** The Jun 19-20
+    sightings noted active behaviors (tail throwing, breaching, spyhopping) — orcas were
+    visually prominent and inshore. Complete acoustic silence with 400-500 animals present
+    is the most extreme crypsis case in the campaign. Gray whale calf hunting in daylight
+    remains the leading explanation.
+
+    **JUN 30 AFTERNOON ENCOUNTER:** 31 above-threshold windows (15:37–16:47 PDT) — all
+    daylight. Consistent with the April 2016 pattern of daytime calling during active hunting.
+
+    **MBWW JUNE 2016 SIGHTINGS:** Jun 19: 400 KW (tail throwing, breaching, spyhopping);
+    Jun 20: 500 KW (male breach); Jun 21: 7 KW; Jun 25: 5 KW (named: "Liner" male,
+    "Younger"). Source: MBWW Jun 2016. ⚠️ Copyright Nancy Black — do not commit.
+    July 2016: ZERO KW sightings — seasonal departure confirmed by both visual and (likely)
+    acoustic records.
 
 ## Label Class Definitions
 
