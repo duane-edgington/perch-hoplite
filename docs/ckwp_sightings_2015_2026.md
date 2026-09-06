@@ -211,3 +211,28 @@ that reinforces the behavioral/crypsis explanation over a seasonal-absence expla
   Monterey Whale Watching. "Unforgettable sighting as some orca whales surfaced."
 - **Context:** Well beyond current processing frontier (2016). Flag for future processing
   of Jun 2026 when campaign reaches that date.
+
+---
+
+## 2024-04-02 — Minke whale predation, CKWP (public Facebook post)
+
+**Source:** California Killer Whale Project (CKWP) public Facebook post, April 4, 2024
+**URL:** https://www.facebook.com/CaliforniaKillerWhaleProject/posts/pfbid02ZmkqikUdGpD1oZWYh55HJrgebYTtjYb51M1kBXysciPrND2xTXo4xiZ8XaGiTMcwl
+**Event date:** April 2, 2024
+
+**Summary:** 6th minke whale predation ever documented in Monterey Bay. 35+ Bigg's killer
+whales including named individuals **CA138** (lead reproductive female), **CA45**, **CA39**,
+and CA138's calf CA138E. First observed as 4-5 females/juveniles, then 13+ approached
+including 3 large males. 10-minute chase of juvenile minke whale; drowning technique used.
+Observed by MBWW naturalist Rose Franklin (CKWP volunteer). Photos by Rose Franklin Photography.
+
+**Named individuals:** CA138, CA45, CA39, CA138E — CKWP photo-ID documented.
+
+**Context for acoustic archive:** April 2024 is within the MARS archive period. September 2024
+was reviewed (0 orca detections). April 2024 has not yet been processed — flag for future
+embedding and inference. A minke whale predation with 35+ orcas vocalizing is exactly the
+kind of event that might produce a strong acoustic signal.
+
+**Prey type note:** Minke whale predation — a cetacean with different acoustic sensitivity
+than gray whale calves or dolphins. The diel calling pattern during this event (if detected
+acoustically) would be a valuable data point for the prey-type hypothesis (finding #58).
