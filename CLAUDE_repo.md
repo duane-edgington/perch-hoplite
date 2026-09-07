@@ -1,3 +1,6 @@
+> **Superseded.** This was the pre-build handoff. The repo exists; see
+> CLAUDE_orcas_MBNMS_release.md for its current state, invariants, and open items.
+
 # CLAUDE_repo.md — Handoff: build the public perch-hoplite release repo
 
 **Purpose of this doc:** a self-contained brief so a FRESH chat can build the public
