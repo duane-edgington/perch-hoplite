@@ -6,6 +6,11 @@ The source and target DBs must have been built with the same model
 (same embedding_dim and audio source structure) but can cover different
 date ranges. Only annotations are copied — embeddings stay separate.
 
+Idempotent: an annotation already present in the target, with the same
+recording, offsets, label, label_type and provenance, is left alone rather
+than inserted again. Provenance is copied unchanged, so the annotator
+recorded in the source survives the merge.
+
 Usage:
     python3 merge_annotations.py \
         --source-db /path/to/source/db \
@@ -78,6 +83,7 @@ def merge_annotations(source_db: str, target_db: str, dry_run: bool = False):
     # For each annotation, find or create the recording in target DB
     inserted = 0
     skipped = 0
+    already = 0
 
     for offs_blob, label, label_type, provenance, filename, deployment in rows:
         start_s, end_s = decode_offsets(offs_blob)
@@ -113,19 +119,32 @@ def merge_annotations(source_db: str, target_db: str, dry_run: bool = False):
         else:
             rec_id = rec_row[0]
 
-        # Insert annotation
+        # Insert annotation.
+        #
+        # The ON CONFLICT clause this used to carry never fired: the
+        # annotations table's UNIQUE constraint is (id, recording_id,
+        # offsets) and id is AUTOINCREMENT, so an insert omitting id always
+        # produces a novel tuple. Every re-run therefore added another copy
+        # -- and, because the provenance was rewritten to provenance +
+        # "_merged" on each pass, produced strings like
+        # "gradio_gui:analyst_merged_merged_merged" that no longer name the
+        # annotator. Check explicitly instead, and preserve provenance.
         off_enc = encode_offsets(start_s, end_s)
         try:
-            tgt.execute("""
-                INSERT INTO annotations
-                    (recording_id, offsets, label, label_type, provenance)
-                VALUES (?, ?, ?, ?, ?)
-                ON CONFLICT DO UPDATE SET
-                    label_type=excluded.label_type,
-                    provenance=excluded.provenance
-            """, (rec_id, off_enc, label, label_type,
-                  provenance + "_merged"))
-            inserted += 1
+            exists = tgt.execute(
+                "SELECT 1 FROM annotations WHERE recording_id=? AND offsets=?"
+                " AND label=? AND label_type=? AND provenance=? LIMIT 1",
+                (rec_id, off_enc, label, label_type, provenance)
+            ).fetchone()
+            if exists:
+                already += 1
+            else:
+                tgt.execute("""
+                    INSERT INTO annotations
+                        (recording_id, offsets, label, label_type, provenance)
+                    VALUES (?, ?, ?, ?, ?)
+                """, (rec_id, off_enc, label, label_type, provenance))
+                inserted += 1
         except Exception as e:
             print(f"  Warning: could not insert {filename} {start_s:.1f}s: {e}")
             skipped += 1
@@ -134,7 +153,8 @@ def merge_annotations(source_db: str, target_db: str, dry_run: bool = False):
     src.close()
     tgt.close()
 
-    print(f"\nDone. Inserted {inserted} annotations ({skipped} skipped).")
+    print(f"\nDone. Inserted {inserted} annotations "
+          f"({already} already present, {skipped} skipped).")
 
     # Show target totals
     tgt2 = sqlite3.connect(target_db)

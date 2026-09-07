@@ -6,6 +6,10 @@ Both DBs must have been built with the same model (same embedding_dim,
 dtype, and metric). The combined DB contains all embeddings and all
 annotations from both source DBs.
 
+Annotations are deduplicated on (recording, offsets, label, label_type,
+provenance), so an annotation present in both sources is copied once and
+re-running a merge does not multiply rows.
+
 Usage:
     python3 merge_dbs.py \
         --db-a /path/to/db_a \
@@ -186,14 +190,30 @@ def copy_db_contents(src_db: str, out_db: str,
         win_count += 1
 
     # ── Annotations ──────────────────────────────────────────────────────────
+    #
+    # INSERT OR IGNORE cannot be relied on here. The annotations table's
+    # UNIQUE constraint is (id, recording_id, offsets), and id is
+    # AUTOINCREMENT -- so an insert that omits id always produces a novel
+    # tuple, the constraint never fires, and OR IGNORE silently duplicates.
+    # That is how April 2018 came to hold 742 rows for 714 distinct
+    # annotations. Check for an existing identical row instead.
     ann_count = 0
+    ann_dupes = 0
     for rec_id, offsets, label, ltype, prov in src.execute(
         "SELECT recording_id, offsets, label, label_type, provenance"
         " FROM annotations"
     ):
         new_rec = rec_map.get(rec_id, rec_id)
+        exists = out.execute(
+            "SELECT 1 FROM annotations WHERE recording_id=? AND offsets=?"
+            " AND label=? AND label_type=? AND provenance=? LIMIT 1",
+            (new_rec, offsets, label, ltype, prov)
+        ).fetchone()
+        if exists:
+            ann_dupes += 1
+            continue
         out.execute(
-            "INSERT OR IGNORE INTO annotations"
+            "INSERT INTO annotations"
             " (recording_id, offsets, label, label_type, provenance)"
             " VALUES (?,?,?,?,?)",
             (new_rec, offsets, label, ltype, prov)
@@ -204,6 +224,8 @@ def copy_db_contents(src_db: str, out_db: str,
     out.execute("PRAGMA foreign_keys = ON")
     src.close()
     out.close()
+    if ann_dupes:
+        print(f"    skipped {ann_dupes:,} annotations already present")
     return win_count, ann_count
 
 
