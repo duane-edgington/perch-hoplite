@@ -27,6 +27,7 @@
 #   ./resample_sox_32k_batched_vol.sh 2018 5 2 2        # only May 2, 2018
 #   ./resample_sox_32k_batched_vol.sh 2018 5 1 7        # May 1-7, 2018
 #   ./resample_sox_32k_batched_vol.sh 2018 5 1 31 8     # whole month, 8 parallel jobs
+#   ./resample_sox_32k_batched_vol.sh 2018 11 1 30 8 /mnt/SL500/resampled_32kHz  # output to SSD
 #   SAMPLE_RATE=16000 ./resample_sox_32k_batched_vol.sh 2018 5   # 16 kHz instead
 #
 # Note: set -e is intentionally NOT used here. Managing background jobs with
@@ -42,6 +43,7 @@ month=$2
 start_day="${3:-1}"
 end_day="${4:-31}"
 max_jobs="${5:-$(nproc 2>/dev/null || echo 4)}"
+out_base_override="${6:-}"
 
 # Safety: never allow a nonsensical concurrency of < 1 (would deadlock).
 [ "${max_jobs}" -ge 1 ] 2>/dev/null || max_jobs=1
@@ -52,7 +54,7 @@ rate_label=$(awk -v r="${sample_rate}" 'BEGIN{printf "%gkHz", r/1000}' 2>/dev/nu
 [ -n "${rate_label}" ] || rate_label="${sample_rate}Hz"
 
 audio_base_dir="/mnt/PAM_Archive"
-decimated_base_dir="/mnt/PAM_Analysis/GoogleMultiSpeciesWhaleModel2/resampled_${rate_label}"
+decimated_base_dir="${out_base_override:-/mnt/PAM_Analysis/GoogleMultiSpeciesWhaleModel2/resampled_${rate_label}}"
 #decimated_base_dir="/home/duane/google-multispecies-whale-detection/local/PAM_Analysis/GoogleOrcaModel/resampled_${rate_label}"
 
 in_dir=$(printf "%s/%04d/%02d" "${audio_base_dir}" "${year}" "${month}")
