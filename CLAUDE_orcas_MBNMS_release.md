@@ -37,7 +37,7 @@ this repo only, and `.zenodo.json` in the repo root supplies the metadata
 ## What is released, and what deliberately is not
 
 **In:** the resampling script and every flag's rationale; embedding and the main CLI;
-`orca_v4.pt` and `orca_v10.pt` with both metrics sidecars; 1,405 confirmed
+`orca_v4.pt` and `orca_v10.pt` with both metrics sidecars; 1,406 confirmed
 annotations; the reproducibility bundle (source manifest, pinned versions, sha256
 checksums); the listening page; and the docs.
 
@@ -56,11 +56,11 @@ weaken a promise that currently holds without qualification.
 
 ## Numbers a fresh chat will need
 
-### Labels — 1,405 distinct = 1,351 positive + 54 weak negative
+### Labels — 1,406 distinct = 1,352 positive + 54 weak negative
 
 | Month | Distinct | Role |
 |---|---|---|
-| April 2018 | 714 | training (660 positive, 54 weak negative) |
+| April 2018 | 715 | training (661 positive, 54 weak negative) |
 | May 2018 | 283 | **permanently held out** |
 | October 2020 | 322 | training |
 | April 2026 | 86 | training |
@@ -76,10 +76,12 @@ for db in MARS_20180401_20180430 MARS_20180501_20180531 \
 done
 ```
 
+Expect **715 / 283 / 322 / 86**.
+
 **Four counts coexist and all are correct.** 873 built v4's trajectory. **1,076** rows
 were in the frozen three-season merge v10 trained on, of which **1,048** are distinct
-— the 28 extras are merge-artifact duplicates from April 2018. **1,405** is the
-archive at release. The label files track the archive, not any model's training set,
+— the 28 extras are merge-artifact duplicates from April 2018. **1,406** is the
+archive at v1.2.0. The label files track the archive, not any model's training set,
 so retraining from `labels/` will *not* reproduce `orca_v10` exactly.
 
 ### Thresholds — one per model, not interchangeable
@@ -266,17 +268,45 @@ The `--annotator-id` flag is **not** broken — `src/review.py:320` writes
 
 ---
 
+## Fixed on 7 September, worth knowing about
+
+**Both merge tools duplicated annotations silently, and one mangled provenance.**
+The annotations table's UNIQUE constraint is `(id, recording_id, offsets)` and `id`
+is AUTOINCREMENT, so an insert omitting `id` always produces a novel tuple:
+`merge_dbs.py`'s `INSERT OR IGNORE` never ignored and `merge_annotations.py`'s
+`ON CONFLICT DO UPDATE` never conflicted. `merge_annotations.py` also rewrote
+provenance to `provenance + "_merged"` on every run, which is how April 2018 rows
+came to read `gradio_gui:analyst_merged_merged_merged`. Both now check explicitly
+and report what they skip; provenance is preserved. Fixed in working repo `120f47d`
+and verified on real databases — a repeated merge reports "283 already present, 0
+inserted" and totals hold.
+
+The underlying schema is untouched. Tightening the constraint would be the deeper
+fix, but a stricter one could make `review.py`'s delete-then-insert start failing,
+and upstream perch-hoplite owns that schema.
+
+**Existing damage is not repaired.** April 2018 still holds 715 rows for the same
+number of distinct annotations *now*, but the 28 historical duplicates remain in the
+source DB and 14 windows still carry `analyst_merged_merged_merged`. Cleaning them
+would change v10's training set, so it should wait until v10 stops being the current
+model.
+
+**The listening page found label errors within hours of publication.** J. P. Ryan
+listened to it and flagged three mislabeled windows; a fourth was labeled on
+re-review. Two of the three were humpback labels from April 2018 — a month holding
+21 of them against October 2020's 265 — and the page's sampler had been ranking days
+by date, so it drew from the earliest and least-vetted. It now ranks by how many
+confirmed windows of the class a day holds. Corrections and reasoning are in
+`labels/README.md`; shipped as v1.2.0.
+
+---
+
 ## Deferred — after the poster
 
 **`--batch-size` is recorded but ignored.** `src/train.py` hardcodes
 `batch_size = min(512, n_train)` while metrics sidecars record 128. Honoring the flag
 would change every gradient step and produce a different model needing fresh May 2018
 validation. Not a cleanup — a new model version.
-
-**`merge_dbs.py` duplicates annotations and mangles provenance.** Each run re-inserts
-existing annotations and appends `_merged`. This produced the 28 April 2018
-duplicates. It will keep happening as the archive march continues, so fix it before
-the next large merge.
 
 **Empty-split guards sit after `nn.Linear(...).to(device)`** in `src/train.py`, so the
 function allocates on the GPU before checking it has data. Small, inert, correct.
