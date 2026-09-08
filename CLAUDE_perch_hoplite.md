@@ -518,8 +518,9 @@ infer v4+v10 (Stage 3) -> score-band triage -> Gradio review -> record finding -
 | **2016-04** | 🔄 PASS-1 COMPLETE, pass-2 pending (Sep 5 2026) | **4,299 files, 514,843 windows**, 715.07 h (99.3%). **182 confirmed orca** pass-1. New high v10=4.698. Apr 19-21 sighting correlation. Finding #57. |
 | **2016-05** | ✅ COMPLETE (Sep 5-6 2026) | **4,474 files, 535,379 windows**, 743.59 h (99.9%). **141 confirmed orca**. New high v10=5.139. Finding #59. |
 | **2016-06** | ✅ COMPLETE (Sep 6 2026) | **3,597 files, 431,277 windows**, 599.00 h (83.2%). **48 confirmed orca**. New high v10=5.141. Jun 19-20: 400-500 KW sighted, 0 acoustic — strongest crypsis case. Finding #60. |
-| **2016-07** | 🔄 RESAMPLING (Sep 6 2026, spark-0626) | PDT (UTC-7) throughout; MBWW: zero KW sightings |
-| **2016-08** | ⬅️ NEXT after Jul | |
+| **2016-07** | ✅ COMPLETE (Sep 7-8 2026) | **4,464 files, 535,662 windows**, 100.0% coverage. **73 confirmed orca** — zero MBWW sightings. Pure acoustic-only detection. 100% daytime. v10 finds 16/16, v4 only 5/16. Finding #62. |
+| **2016-08** | ✅ COMPLETE (Sep 8 2026) | **3,945 files, 473,177 windows**, 88.3% (Aug 20-21 absent). **0 orca**, 3 dolphin above threshold. Aug 28: 6-8 KW breaching sighted, 0 acoustic — crypsis. Finding #63. |
+| **2016-09** | 🔄 RESAMPLING (Sep 8 2026, spark-0626) | PDT (UTC-7) throughout |
 | **2015-11** | ⬅️ NEXT after Oct | |
 
 **Canonical Stage 1 command** (day-range args; month WITHOUT leading zero):
@@ -1966,6 +1967,77 @@ build handoff), thalassa_storage_survey.md, poster_v42_review.md, docs/agile_mod
     "Younger"). Source: MBWW Jun 2016. ⚠️ Copyright Nancy Black — do not commit.
     July 2016: ZERO KW sightings — seasonal departure confirmed by both visual and (likely)
     acoustic records.
+
+61. **APRIL 2018 ANNOTATION CORRECTIONS — per J. Ryan expert review (Sep 7 2026).**
+    John Ryan reviewed the public listener at https://duane-edgington.github.io/perch-hoplite-orcas-MBNMS/listen/
+    and flagged four clips for relabeling:
+
+    | UTC time | Old label | New label | Notes |
+    |---|---|---|---|
+    | Apr 24 2018 00:05:02 | humpback_song | **dolphin_call** | "sounds like dolphins" |
+    | Apr 24 2018 05:16:12 | humpback_song | **dolphin_call** | "dolphin, maybe orca?" |
+    | Apr 4 2018 ~19:00 | ship_noise | ship_noise | already correct — noted sperm whale echolocation also present |
+    | Apr 12 2018 17:49:03 | other | **ship_noise** | "boat noise (propulsion)" — fixed via SQL (annotation id 589) |
+
+    DB final (positive labels, label_type=1): **374 orca_call**, 198 dolphin_call,
+    19 humpback_song, 51 other, 47 ship_noise.
+    **NOTE:** The previously reported figure of 428 orca_call was counting differently
+    (likely including duplicate or superseded annotations). The authoritative positive
+    orca_call count for April 2018 is **374**. The 54 negative orca_call (label_type=2)
+    are pre-existing training negatives from the original classifier development sessions.
+
+62. **JULY 2016 — 73 confirmed orca; ZERO MBWW sightings — pure acoustic detection (Sep 8 2026).**
+    4,464 files, **535,662 windows** (audit +0 — perfect), 743.98 h = **100.0% coverage** —
+    perfect month. PDT (UTC-7) throughout. DB `MARS_20160701_20160731_32kHz_norm`.
+    Floor: v4 165, v10 174. **v4 only catches 5 of 16 above-threshold windows; v10 catches all 16**
+    — clear demonstration of v10 superiority on this encounter type.
+
+    **PASS-1 + PASS-2:**
+    | Session | Clips | Time | Orca | Dolphin | Other | Skip |
+    |---|---:|---:|---:|---:|---:|---:|
+    | Pass 1 | 16 | 10 min | 16 | 0 | 0 | 0 |
+    | Pass 2 chunk 1 | 25 | 12 min | 24 | 0 | 1 | 0 |
+    | Pass 2 chunk 2 | 25 | 7 min | 22 | 1 | 1 | 1 |
+    | Pass 2 chunk 3 | 15 | 5 min | 11 | 2 | 0 | 2 |
+    | **Total** | **81** | **34 min** | **73** | **3** | **2** | **3** |
+
+    **DB final: 73 orca_call, 3 dolphin_call, 2 other.**
+
+    **ENCOUNTER STRUCTURE (UTC → PDT = UTC-7):**
+    - **Jul 2:** `004740`–`011740` UTC (17:47–18:17 PDT Jul 1) — late afternoon/evening. 5 calls.
+    - **Jul 15:** `120742`–`153742` UTC (05:07–08:37 PDT) — early morning around dawn. 68 calls.
+      Two sub-clusters: 06:43–07:06 PDT and 08:24–08:39 PDT. Mixed with dolphin calls throughout.
+
+    **★ ZERO MBWW SIGHTINGS IN JULY 2016.** The whale watches logged no killer whales this month.
+    Yet the hydrophone detected 73 confirmed orca calls across two episodes. This is a **pure
+    acoustic-only detection** — the hydrophone found animals the boats never saw. Whether the
+    animals were present but not encountered by boats, or beyond visual range, or at times when
+    no trips were running, the acoustic record reveals presence that the visual survey missed entirely.
+
+    **DIEL PATTERN: 73 of 73 calls (100%) are in DAYLIGHT** — both episodes fall in morning/afternoon
+    hours well within civil twilight. This is consistent with the spring/summer active hunting pattern
+    (finding #58) but notable because there are no gray whale calves in July — the prey during this
+    period is likely dolphins or sea lions, yet the orcas are still calling in daylight. Or this may
+    be a different behavioral context entirely. **Worth discussing with John Ryan.**
+
+    **NOTE on training data:** the pass-2 clips at sub-threshold scores contain dolphin call
+    contamination in the 5-second windows. Do NOT use these for training. The clean pass-1 clips
+    (scores 2.31–4.61) are appropriate for training.
+
+63. **AUGUST 2016 — ZERO confirmed orca; 3 dolphin above threshold (Sep 8 2026).**
+    3,945 files, **473,177 windows** (audit +0), 657.19 h = **88.3% coverage**.
+    Aug 20-21 absent (312,335 s = 86.8 h gap). Aug 1-18 and Aug 23-31 complete.
+    PDT (UTC-7) throughout. DB `MARS_20160801_20160831_32kHz_norm`. Floor: v4 87, v10 67.
+    - **3 above threshold (v10 ≥ 2.31):** Aug 28 (2, scores 4.164 and 2.772) and Aug 25 (1, 3.061).
+    - **Pass-1: 3 clips, 5 min → 0 orca, 3 dolphin_call.**
+      "I think these are dolphins, not orca — does not have the orca tonal drop."
+      D. Edgington. Aug 28 big sighting day (6-8 KW breaching) → zero acoustic orca.
+    - **MBWW Aug 2016 sightings:** Aug 16 (4-5 KW), Aug 21 (4 KW, absent acoustically),
+      Aug 24 (4-7 KW), Aug 25 (3-16 KW), Aug 26 (5-7 KW), Aug 27 (6-8 KW),
+      Aug 28 (6-8 KW, breaching — **strongest sighting day, zero acoustic**), Aug 31 (8 KW).
+    - Aug 28 with breaching KW and full coverage → zero orca acoustic = another crypsis case.
+      Consistent with the pattern of active summer hunting producing visual-but-not-acoustic records.
+    Source: MBWW Aug 2016. ⚠️ Copyright Nancy Black — do not commit.
 
 ## Label Class Definitions
 
