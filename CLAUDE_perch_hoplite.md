@@ -520,7 +520,8 @@ infer v4+v10 (Stage 3) -> score-band triage -> Gradio review -> record finding -
 | **2016-06** | ✅ COMPLETE (Sep 6 2026) | **3,597 files, 431,277 windows**, 599.00 h (83.2%). **48 confirmed orca**. New high v10=5.141. Jun 19-20: 400-500 KW sighted, 0 acoustic — strongest crypsis case. Finding #60. |
 | **2016-07** | ✅ COMPLETE (Sep 7-8 2026) | **4,464 files, 535,662 windows**, 100.0% coverage. **73 confirmed orca** — zero MBWW sightings. Pure acoustic-only detection. 100% daytime. v10 finds 16/16, v4 only 5/16. Finding #62. |
 | **2016-08** | ✅ COMPLETE (Sep 8 2026) | **3,945 files, 473,177 windows**, 88.3% (Aug 20-21 absent). **0 orca**, 3 dolphin above threshold. Aug 28: 6-8 KW breaching sighted, 0 acoustic — crypsis. Finding #63. |
-| **2016-09** | 🔄 RESAMPLING (Sep 8 2026, spark-0626) | PDT (UTC-7) throughout |
+| **2016-09** | ✅ COMPLETE (Sep 8 2026) | **3,948 files, 473,672 windows**, 91.4% (Sep 5 absent). **7 confirmed orca, 4 humpback** above threshold. Fall transition. Finding #64. |
+| **2016-10** | 🔄 RESAMPLING (Sep 8 2026, spark-0626) | PDT (UTC-7); DST ends Nov 6 |
 | **2015-11** | ⬅️ NEXT after Oct | |
 
 **Canonical Stage 1 command** (day-range args; month WITHOUT leading zero):
@@ -2038,6 +2039,29 @@ build handoff), thalassa_storage_survey.md, poster_v42_review.md, docs/agile_mod
     - Aug 28 with breaching KW and full coverage → zero orca acoustic = another crypsis case.
       Consistent with the pattern of active summer hunting producing visual-but-not-acoustic records.
     Source: MBWW Aug 2016. ⚠️ Copyright Nancy Black — do not commit.
+
+64. **SEPTEMBER 2016 — 7 confirmed orca, 4 humpback; fall season returning (Sep 8 2026).**
+    3,948 files, **473,672 windows** (audit +0), 657.88 h = **91.4% coverage**.
+    Sep 5 absent, Sep 4-6 largely lost (223,629 s gap). Sep 7-30 all 100% complete.
+    PDT (UTC-7) throughout. DB `MARS_20160901_20160930_32kHz_norm`. Floor: v4 268, v10 234.
+    - **11 above threshold (v10 ≥ 2.31):** Sep 9 (4), Sep 16 (3), Sep 24 (1), Sep 26 (2), Sep 28 (1).
+    - **Pass-1: 11 clips, 6:40 → 7 orca_call, 4 humpback_song.**
+
+    | Recording (UTC) | Local PDT | Label | Notes |
+    |---|---|---|---|
+    | `20160909_223324` ×4 | 15:33 Sep 9 | orca_call | Scores 2.61–4.48; afternoon |
+    | `20160916_170324` | 10:03 Sep 16 | humpback_song | |
+    | `20160916_170324` | 10:03 Sep 16 | orca_call | Mixed recording |
+    | `20160916_185324` | 11:53 Sep 16 | orca_call | Midday |
+    | `20160924_010322` | 18:03 Sep 23 | orca_call | Evening |
+    | `20160926_135319` ×2 | 06:53 Sep 26 | humpback_song | Fall humpbacks arriving |
+    | `20160928_082327` | 01:23 Sep 28 | humpback_song | Overnight humpback |
+
+    - **Fall transition visible:** Sep 9 strong orca encounter (afternoon); Sep 26-28 humpback
+      with no orca — the seasonal shift from summer (dolphin hunting) to fall (increasing humpback
+      presence) is underway. The orca return expected in Oct-Nov 2016.
+    - **All 7 orca in daylight or evening** — consistent with the summer/early-fall active hunting
+      pattern (finding #58).
 
 ## Label Class Definitions
 
