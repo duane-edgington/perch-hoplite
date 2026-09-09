@@ -521,7 +521,7 @@ infer v4+v10 (Stage 3) -> score-band triage -> Gradio review -> record finding -
 | **2016-07** | ✅ COMPLETE (Sep 7-8 2026) | **4,464 files, 535,662 windows**, 100.0% coverage. **73 confirmed orca** — zero MBWW sightings. Pure acoustic-only detection. 100% daytime. v10 finds 16/16, v4 only 5/16. Finding #62. |
 | **2016-08** | ✅ COMPLETE (Sep 8 2026) | **3,945 files, 473,177 windows**, 88.3% (Aug 20-21 absent). **0 orca**, 3 dolphin above threshold. Aug 28: 6-8 KW breaching sighted, 0 acoustic — crypsis. Finding #63. |
 | **2016-09** | ✅ COMPLETE (Sep 8 2026) | **3,948 files, 473,672 windows**, 91.4% (Sep 5 absent). **7 confirmed orca, 4 humpback** above threshold. Fall transition. Finding #64. |
-| **2016-10** | 🔄 RESAMPLING (Sep 8 2026, spark-0626) | PDT (UTC-7); DST ends Nov 6 |
+| **2016-10** | ✅ COMPLETE (Sep 9 2026) | **3,413 files, 409,060 windows**, 568.14 h (**76.4%**). Oct 24-28 absent (5 days). **0 orca**, 2 dolphin above threshold. Fatfin (named individual) sighted Oct 18-19 with full daytime coverage, 0 acoustic — crypsis. Finding #65. |
 | **2015-11** | ⬅️ NEXT after Oct | |
 
 **Canonical Stage 1 command** (day-range args; month WITHOUT leading zero):
@@ -2062,6 +2062,39 @@ build handoff), thalassa_storage_survey.md, poster_v42_review.md, docs/agile_mod
       presence) is underway. The orca return expected in Oct-Nov 2016.
     - **All 7 orca in daylight or evening** — consistent with the summer/early-fall active hunting
       pattern (finding #58).
+
+65. **OCTOBER 2016 — ZERO confirmed orca; 2 dolphin above threshold (Sep 9 2026).**
+    3,413 files, **409,060 windows**, 568.14 h = **76.4% coverage**.
+    Oct 24-28 ABSENT (5 consecutive days). Partial: Oct 19 (8.51 h, 35.5%), Oct 23 (6.71 h, 27.9%),
+    Oct 29 (1.00 h, 4.2%). Oct 21 logged 146 files with 3 short = 99.7% (brief clock overlap, no
+    window loss). All other days 100%. PDT (UTC-7) throughout; DST ends Nov 6.
+    DB `MARS_20161001_20161031_32kHz_norm`. Floor: v4 137, v10 145.
+    - **2 above threshold (v10 ≥ 2.31):** `MARS_20161017_211327` @340 s (2.786, 14:19 PDT Oct 17)
+      and `MARS_20161010_183327` @230 s (2.387, 11:37 PDT Oct 10).
+    - **v4 at its own threshold (≥ 1.16) flags 5** — the same two plus `MARS_20161013_193324`
+      @70 s (1.285), a second `MARS_20161017_211327` window @195 s (1.251), and
+      `MARS_20161011_035327` @550 s (1.227, 21:02 PDT Oct 10).
+    - **Pass-1: 2 clips → 0 orca_call, 2 dolphin_call.** Both reviewed as 5 s clips plus 30 s
+      context. "Clearly dolphin. Dolphin does not have the tonal drop of orca. We really don't
+      know what kind of dolphin, or what the call means compared to clicks and whistles. But not
+      orca — which is the point of this campaign: is the detection an orca or not?"
+      D. Edgington. Consistent with the #63 criterion (absence of the orca tonal drop).
+      `dolphin_call` here is a not-orca label, not a species or call-type identification.
+    - Month peak v10 = 2.786. No new campaign high; Jun 2016 (5.141) stands.
+    - **MBWW Oct 2016 sightings:** Oct 2 (4 KW, multiple trips), Oct 3 (2 KW), Oct 10 (KW, count
+      unclear), **Oct 18-19 "Fatfin"** (named individual, BBC Big Blue Live), Oct 21 (3 KW),
+      Oct 23 (1 KW).
+    - **Fatfin crypsis case — coverage verified, not a gap artifact.** Oct 18 UTC day is 100%
+      complete. The Oct 19 UTC day is only 35.5%, but its retained hours are 16:51-23:59 UTC =
+      **09:51-16:59 PDT Oct 19**, covering the entire daytime whale-watch window; the 13-hour gap
+      (02:00-15:00 UTC) is overnight, and local Oct 19 evening falls in the Oct 20 UTC day, which
+      is complete. Both sighting days were therefore recorded through daylight. Zero acoustic orca
+      against a named-individual sighting is a genuine crypsis observation.
+    - Oct 10 also has an MBWW KW sighting, and the one Oct 10 detection reviewed as dolphin —
+      so that sighting likewise has no confirmed acoustic counterpart.
+    - **Seasonal position:** follows Sep 2016 (7 orca, finding #64) and precedes the Nov-Dec return
+      (Nov 9-11 KW sightings incl. 10-12 animals on Nov 10; Dec 13, 25+ offshore KW).
+    Source: MBWW Oct 2016. ⚠️ Copyright Nancy Black — do not commit.
 
 ## Label Class Definitions
 
