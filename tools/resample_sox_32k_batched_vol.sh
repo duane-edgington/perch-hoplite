@@ -108,8 +108,8 @@ for day in $(seq "${start_day}" "${end_day}"); do
     total=$((total + 1))
   done
 
-  # To force each day to fully finish before the next begins (strict
-  # one-day-at-a-time batching), uncomment the line below. Leaving it
+  # To force each day to fully finish before the next begins — strict
+  # one-day-at-a-time batching — uncomment the line below. Leaving it
   # commented keeps the pipeline full across day boundaries for best speed.
   # wait
 done
