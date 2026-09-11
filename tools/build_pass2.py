@@ -97,7 +97,7 @@ def main():
            if wanted(r[COL_FILE])
            and float(r[COL_SCORE]) >= args.min_score
            and key(r[COL_FILE], r[COL_OFF]) not in done]
-    out.sort(key=lambda r: float(r[COL_SCORE]), reverse=True)
+    out.sort(key=lambda r: float(r[COL_SCORE]), reverse=False)
 
     Path(args.out).parent.mkdir(parents=True, exist_ok=True)
     with open(args.out, 'w', newline='') as f:
