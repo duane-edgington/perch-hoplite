@@ -208,16 +208,16 @@ No Colab, no Google Drive, no internet required.
 source ~/perch-hoplite/venv/bin/activate
 
 # Embed a single day
-python3 phase1_embed_torch.py \\
-    --audio-dir /mnt/PAM_Analysis/GoogleMultiSpeciesWhaleModel2/resampled_32kHz/2018/04 \\
-    --date 20180413 \\
-    --db-dir /mnt/PAM_Analysis/perch-hoplite/db/MARS_20180413_torch_32kHz \\
+python3 phase1_embed_torch.py \
+    --audio-dir /mnt/PAM_Analysis/GoogleMultiSpeciesWhaleModel2/resampled_32kHz/2018/04 \
+    --date 20180413 \
+    --db-dir /mnt/PAM_Analysis/perch-hoplite/db/MARS_20180413_torch_32kHz \
     --device cuda --compile
 
 # Embed a full month (~37 min for 30 days)
-python3 phase1_embed_torch.py \\
-    --audio-dir /mnt/PAM_Analysis/GoogleMultiSpeciesWhaleModel2/resampled_32kHz/2018/04 \\
-    --db-dir /mnt/PAM_Analysis/perch-hoplite/db/MARS_20180401_20180430_32kHz \\
+python3 phase1_embed_torch.py \
+    --audio-dir /mnt/PAM_Analysis/GoogleMultiSpeciesWhaleModel2/resampled_32kHz/2018/04 \
+    --db-dir /mnt/PAM_Analysis/perch-hoplite/db/MARS_20180401_20180430_32kHz \
     --device cuda --compile
 ```
 
