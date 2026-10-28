@@ -347,6 +347,23 @@ nohup python3 phase2_classify.py search \
     > /mnt/PAM_Analysis/perch-hoplite/logs/usearch_dolphin.log 2>&1 &
 ```
 
+If one has a single 5 second .wav file, instead of a pointer to a 5 second segment of a 10 minute resampled file, pass it directly
+
+```bash
+# On spark-ae0e
+python3 phase2_classify.py search \
+    --db-dir /mnt/PAM_Analysis/perch-hoplite/db/MARS_20230501_20230531_32kHz_norm \
+    --query-audio /path/to/sample_clip.wav \
+    --query-label dolphin_call \
+    --offset-s 0.0 \
+    --num-results 50 \
+    --annotator-id duane \
+    --audio-dir /mnt/PAM_Analysis/GoogleMultiSpeciesWhaleModel2/resampled_32kHz/2023/05 \
+    --spectrogram-type linear --colormap viridis \
+    --serve --port 7878 \
+    > /mnt/PAM_Analysis/perch-hoplite/logs/usearch_direct_dolphin.log 2>&1 &
+```
+
 Open in browser: **http://134.89.11.107:7878**
 
 **Key flags:**
